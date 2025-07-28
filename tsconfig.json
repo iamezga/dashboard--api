@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "CommonJS",
+        "lib": ["ESNext"],
+        "sourceMap": true,
+        "outDir": "dist",
+        "rootDir": "src",
+        "removeComments": false,
+        "importHelpers": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "Node",
+        "inlineSources": true,
+        "sourceRoot": "/",
+        "baseUrl": "./src",
+        "paths": {
+            "@services/*": ["services/*"],
+            "@middlewares/*": ["middlewares/*"],
+            "@modules/*": ["modules/*"],
+            "@/*": ["*"]
+        }
+    },
+    "include": ["src/**/*.ts", "test.ts"],
+    "exclude": ["src/**/*.test.ts", "node_modules"]
+}
