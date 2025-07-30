@@ -17,10 +17,7 @@
         "sourceRoot": "/",
         "baseUrl": "./src",
         "paths": {
-            "@services/*": ["services/*"],
-            "@middlewares/*": ["middlewares/*"],
-            "@modules/*": ["modules/*"],
-            "@/*": ["*"]
+            "@*": ["*"]
         }
     },
     "include": ["src/**/*.ts", "test.ts"],
