@@ -2,6 +2,7 @@ import config from '@services/config'
 import { helmet } from '@services/helmet'
 import cors from 'cors'
 import express from 'express'
+import { errorMiddleware } from './middleware/errorMiddleware'
 
 const app = express()
 
@@ -18,5 +19,8 @@ app.use(
 app.get('/', (req, res) => {
 	res.send('API is running!')
 })
+
+// handle error
+app.use(errorMiddleware)
 
 export { app }
