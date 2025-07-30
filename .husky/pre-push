@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+echo "Running pre-push hooks (linting checks)..."
+
+# Execute Eslint
+npx eslint "{src,test}/**/*.ts" || {
+  echo "ESLint found linting errors. Please review and fix them."
+  echo "You can try 'npm run lint:fix' to attempt automatic fixes."
+  exit 1
+}
+
+echo "Pre-push hooks finished successfully. Pushing..."
+
+exit 0

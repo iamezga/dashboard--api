@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Execute Commitlint to validate the message of Commit
+# The $ {1} passes the route of the temporary file containing the message of Commit.
+npx --no -- commitlint --edit ${1} || {
+  echo "Commit message does not comply with Conventional Commits. Please fix it."
+  echo "--------"
+  exit 1
+}
+
+exit 0
