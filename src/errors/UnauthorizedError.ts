@@ -9,5 +9,6 @@ export class UnauthorizedError extends Error {
 		this.statusCode = HttpStatusCode.UNAUTHORIZED
 		this.isOperational = true
 		Error.captureStackTrace(this, this.constructor)
+		Object.setPrototypeOf(this, UnauthorizedError.prototype)
 	}
 }

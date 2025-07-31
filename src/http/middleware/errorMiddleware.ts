@@ -5,6 +5,8 @@ import {
 	NotFoundError,
 	UnauthorizedError
 } from '@errors'
+import * as Sentry from '@sentry/node'
+import config from '@services/config'
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'fastest-validator'
 
@@ -44,6 +46,9 @@ export const errorMiddleware = async (
 		if (process.env.NODE_ENV !== 'production') {
 			message = err.message || 'An unknown server error occurred.'
 			console.log(err.stack)
+		}
+		if (config.get('sentry.dsn')) {
+			Sentry.captureException(err)
 		}
 	}
 

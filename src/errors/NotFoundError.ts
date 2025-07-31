@@ -9,5 +9,6 @@ export class NotFoundError extends Error {
 		this.statusCode = HttpStatusCode.NOT_FOUND
 		this.isOperational = true
 		Error.captureStackTrace(this, this.constructor)
+		Object.setPrototypeOf(this, NotFoundError.prototype)
 	}
 }

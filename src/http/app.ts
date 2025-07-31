@@ -1,3 +1,5 @@
+require('@services/sentry')
+import * as Sentry from '@sentry/node'
 import config from '@services/config'
 import { helmet } from '@services/helmet'
 import cors from 'cors'
@@ -22,5 +24,9 @@ app.get('/', (req, res) => {
 
 // handle error
 app.use(errorMiddleware)
+// Sentry error handler
+if (config.get('sentry.dsn')) {
+	Sentry.setupExpressErrorHandler(app)
+}
 
 export { app }

@@ -24,6 +24,23 @@ const config = convict({
 			env: 'EXPRESS_CORS_ORIGIN',
 			default: '*'
 		}
+	},
+	sentry: {
+		dsn: {
+			format: String,
+			env: 'SENTRY_DSN',
+			default: ''
+		},
+		tracesSampleRate: {
+			format: Number,
+			env: 'SENTRY_TRACES_SAMPLE_RATE',
+			default: 1.0
+		},
+		profilesSampleRate: {
+			format: Number,
+			env: 'SENTRY_PROFILES_SAMPLE_RATE',
+			default: 1.0
+		}
 	}
 })
 

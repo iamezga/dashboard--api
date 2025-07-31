@@ -13,5 +13,6 @@ export class BadRequestError extends Error {
 		this.isOperational = true
 		this.errors = errors
 		Error.captureStackTrace(this, this.constructor)
+		Object.setPrototypeOf(this, BadRequestError.prototype)
 	}
 }

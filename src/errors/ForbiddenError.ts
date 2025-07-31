@@ -9,5 +9,6 @@ export class ForbiddenError extends Error {
 		this.statusCode = HttpStatusCode.FORBIDDEN
 		this.isOperational = true
 		Error.captureStackTrace(this, this.constructor)
+		Object.setPrototypeOf(this, ForbiddenError.prototype)
 	}
 }

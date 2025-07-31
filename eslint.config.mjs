@@ -1,5 +1,3 @@
-// eslint.config.mjs (o .js si usas CommonJS, ajustando imports/exports y __dirname)
-// Si es .mjs
 import js from '@eslint/js'
 import typescriptEslint from '@typescript-eslint/eslint-plugin'
 import typescriptParser from '@typescript-eslint/parser'
@@ -21,8 +19,8 @@ export default [
 			},
 
 			globals: {
-				...globals.node, // <--- This includes all the global node.js (console, process, etc.)
-				...globals.jest // <--- If you plan to use Jest, include your global here too
+				...globals.node, // This includes all the global node.js (console, process, etc.)
+				...globals.jest // If you plan to use Jest, include your global here too
 			}
 		},
 		plugins: {
@@ -32,6 +30,7 @@ export default [
 		rules: {
 			...typescriptEslint.configs.recommended.rules,
 			'no-unused-vars': 'off',
+			'@typescript-eslint/no-require-imports': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'warn',
 				{ argsIgnorePattern: '^_' }
