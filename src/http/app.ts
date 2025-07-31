@@ -5,6 +5,7 @@ import { helmet } from '@services/helmet'
 import cors from 'cors'
 import express from 'express'
 import { errorMiddleware } from './middleware/errorMiddleware'
+import { initRoutes } from './routes'
 
 const app = express()
 
@@ -18,9 +19,8 @@ app.use(
 	})
 )
 
-app.get('/', (req, res) => {
-	res.send('API is running!')
-})
+// Initialize routes
+initRoutes(app)
 
 // handle error
 app.use(errorMiddleware)
