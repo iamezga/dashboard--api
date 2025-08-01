@@ -5,9 +5,13 @@ import { helmet } from '@services/helmet'
 import cors from 'cors'
 import express from 'express'
 import { errorMiddleware } from './middleware/errorMiddleware'
+import { requestDataMiddleware } from './middleware/requestDataMiddleware'
 import { initRoutes } from './routes'
 
 const app = express()
+app.set('trust proxy', true)
+
+app.use(requestDataMiddleware)
 
 app.use(helmet)
 app.set('trust proxy', true)
