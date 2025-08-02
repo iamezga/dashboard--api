@@ -1,53 +1,66 @@
 import js from '@eslint/js'
-import typescriptEslint from '@typescript-eslint/eslint-plugin'
-import typescriptParser from '@typescript-eslint/parser'
 import prettierConfig from 'eslint-config-prettier'
 import prettierPlugin from 'eslint-plugin-prettier'
 import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
 export default [
-	// 1. Core ESLint recommended rules (general JS rules)
-	js.configs.recommended,
 	{
-		files: ['src/**/*.ts'],
+		ignores: [
+			'node_modules/',
+			'dist/',
+			'build/',
+			'.env*',
+			'coverage/',
+			'**/*.js',
+			'**/*.mjs',
+			'**/*.cjs'
+		]
+	},
+
+	// ESLINT Base configs
+	js.configs.recommended,
+	// The TSESLINT configuration object already includes the parser and the recommended rules.
+	...tseslint.configs.recommended,
+
+	// Optional: stricter TS rules
+	// ...tseslint.configs.strict,
+	// Optional: TS style rules
+	// ...tseslint.configs.stylistic,
+
+	prettierConfig,
+
+	// Specific project configuration and custom rules
+	{
+		files: ['src/**/*.{ts,js,mjs,cjs}'],
 		languageOptions: {
-			parser: typescriptParser,
+			parser: tseslint.parser,
 			parserOptions: {
 				project: './tsconfig.eslint.json',
 				tsconfigRootDir: import.meta.dirname,
 				sourceType: 'module'
 			},
-
 			globals: {
-				...globals.node, // This includes all the global node.js (console, process, etc.)
-				...globals.jest // If you plan to use Jest, include your global here too
+				...globals.node,
+				jest: true
 			}
 		},
 		plugins: {
-			'@typescript-eslint': typescriptEslint,
+			'@typescript-eslint': tseslint.plugin,
 			prettier: prettierPlugin
 		},
 		rules: {
-			...typescriptEslint.configs.recommended.rules,
+			'prettier/prettier': 'error',
+
 			'no-unused-vars': 'off',
-			'@typescript-eslint/no-require-imports': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'warn',
 				{ argsIgnorePattern: '^_' }
 			],
+			'@typescript-eslint/no-require-imports': 'off',
 			'@typescript-eslint/no-explicit-any': 'off',
 			'@typescript-eslint/explicit-module-boundary-types': 'off',
-			'@typescript-eslint/no-inferrable-types': 'off',
-
-			indent: 'off',
-			'linebreak-style': ['error', 'unix'],
-			quotes: ['error', 'single'],
-			semi: ['error', 'never'],
-			'prettier/prettier': 'error'
-		},
-		extends: ['prettier']
-	},
-
-	// 3. Prettier configuration to disable conflicting ESLint rules (must be last)
-	prettierConfig
+			'@typescript-eslint/no-inferrable-types': 'off'
+		}
+	}
 ]
