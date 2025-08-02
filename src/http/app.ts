@@ -1,7 +1,7 @@
 require('@services/sentry')
+import config from '@/services/config'
+import { helmet } from '@/services/helmet'
 import * as Sentry from '@sentry/node'
-import config from '@services/config'
-import { helmet } from '@services/helmet'
 import cors from 'cors'
 import express from 'express'
 import { errorMiddleware } from './middleware/errorMiddleware'

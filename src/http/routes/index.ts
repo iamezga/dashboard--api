@@ -1,4 +1,4 @@
-import { NotFoundError } from '@errors'
+import { NotFoundError } from '@/errors'
 import { Express } from 'express'
 import { v1Router } from './v1'
 

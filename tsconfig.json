@@ -17,7 +17,7 @@
         "sourceRoot": "/",
         "baseUrl": "./src",
         "paths": {
-            "@*": ["*"]
+            "@/*": ["*"]
         }
     },
     "include": ["src/**/*.ts", "src/**/*.test.ts"],

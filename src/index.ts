@@ -1,4 +1,4 @@
-import config from '@services/config'
+import config from '@/services/config'
 import { app } from './http/app'
 ;(async () => {
 	// Run server

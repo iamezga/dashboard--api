@@ -4,9 +4,9 @@ import {
 	HttpStatusCode,
 	NotFoundError,
 	UnauthorizedError
-} from '@errors'
+} from '@/errors'
+import config from '@/services/config'
 import * as Sentry from '@sentry/node'
-import config from '@services/config'
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'fastest-validator'
 
