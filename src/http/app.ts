@@ -1,4 +1,4 @@
-require('@services/sentry')
+require('@/services/sentry')
 import config from '@/services/config'
 import { helmet } from '@/services/helmet'
 import * as Sentry from '@sentry/node'
