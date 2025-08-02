@@ -9,11 +9,11 @@ export default [
 	// 1. Core ESLint recommended rules (general JS rules)
 	js.configs.recommended,
 	{
-		files: ['src/**/*.ts', 'test/**/*.ts'],
+		files: ['src/**/*.ts'],
 		languageOptions: {
 			parser: typescriptParser,
 			parserOptions: {
-				project: './tsconfig.json',
+				project: './tsconfig.eslint.json',
 				tsconfigRootDir: import.meta.dirname,
 				sourceType: 'module'
 			},
