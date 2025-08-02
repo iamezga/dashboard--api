@@ -27,6 +27,7 @@ export const errorMiddleware = async (
 	let message: string = 'An unexpected error has occurred.'
 	let errorName: string = 'Internal Server Error'
 	let errors: ValidationError[] = []
+	let stack: string | undefined = undefined
 
 	if (
 		err instanceof BadRequestError ||
@@ -43,8 +44,10 @@ export const errorMiddleware = async (
 		}
 	} else {
 		// Non-operational error
+		errorName = 'InternalServerError'
 		if (process.env.NODE_ENV !== 'production') {
-			message = err.message || 'An unknown server error occurred.'
+			message = err.message || 'An unexpected error has occurred.'
+			stack = err.stack
 			console.log(err.stack)
 		}
 		if (config.get('sentry.dsn')) {
@@ -57,6 +60,7 @@ export const errorMiddleware = async (
 		code: statusCode,
 		name: errorName,
 		message,
-		...(errors && { errors })
+		...(errors?.length && { errors }),
+		...(stack && { stack })
 	})
 }
