@@ -6,6 +6,7 @@ import {
 	UnauthorizedError
 } from '@/errors'
 import config from '@/services/config'
+import logger from '@/services/logger'
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'fastest-validator'
@@ -48,7 +49,7 @@ export const errorMiddleware = async (
 		if (process.env.NODE_ENV !== 'production') {
 			message = err.message || 'An unexpected error has occurred.'
 			stack = err.stack
-			console.log(err.stack)
+			logger.error(err.stack)
 		}
 		if (config.get('sentry.dsn')) {
 			Sentry.captureException(err)

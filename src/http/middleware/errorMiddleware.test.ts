@@ -8,6 +8,7 @@ import {
 	UnauthorizedError
 } from '../../errors'
 import config from '../../services/config'
+import logger from '../../services/logger'
 import { errorMiddleware } from './errorMiddleware'
 
 const mockRequest = {} as Request
@@ -21,6 +22,10 @@ const createMockResponse = () => {
 	return res as Response
 }
 
+jest.mock('@/services/logger', () => ({
+	info: jest.fn(),
+	error: jest.fn()
+}))
 jest.mock('@/services/config', () => ({
 	get: jest.fn()
 }))
@@ -49,7 +54,7 @@ describe('errorMiddleware', () => {
 		jest
 			.spyOn(Sentry, 'captureException')
 			.mockImplementation(() => 'mock-event-id')
-		jest.spyOn(console, 'log').mockImplementation(() => {})
+		jest.spyOn(logger, 'error').mockImplementation(() => {})
 	})
 
 	afterEach(() => {
@@ -165,7 +170,7 @@ describe('errorMiddleware', () => {
 			message: 'An unexpected error has occurred.'
 		})
 		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
-		expect(console.log).not.toHaveBeenCalled()
+		expect(logger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle generic Error with 500 status, message, and stack in development', async () => {
@@ -186,7 +191,7 @@ describe('errorMiddleware', () => {
 			stack: error.stack
 		})
 		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
-		expect(console.log).toHaveBeenCalledWith(error.stack)
+		expect(logger.error).toHaveBeenCalledWith(error.stack)
 	})
 
 	it('should not call Sentry if sentry.dsn is not configured', async () => {
