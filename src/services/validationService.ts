@@ -26,7 +26,7 @@ export class ValidationService extends Validator {
 	async validate(
 		value: any,
 		schema: ValidationSchema,
-		meta: { [key: string]: any } = {}
+		meta: { [key: string]: any; validator?: ValidationService } = {}
 	) {
 		const check = this.compile({ $$async: true, $$strict: true, ...schema })
 		const errors = await check(value, { meta: { ...meta, validator: this } })
