@@ -44,7 +44,8 @@ export default [
 			quotes: ['error', 'single'],
 			semi: ['error', 'never'],
 			'prettier/prettier': 'error'
-		}
+		},
+		extends: ['prettier']
 	},
 
 	// 3. Prettier configuration to disable conflicting ESLint rules (must be last)
