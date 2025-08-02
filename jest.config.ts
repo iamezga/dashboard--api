@@ -11,6 +11,7 @@ const config: Config = {
 	collectCoverage: true,
 	coverageDirectory: 'coverage',
 	coverageReporters: ['json', 'lcov', 'text', 'clover'],
+	setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
 	collectCoverageFrom: [
 		'src/**/*.ts',
 		'!src/**/*.d.ts', // Exclude type definition
