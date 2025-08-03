@@ -46,6 +46,78 @@ const config = convict({
 			env: 'SENTRY_PROFILES_SAMPLE_RATE',
 			default: 1.0
 		}
+	},
+	database: {
+		mongo: {
+			enabled: {
+				doc: 'Enable MongoDB connection.',
+				format: Boolean,
+				default: false,
+				env: 'MONGO_ENABLED'
+			},
+			url: {
+				doc: 'MongoDB connection URL.',
+				format: [String, null],
+				default: null,
+				env: 'MONGO_URL',
+				sensitive: true // Mark as sensitive to avoid logging in plaintext
+			},
+			db: {
+				doc: 'MongoDB db name.',
+				format: [String, null],
+				default: null,
+				env: 'MONGO_DB_NAME',
+				sensitive: true
+			}
+		},
+		prisma: {
+			enabled: {
+				doc: 'Enable Prisma ORM connection (requires DATABASE_URL for Prisma Client).',
+				format: Boolean,
+				default: false,
+				env: 'PRISMA_ENABLED'
+			},
+			url: {
+				doc: 'PostgreSQL connection URL.',
+				format: [String, null],
+				default: null,
+				env: 'PRISMA_URL',
+				sensitive: true
+			}
+		},
+		redis: {
+			enabled: {
+				doc: 'Enable Redis connection.',
+				format: Boolean,
+				default: false,
+				env: 'REDIS_ENABLED'
+			},
+			host: {
+				doc: 'Redis host.',
+				format: String,
+				default: 'localhost',
+				env: 'REDIS_HOST'
+			},
+			port: {
+				doc: 'Redis port.',
+				format: 'port',
+				default: 6379,
+				env: 'REDIS_PORT'
+			},
+			password: {
+				doc: 'Redis password.',
+				format: [String, null],
+				default: null,
+				env: 'REDIS_PASSWORD',
+				sensitive: true
+			},
+			db: {
+				doc: 'Redis DB index.',
+				format: Number,
+				default: 0,
+				env: 'REDIS_DB'
+			}
+		}
 	}
 })
 
