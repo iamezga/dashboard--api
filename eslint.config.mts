@@ -1,6 +1,5 @@
 import js from '@eslint/js'
 import prettierConfig from 'eslint-config-prettier'
-import prettierPlugin from 'eslint-plugin-prettier'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
@@ -14,7 +13,8 @@ export default [
 			'coverage/',
 			'**/*.js',
 			'**/*.mjs',
-			'**/*.cjs'
+			'**/*.cjs',
+			'src/generated/'
 		]
 	},
 
@@ -46,12 +46,9 @@ export default [
 			}
 		},
 		plugins: {
-			'@typescript-eslint': tseslint.plugin,
-			prettier: prettierPlugin
+			'@typescript-eslint': tseslint.plugin
 		},
 		rules: {
-			'prettier/prettier': 'error',
-
 			'no-unused-vars': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'warn',

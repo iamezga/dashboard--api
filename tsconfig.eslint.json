@@ -1,12 +1,10 @@
 {
-    "extends": "./tsconfig.json",
-    "include": [
-        "src/**/*.ts",
-        "src/**/*.d.ts",
-        "src/**/*.test.ts"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+	"extends": "./tsconfig.json",
+	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.test.ts"],
+	"exclude": ["node_modules", "dist", "build", "coverage", "src/generated"],
+	"compilerOptions": {
+		"allowJs": true,
+		"noEmit": true,
+		"skipLibCheck": true
+	}
 }
