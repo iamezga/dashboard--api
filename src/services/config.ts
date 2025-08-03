@@ -1,6 +1,11 @@
 import convict from 'convict'
 
 const config = convict({
+	appName: {
+		format: String,
+		env: 'APP_NAME',
+		default: 'my-app-name'
+	},
 	env: {
 		format: ['production', 'development', 'test'],
 		default: 'development',

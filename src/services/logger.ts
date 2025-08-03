@@ -17,7 +17,7 @@ const pinoConfig: pino.LoggerOptions = {
 			: undefined,
 
 	base: {
-		app: 'dashboard-api'
+		app: config.get('appName')
 	},
 	redact: {
 		paths: ['req.headers.authorization', 'body.password'],
