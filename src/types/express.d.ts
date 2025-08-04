@@ -2,14 +2,18 @@
 import { Request } from 'express'
 
 interface RequestData {
+	[key: string]: any
 	id: string
-	method: string
-	url: string
 	timestamp: Date
-	ip?: string
-	userAgent?: string
-	referer?: string
-	origin?: string
+	payload?: Record<string, any>
+	metadata: {
+		method: string
+		url: string
+		ip?: string
+		userAgent?: string
+		referer?: string
+		origin?: string
+	}
 }
 
 declare global {
