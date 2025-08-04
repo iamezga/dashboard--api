@@ -57,15 +57,15 @@ const config = convict({
 			},
 			url: {
 				doc: 'MongoDB connection URL.',
-				format: [String, null],
-				default: null,
+				format: String,
+				default: '',
 				env: 'MONGO_URL',
 				sensitive: true // Mark as sensitive to avoid logging in plaintext
 			},
 			db: {
 				doc: 'MongoDB db name.',
-				format: [String, null],
-				default: null,
+				format: String,
+				default: '',
 				env: 'MONGO_DB_NAME',
 				sensitive: true
 			}
@@ -79,8 +79,8 @@ const config = convict({
 			},
 			url: {
 				doc: 'PostgreSQL connection URL.',
-				format: [String, null],
-				default: null,
+				format: String,
+				default: '',
 				env: 'PRISMA_URL',
 				sensitive: true
 			}
@@ -100,14 +100,14 @@ const config = convict({
 			},
 			port: {
 				doc: 'Redis port.',
-				format: 'port',
+				format: Number,
 				default: 6379,
 				env: 'REDIS_PORT'
 			},
 			password: {
 				doc: 'Redis password.',
-				format: [String, null],
-				default: null,
+				format: String,
+				default: '',
 				env: 'REDIS_PASSWORD',
 				sensitive: true
 			},
