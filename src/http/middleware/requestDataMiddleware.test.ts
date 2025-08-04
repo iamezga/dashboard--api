@@ -2,7 +2,13 @@ import { NextFunction, Request, Response } from 'express' // Importamos Request,
 import '../../types/express.d.ts'
 import { requestDataMiddleware } from './requestDataMiddleware'
 
-const mockRequest = () => {
+const mockRequest = (
+	options: {
+		method?: string
+		body?: Record<string, any>
+		files?: Record<string, any>[]
+	} = {}
+) => {
 	const req: Partial<Request> = {
 		ip: '127.0.0.1',
 		headers: {
@@ -10,8 +16,10 @@ const mockRequest = () => {
 			referer: 'http://test.com',
 			origin: 'http://test.com'
 		},
-		method: 'GET',
-		originalUrl: '/api/v1/test'
+		originalUrl: '/api/v1/test',
+		method: options.method || 'GET',
+		...(options.files && { files: options.files }),
+		...(options.body && { body: options.body })
 	}
 	return req as Request // cast Request
 }
@@ -29,20 +37,33 @@ describe('requestDataMiddleware', () => {
 	})
 
 	it('should attach requestData to the request object for API calls', () => {
-		const req = mockRequest()
+		const req = mockRequest({
+			method: 'POST',
+			body: {
+				name: 'NAME',
+				surname: 'TEST',
+				'g-recaptcha-response': 'someString'
+			},
+			files: [{}, {}]
+		})
 		const res = mockResponse()
 
-		requestDataMiddleware(req, res, mockNext)
+		requestDataMiddleware()(req, res, mockNext)
 
 		expect(req.requestData).toBeDefined()
 		expect(req.requestData.id).toBeDefined()
-		expect(req.requestData.method).toBe('GET')
-		expect(req.requestData.url).toBe('/api/v1/test')
-		expect(req.requestData.ip).toBe('127.0.0.1')
-		expect(req.requestData.userAgent).toBe('Jest Test')
-		expect(req.requestData.referer).toBe('http://test.com')
-		expect(req.requestData.origin).toBe('http://test.com')
 		expect(req.requestData.timestamp).toBeInstanceOf(Date)
+		expect(req.requestData.metadata.url).toBe('/api/v1/test')
+		expect(req.requestData.metadata.ip).toBe('127.0.0.1')
+		expect(req.requestData.metadata.userAgent).toBe('Jest Test')
+		expect(req.requestData.metadata.referer).toBe('http://test.com')
+		expect(req.requestData.metadata.origin).toBe('http://test.com')
+		expect(req.requestData.recaptchaResponse).toBe('someString')
+		expect(req.requestData.payload).toEqual({
+			name: 'NAME',
+			surname: 'TEST',
+			files: [{}, {}]
+		})
 
 		// Verify that next() was called once
 		expect(mockNext).toHaveBeenCalledTimes(1)
@@ -54,7 +75,7 @@ describe('requestDataMiddleware', () => {
 
 		const res = mockResponse()
 
-		requestDataMiddleware(req, res, mockNext)
+		requestDataMiddleware()(req, res, mockNext)
 
 		// Verify that there is no requestData prop in Request
 		expect(req.requestData).toBeUndefined()

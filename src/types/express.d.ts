@@ -6,6 +6,7 @@ interface RequestData {
 	id: string
 	timestamp: Date
 	payload?: Record<string, any>
+	recaptchaResponse?: string
 	metadata: {
 		method: string
 		url: string

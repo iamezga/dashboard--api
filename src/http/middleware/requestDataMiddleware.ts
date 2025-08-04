@@ -30,7 +30,7 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 		// E.g.: If an endpoint is executed in a browser, it will also try to GET '/favicon.ico'
 		if (!req.originalUrl.startsWith('/api/')) return next()
 
-		let payload = {}
+		let inputData: Record<string, any> = {}
 
 		// Consolidate the payload request data
 		Object.keys(inputs).forEach(key => {
@@ -38,8 +38,8 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 				inputs[<keyof RequestMiddlewareInputs>key] &&
 				req[<keyof Request>key]
 			) {
-				payload = structuredClone({
-					...payload,
+				inputData = structuredClone({
+					...inputData,
 					...(key == 'files'
 						? { [key]: req[<keyof Request>key] }
 						: { ...req[<keyof Request>key] })
@@ -47,10 +47,13 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 			}
 		})
 
+		const { 'g-recaptcha-response': recaptchaResponse, ...payload } = inputData
+
 		req.requestData = {
 			id: uuidv4(),
 			timestamp: new Date(),
 			payload,
+			recaptchaResponse,
 			metadata: {
 				ip: req.ip,
 				userAgent: req.headers['user-agent'],
