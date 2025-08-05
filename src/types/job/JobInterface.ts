@@ -6,7 +6,7 @@ export interface JobInterface {
 	getMeta(): JobMetaInterface
 	getData(): Record<string, any>
 	getUser(): JobUserInterface
-	getAttemptsMade(): number
+	getAttempts(): number
 	getProgress(): number
 	getRecaptchaResponse(): string | undefined
 
@@ -14,6 +14,7 @@ export interface JobInterface {
 	updateMeta(meta: Partial<JobMetaInterface>): void
 	setData(data: Record<string, any>): void
 	setUser(user: JobUserInterface): void
+	setAttempts(attempts: number): void
 	updateProgress(progress: number): void
 	setRecaptchaResponse(recaptchaResponse: string): void
 }

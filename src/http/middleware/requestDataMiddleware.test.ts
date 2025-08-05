@@ -52,12 +52,12 @@ describe('requestDataMiddleware', () => {
 
 		expect(req.requestData).toBeDefined()
 		expect(req.requestData.id).toBeDefined()
-		expect(req.requestData.timestamp).toBeInstanceOf(Date)
-		expect(req.requestData.metadata.url).toBe('/api/v1/test')
-		expect(req.requestData.metadata.ip).toBe('127.0.0.1')
-		expect(req.requestData.metadata.userAgent).toBe('Jest Test')
-		expect(req.requestData.metadata.referer).toBe('http://test.com')
-		expect(req.requestData.metadata.origin).toBe('http://test.com')
+		expect(req.requestData.meta.timestamp).toBeInstanceOf(Date)
+		expect(req.requestData.meta.url).toBe('/api/v1/test')
+		expect(req.requestData.meta.ip).toBe('127.0.0.1')
+		expect(req.requestData.meta.userAgent).toBe('Jest Test')
+		expect(req.requestData.meta.referer).toBe('http://test.com')
+		expect(req.requestData.meta.origin).toBe('http://test.com')
 		expect(req.requestData.recaptchaResponse).toBe('someString')
 		expect(req.requestData.payload).toEqual({
 			name: 'NAME',

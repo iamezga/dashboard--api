@@ -17,21 +17,17 @@ import { JobUserInterface } from '@/types/job/JobUserInterface'
  */
 export class Job implements JobInterface {
 	private progress = 0
-	private recaptchaResponse?: string
-	private data: Record<string, any>
-	private user?: JobUserInterface
-	private meta: JobMetaInterface
-
 	constructor(
 		private id: string,
-		private attemptsMade: number,
-		data: Record<string, any> = {},
-		user?: JobUserInterface,
-		meta: JobMetaInterface = {} as JobMetaInterface
+		private attempts: number,
+		private data: Record<string, any> = {},
+		private recaptchaResponse?: string,
+		private meta: JobMetaInterface = {} as JobMetaInterface,
+		private user?: JobUserInterface
 	) {
 		this.data = structuredClone(data)
-		this.user = structuredClone(user)
 		this.meta = structuredClone(meta)
+		this.user = structuredClone(user)
 	}
 
 	getId(): string {
@@ -61,8 +57,11 @@ export class Job implements JobInterface {
 		}
 		return structuredClone(this.user)
 	}
-	getAttemptsMade(): number {
-		return this.attemptsMade
+	getAttempts(): number {
+		return this.attempts
+	}
+	setAttempts(attempts: number): void {
+		this.attempts = attempts
 	}
 	getProgress(): number {
 		return this.progress

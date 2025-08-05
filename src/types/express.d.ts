@@ -1,20 +1,13 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Request } from 'express'
+import { JobMetaInterface } from './job/JobMetaInterface'
 
 interface RequestData {
-	[key: string]: any
-	id: string
-	timestamp: Date
 	payload?: Record<string, any>
 	recaptchaResponse?: string
-	metadata: {
-		method: string
-		url: string
-		ip?: string
-		userAgent?: string
-		referer?: string
-		origin?: string
-	}
+	id: string
+	attempts: number
+	meta: JobMetaInterface
 }
 
 declare global {

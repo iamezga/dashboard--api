@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
-import { v4 as uuidv4 } from 'uuid'
+import crypto from 'node:crypto'
 
 interface RequestMiddlewareInputs {
 	params?: boolean
@@ -50,11 +50,12 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 		const { 'g-recaptcha-response': recaptchaResponse, ...payload } = inputData
 
 		req.requestData = {
-			id: uuidv4(),
-			timestamp: new Date(),
+			id: <string>req.headers['x-job-id'] || crypto.randomUUID(),
+			attempts: parseInt(<string>req.headers['x-job-attempts'] || '0') + 1,
 			payload,
 			recaptchaResponse,
-			metadata: {
+			meta: {
+				timestamp: new Date().getTime(),
 				ip: req.ip,
 				userAgent: req.headers['user-agent'],
 				referer: req.headers['referer'],
