@@ -6,6 +6,8 @@ export interface JobInterface {
 	getMeta(): JobMetaInterface
 	getData(): Record<string, any>
 	getUser(): JobUserInterface
+	getPublicUser(): Partial<JobUserInterface> | undefined
+
 	getAttempts(): number
 	getProgress(): number
 	getRecaptchaResponse(): string | undefined

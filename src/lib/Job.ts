@@ -55,8 +55,17 @@ export class Job implements JobInterface {
 		if (!this.user) {
 			throw new Error('User data is missing in Job context')
 		}
-		return structuredClone(this.user)
+		return structuredClone(this.user || {})
 	}
+
+	// WIP - pending implementation
+	getPublicUser(): Partial<JobUserInterface> | undefined {
+		if (!this.user) {
+			return undefined
+		}
+		return {} // WIP
+	}
+
 	getAttempts(): number {
 		return this.attempts
 	}
