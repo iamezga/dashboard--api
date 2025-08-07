@@ -11,7 +11,7 @@ import { initRoutes } from './routes'
 const app = express()
 app.set('trust proxy', true)
 
-app.use(requestDataMiddleware)
+app.use(requestDataMiddleware())
 
 app.use(helmet)
 app.set('trust proxy', true)
