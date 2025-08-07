@@ -1,9 +1,19 @@
+import { jobMiddleware } from '@/http/middleware/jobMiddleware'
 import { Router } from 'express'
+import { authRoutes } from './authRoutes'
+import { privateRoutes } from './privateRoutes'
+import { publicRoutes } from './publicRoutes'
 
-const v1Router = Router()
+const router = Router()
 
-v1Router.get('/', (_req, res) => {
-	res.json({ message: 'Dashboard API v1 root' })
-})
+// Global middlewares
+router.use(jobMiddleware)
 
-export { v1Router }
+// Public routes
+router.use('/', publicRoutes)
+// Auth routes
+router.use('/auth', authRoutes)
+// Private routes
+router.use('/private', privateRoutes)
+
+export { router as v1 }
