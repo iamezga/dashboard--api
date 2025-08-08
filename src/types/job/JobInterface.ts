@@ -17,6 +17,13 @@ export interface JobInterface {
 	setData(data: Record<string, any>): void
 	setUser(user: JobUserInterface): void
 	setAttempts(attempts: number): void
-	updateProgress(progress: number): void
 	setRecaptchaResponse(recaptchaResponse: string): void
+	markFailed(errorId: string, err: Error): void
+	markCompleted(): void
+	updateProgress(progress: number): void
+	// Events
+	onFail(cb: (errorId: string, err: Error, job: JobInterface) => void): void
+	onComplete(cb: (job: JobInterface) => void): void
+	onProgress(cb: (progress: number, job: JobInterface) => void): void
+	onUpdateProgress(cb: (progress: number, job: JobInterface) => void): void
 }

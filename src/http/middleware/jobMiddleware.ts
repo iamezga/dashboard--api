@@ -1,4 +1,5 @@
 import { Job } from '@/lib/Job'
+import logger from '@/services/logger'
 import { NextFunction, Request, Response } from 'express'
 
 /**
@@ -19,10 +20,16 @@ export const jobMiddleware = (
 		)
 	}
 
-	const { id, attempts, payload, recaptchaResponse, meta } = req.requestData
+	const {
+		id,
+		attempts,
+		payload: data,
+		recaptchaResponse,
+		meta
+	} = req.requestData
 
 	// Create a new Job instance with basic request data.
-	const job = new Job(id, attempts, payload, recaptchaResponse, meta)
+	const job = new Job({ id, attempts, data, recaptchaResponse, meta, logger })
 
 	// Attach the Job to res.locals so it's accessible by the next middlewares
 	res.locals.job = job
