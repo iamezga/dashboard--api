@@ -13,7 +13,7 @@ const pinoConfig: pino.LoggerOptions = {
 						translateTime: 'SYS:HH:MM:ss Z',
 						ignore: 'pid,hostname'
 					}
-				}
+			  }
 			: undefined,
 
 	base: {
