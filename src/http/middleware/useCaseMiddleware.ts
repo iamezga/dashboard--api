@@ -43,16 +43,9 @@ export const useCaseMiddleware = (useCaseName: keyof typeof useCases) => {
 			// Run the use case
 			const useCaseResponse = await useCase.run(job)
 
-			// Send the customer response.| TODO -> create a response middleware
-			return res.status(200).json({
-				jobId: job.getId(),
-				// use case response data
-				data: useCaseResponse.data,
-				// useCase related metadata
-				metadata: useCaseResponse.metadata,
-				// If the Job has public user data, we can also include them
-				user: job.getPublicUser()
-			})
+			res.locals.useCaseResponse = useCaseResponse
+
+			next()
 		} catch (error) {
 			return next(error)
 		}
