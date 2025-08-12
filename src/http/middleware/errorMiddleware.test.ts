@@ -7,6 +7,7 @@ import {
 	NotFoundError,
 	UnauthorizedError
 } from '../../errors'
+import { Job } from '../../lib/Job'
 import config from '../../services/config'
 import logger from '../../services/logger'
 import { errorMiddleware } from './errorMiddleware'
@@ -14,205 +15,271 @@ import { errorMiddleware } from './errorMiddleware'
 const mockRequest = {} as Request
 const mockNext = jest.fn() as NextFunction
 
-const createMockResponse = () => {
+const mockGetPublicUser = jest.fn().mockReturnValue({ id: 'mock-user-id' })
+
+const mockJob = {
+	getId: jest.fn().mockReturnValue('mock-job-id'),
+	getPublicUser: mockGetPublicUser,
+	getMeta: jest.fn().mockReturnValue({ status: 'in_progress' }),
+	getData: jest.fn().mockReturnValue({ input: 'data' }),
+	markFailed: jest.fn()
+} as unknown as Job
+
+const createMockResponse = (jobMock?: any) => {
 	const res: Partial<Response> = {
 		status: jest.fn().mockReturnThis(),
-		json: jest.fn()
+		json: jest.fn(),
+		locals: {
+			job: jobMock
+		}
 	}
 	return res as Response
 }
 
+jest.mock('@/lib/Job', () => ({
+	Job: jest.fn(() => mockJob)
+}))
 jest.mock('@/services/logger', () => ({
 	info: jest.fn(),
-	error: jest.fn()
+	error: jest.fn(),
+	warn: jest.fn()
 }))
 jest.mock('@/services/config', () => ({
 	get: jest.fn()
 }))
-
+jest.mock('crypto', () => ({
+	randomUUID: jest.fn(() => 'mock-error-id')
+}))
 jest.mock('@sentry/node', () => ({
+	withScope: jest.fn(cb => {
+		const scope = {
+			setTag: jest.fn(),
+			setUser: jest.fn(),
+			setExtra: jest.fn()
+		}
+		cb(scope)
+	}),
 	captureException: jest.fn()
 }))
 
 const originalProcessEnv = process.env
-const originalConfigGet = config.get
 
 describe('errorMiddleware', () => {
 	let mockRes: Response
 
 	beforeEach(() => {
-		mockRes = createMockResponse()
+		mockRes = createMockResponse(mockJob)
 		jest.clearAllMocks()
-
-		process.env = { ...originalProcessEnv }
 		;(config.get as jest.Mock).mockImplementation((key: string) => {
 			if (key === 'sentry.dsn') return 'http://mock-sentry-dsn.com'
 			if (key === 'env') return process.env.NODE_ENV
-			return (originalConfigGet as any)(key)
+			return null
 		})
-
-		jest
-			.spyOn(Sentry, 'captureException')
-			.mockImplementation(() => 'mock-event-id')
-		jest.spyOn(logger, 'error').mockImplementation(() => {})
 	})
 
 	afterEach(() => {
 		process.env = originalProcessEnv
-		;(config.get as jest.Mock).mockImplementation(originalConfigGet)
-		jest.restoreAllMocks()
 	})
 
-	it('should handle BadRequestError with 400 status, message, name, and validation errors', async () => {
+	it('should handle BadRequestError and call job.markFailed', async () => {
 		const validationErrors = [
-			{ message: 'Field "name" is required', field: 'name', type: 'required' }
+			{ message: 'error', field: 'name', type: 'required' }
 		]
 		const error = new BadRequestError('Invalid input data', validationErrors)
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.BAD_REQUEST)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.BAD_REQUEST,
-			name: 'BadRequestError',
-			message: 'Invalid input data',
-			errors: validationErrors
-		})
-
-		expect(Sentry.captureException).not.toHaveBeenCalled()
-		expect(mockNext).not.toHaveBeenCalled()
-	})
-	it('should not include "errors" property when BadRequestError has no validation errors', async () => {
-		// Simulates a BadRequeStError without specific validation errors
-		const error = new BadRequestError(
-			'Bad request, but not from validation',
-			[]
-		)
-
-		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
-		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.BAD_REQUEST)
-		expect(mockRes.json).toHaveBeenCalledWith(
-			expect.not.objectContaining({
-				errors: expect.any(Array)
-			})
-		)
 		expect(mockRes.json).toHaveBeenCalledWith(
 			expect.objectContaining({
 				status: 'error',
 				code: HttpStatusCode.BAD_REQUEST,
 				name: 'BadRequestError',
-				message: 'Bad request, but not from validation'
+				message: 'Invalid input data',
+				errors: validationErrors,
+				errorId: 'mock-error-id'
 			})
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				errorId: 'mock-error-id',
+				user: { id: 'mock-user-id' }
+			})
+		)
+		expect(logger.error).not.toHaveBeenCalled()
+	})
+
+	it('should not include "errors" property when BadRequestError has no validation errors', async () => {
+		const error = new BadRequestError(
+			'Bad request, but not from validation',
+			[]
+		)
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.BAD_REQUEST)
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.not.objectContaining({ errors: expect.any(Array) })
 		)
 	})
 
 	it('should handle NotFoundError with 404 status and correct message', async () => {
 		const error = new NotFoundError('Resource was not found')
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.NOT_FOUND)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.NOT_FOUND,
-			name: 'NotFoundError',
-			message: 'Resource was not found'
-		})
-		expect(Sentry.captureException).not.toHaveBeenCalled()
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.NOT_FOUND,
+				name: 'NotFoundError',
+				message: 'Resource was not found',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.warn).toHaveBeenCalledTimes(1)
+		expect(logger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle UnauthorizedError with 401 status and correct message', async () => {
 		const error = new UnauthorizedError('Authentication failed')
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.UNAUTHORIZED)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.UNAUTHORIZED,
-			name: 'UnauthorizedError',
-			message: 'Authentication failed'
-		})
-		expect(Sentry.captureException).not.toHaveBeenCalled()
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.UNAUTHORIZED,
+				name: 'UnauthorizedError',
+				message: 'Authentication failed',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.warn).toHaveBeenCalledTimes(1)
+		expect(logger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle ForbiddenError with 403 status and correct message', async () => {
 		const error = new ForbiddenError('Access to resource denied')
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(HttpStatusCode.FORBIDDEN)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.FORBIDDEN,
-			name: 'ForbiddenError',
-			message: 'Access to resource denied'
-		})
-		expect(Sentry.captureException).not.toHaveBeenCalled()
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.FORBIDDEN,
+				name: 'ForbiddenError',
+				message: 'Access to resource denied',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.warn).toHaveBeenCalledTimes(1)
+		expect(logger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle generic Error with 500 status and capture by Sentry in production', async () => {
 		process.env.NODE_ENV = 'production'
 		const error = new Error('A critical internal server error')
-		error.stack = 'Mock stack trace for production error'
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(
 			HttpStatusCode.INTERNAL_SERVER_ERROR
 		)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.INTERNAL_SERVER_ERROR,
-			name: 'InternalServerError',
-			message: 'An unexpected error has occurred.'
-		})
-		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
-		expect(logger.error).not.toHaveBeenCalled()
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.INTERNAL_SERVER_ERROR,
+				name: 'InternalServerError',
+				message: 'An unexpected error has occurred.',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(mockRes.json).not.toHaveBeenCalledWith(
+			expect.objectContaining({ stack: expect.any(String) })
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				errorId: 'mock-error-id',
+				user: { id: 'mock-user-id' }
+			})
+		)
+		expect(logger.warn).not.toHaveBeenCalled()
 	})
 
-	it('should handle generic Error with 500 status, message, and stack in development', async () => {
+	it('should handle a generic Error (500) with message, stack, and Sentry context in development', async () => {
 		process.env.NODE_ENV = 'development'
 		const error = new Error('Database connection failed')
 		error.stack = 'Mock stack trace\nLine 1\nLine 2'
-
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
-
 		expect(mockRes.status).toHaveBeenCalledWith(
 			HttpStatusCode.INTERNAL_SERVER_ERROR
 		)
-		expect(mockRes.json).toHaveBeenCalledWith({
-			status: 'error',
-			code: HttpStatusCode.INTERNAL_SERVER_ERROR,
-			name: 'InternalServerError',
-			message: 'Database connection failed',
-			stack: error.stack
-		})
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.INTERNAL_SERVER_ERROR,
+				name: 'InternalServerError',
+				message: 'Database connection failed',
+				stack: error.stack,
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(Sentry.withScope).toHaveBeenCalledTimes(1)
 		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
-		expect(logger.error).toHaveBeenCalledWith(error.stack)
+		expect(Sentry.captureException).toHaveBeenCalledWith(error)
+		const mockScope = (Sentry.withScope as jest.Mock).mock.calls[0][0]
+		const scope = {
+			setTag: jest.fn(),
+			setUser: jest.fn(),
+			setExtra: jest.fn()
+		}
+		mockScope(scope)
+		expect(scope.setTag).toHaveBeenCalledWith('errorId', 'mock-error-id')
+		expect(scope.setUser).toHaveBeenCalledWith({ id: 'mock-user-id' })
+		expect(scope.setExtra).toHaveBeenCalledWith('job.data', {
+			input: 'data'
+		})
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: 'Database connection failed',
+				stack: error.stack,
+				errorId: 'mock-error-id'
+			})
+		)
 	})
 
 	it('should not call Sentry if sentry.dsn is not configured', async () => {
 		;(config.get as jest.Mock).mockImplementation((key: string) => {
 			if (key === 'sentry.dsn') return null
-			if (key === 'env') return process.env.NODE_ENV
-
-			return (originalConfigGet as any)(key)
+			return key === 'env' ? 'development' : null
 		})
 		const error = new Error('Error when Sentry DSN is not configured')
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+		expect(Sentry.withScope).not.toHaveBeenCalled()
+		expect(Sentry.captureException).not.toHaveBeenCalled()
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+	})
+
+	it('should not attempt to use job data if res.locals.job is not defined', async () => {
+		const error = new Error('Error without Job in context')
+		mockRes = createMockResponse(undefined)
 
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
 
-		expect(Sentry.captureException).not.toHaveBeenCalled()
+		expect(mockRes.status).toHaveBeenCalledWith(
+			HttpStatusCode.INTERNAL_SERVER_ERROR
+		)
+		expect(Sentry.withScope).toHaveBeenCalledTimes(1)
+		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
+		expect(mockJob.getId).not.toHaveBeenCalled()
+		expect(mockJob.markFailed).not.toHaveBeenCalled()
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				jobId: undefined,
+				user: undefined
+			})
+		)
 	})
-
-	it('should handle an error without a message property', async () => {
-		process.env.NODE_ENV = 'development'
-		const error = new Error()
-		error.name = 'Test Error' // Just for test
-
+	it('should handle error objects that are not instances of Error gracefully', async () => {
+		const error = { some: 'random object' } as any
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
 
 		expect(mockRes.status).toHaveBeenCalledWith(
@@ -220,8 +287,83 @@ describe('errorMiddleware', () => {
 		)
 		expect(mockRes.json).toHaveBeenCalledWith(
 			expect.objectContaining({
-				message: 'An unexpected error has occurred.'
+				status: 'error',
+				code: HttpStatusCode.INTERNAL_SERVER_ERROR,
+				name: 'InternalServerError',
+				message: 'An unexpected error has occurred.',
+				errorId: 'mock-error-id'
 			})
 		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.error).toHaveBeenCalledWith(
+			expect.objectContaining({
+				errorId: 'mock-error-id',
+				user: { id: 'mock-user-id' }
+			})
+		)
+	})
+
+	it('should handle errors with empty or null message', async () => {
+		const error = new Error('')
+		error.stack = ''
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+
+		expect(mockRes.status).toHaveBeenCalledWith(
+			HttpStatusCode.INTERNAL_SERVER_ERROR
+		)
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.INTERNAL_SERVER_ERROR,
+				name: 'InternalServerError',
+				message: 'An unexpected error has occurred.',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
+		expect(logger.error).toHaveBeenCalled()
+	})
+
+	it('should call mockJob.getId when job exists and not call when job is undefined', async () => {
+		const error = new Error('Test error')
+
+		// defined Job
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+		expect(mockJob.getId).toHaveBeenCalled()
+
+		// undefined Job
+		mockRes = createMockResponse(undefined)
+		jest.clearAllMocks()
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+		expect(mockJob.getId).not.toHaveBeenCalled()
+	})
+
+	it('should not call next() in the middleware (standard error handler behavior)', async () => {
+		const error = new Error('Some error')
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+		expect(mockNext).not.toHaveBeenCalled()
+	})
+	it('should call setUser with {} when job.getPublicUser() returns undefined', async () => {
+		;(config.get as jest.Mock).mockImplementation((key: string) => {
+			if (key === 'env') return 'production'
+			if (key === 'sentry.dsn') return 'dsn'
+		})
+
+		mockJob.getPublicUser = jest.fn().mockReturnValue(undefined)
+		mockRes.locals.job = mockJob
+
+		const error = new Error('boom')
+
+		const setTag = jest.fn()
+		const setUser = jest.fn()
+		const setExtra = jest.fn()
+		;(Sentry.withScope as jest.Mock).mockImplementation(cb => {
+			cb({ setTag, setUser, setExtra })
+		})
+
+		await errorMiddleware(error, {} as any, mockRes as any, jest.fn())
+
+		expect(setTag).toHaveBeenCalledWith('errorId', 'mock-error-id')
+		expect(setUser).toHaveBeenCalledWith({})
 	})
 })

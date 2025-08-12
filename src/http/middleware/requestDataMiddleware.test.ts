@@ -52,7 +52,7 @@ describe('requestDataMiddleware', () => {
 
 		expect(req.requestData).toBeDefined()
 		expect(req.requestData.id).toBeDefined()
-		expect(req.requestData.meta.timestamp).toBeInstanceOf(Date)
+		expect(typeof req.requestData.meta.timestamp).toBe('number')
 		expect(req.requestData.meta.url).toBe('/api/v1/test')
 		expect(req.requestData.meta.ip).toBe('127.0.0.1')
 		expect(req.requestData.meta.userAgent).toBe('Jest Test')
