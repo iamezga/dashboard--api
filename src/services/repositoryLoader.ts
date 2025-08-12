@@ -1,27 +1,27 @@
 import { repositories, RepositoryMap } from '@/modules/repositories'
 import { ConnectedDatabases } from './databaseServiceManager'
 
-const DB_PREFIXES = ['Postgres', 'Mongo', 'Redis'] as const
+export const DB_PREFIXES = ['Postgres', 'Mongo', 'Redis'] as const
 type DBType = Lowercase<(typeof DB_PREFIXES)[number]>
 
-const DB_CLIENT_MAP: Record<DBType, keyof ConnectedDatabases> = {
+export const DB_CLIENT_MAP: Record<DBType, keyof ConnectedDatabases> = {
 	postgres: 'prisma',
 	mongo: 'mongo',
 	redis: 'redis'
 } as const
 
 /** Convert "PostgresUserRepository" → "userRepository" */
-function normalizeRepoName(className: string) {
+export function normalizeRepoName(className: string) {
 	const prefix = DB_PREFIXES.find(p => className.startsWith(p))
-	if (!prefix) throw new Error(`Prefijo de DB no soportado en ${className}`)
+	if (!prefix) throw new Error(`DB prefix not supported in ${className}`)
 	const baseName = className.replace(prefix, '')
 	return baseName.charAt(0).toLowerCase() + baseName.slice(1)
 }
 
 /** Detects the type of DB from the name of the class */
-function detectDBType(className: string): DBType {
+export function detectDBType(className: string): DBType {
 	const prefix = DB_PREFIXES.find(p => className.startsWith(p))
-	if (!prefix) throw new Error(`No se pudo detectar DB en ${className}`)
+	if (!prefix) throw new Error(`DB could not be detected in ${className}`)
 	return prefix.toLowerCase() as DBType
 }
 
