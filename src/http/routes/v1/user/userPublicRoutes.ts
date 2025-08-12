@@ -6,8 +6,8 @@ const router = Router()
 
 router.get(
 	'/',
-	validationMiddleware('exampleGetUseCaseRules'),
-	useCaseMiddleware('ExampleGetUseCase')
+	validationMiddleware('userGetUseCaseRules'),
+	useCaseMiddleware('UserGetUseCase')
 )
 
-export { router as examplePrivateRoutes }
+export { router as userPublicRoutes }

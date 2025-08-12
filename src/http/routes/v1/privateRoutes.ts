@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { examplePrivateRoutes } from './example'
+import { userPrivateRoutes } from './user'
 
 const router = Router()
 
 // Private global middlewares
 // @example -> router.use(authMiddleware)
 
-router.use('/example', examplePrivateRoutes)
+router.use('/user', userPrivateRoutes)
 
 export { router as privateRoutes }

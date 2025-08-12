@@ -1,8 +1,8 @@
 import { Router } from 'express'
-import { examplePublicRoutes } from './example'
+import { userPublicRoutes } from './user'
 
 const router = Router()
 
-router.use('/example', examplePublicRoutes)
+router.use('/user', userPublicRoutes)
 
 export { router as publicRoutes }

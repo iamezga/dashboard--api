@@ -1,8 +1,7 @@
-// src/container.ts
-
-import { validator } from '@/services//validationService'
 import config from '@/services/config'
-import * as databaseManager from '@/services/databaseServiceManager'
+import { databaseServiceManager } from '@/services/databaseServiceManager'
+import { loadRepositories } from '@/services/repositoryLoader'
+import { validator } from '@/services/validationService'
 import logger from './logger'
 
 /**
@@ -12,9 +11,9 @@ import logger from './logger'
 export const dependencyContainer = {
 	// First level for own services and customizations
 	config,
-	databaseManager,
 	validator,
 	logger,
+	repositories: loadRepositories(databaseServiceManager.getDatabases()),
 	thirdParties: {
 		// Here we can inject all third-party libraries that are used natively
 	}

@@ -3,13 +3,63 @@ import logger from '@/services/logger'
 import { PrismaClient } from '@prisma/client'
 import { Db } from 'mongodb'
 import { RedisClientType } from 'redis'
-import {
-	ConnectedDatabases,
-	DatabaseServiceManager as databaseServiceManager
-} from './databaseServiceManager.types'
 import { connectMongo, disconnectMongo } from './mongoService'
 import { connectPrisma, disconnectPrisma } from './prismaService'
 import { connectRedis, disconnectRedis } from './redisService'
+
+/**
+ * Centralizes the connection logic for all database engines used by the API.
+ *
+ * This file acts as the single point of definition for:
+ * - Which databases are supported in this project.
+ * - How each database is connected and disconnected.
+ * - How active database clients are exposed to the rest of the application.
+ *
+ * The purpose of this design is to make database configuration and changes
+ * **fully isolated** from business logic.
+ * Adding, removing, or replacing a database engine only requires:
+ *  1. Adding the corresponding connection/disconnection functions.
+ *  2. Updating this file to register the new client type.
+ *
+ * This approach enables:
+ * - Support for multiple database engines at the same time.
+ * - Simple migrations to a different database technology without touching
+ *   repositories or use cases.
+ * - Centralized control of connection lifecycles.
+ *
+ * Example:
+ *  If you want to replace MongoDB with MySQL:
+ *   - Add `connectMySQL` and `disconnectMySQL` functions.
+ *   - Update `ConnectedDatabases` and `DatabaseClients` types with the new client.
+ *   - Add initialization/shutdown logic in this file.
+ *
+ * The rest of the application will automatically work with the new database
+ * as long as repository classes are updated to use the new client type.
+ *
+ * @typedef {Object} ConnectedDatabases
+ *   Active instances of connected database clients, keyed by their type.
+ * @typedef {Object} DatabaseClients
+ *   Map of supported database types to their client classes.
+ */
+export interface ConnectedDatabases {
+	prisma?: PrismaClient
+	redis?: RedisClientType
+	mongo?: Db
+}
+
+// Map of DB type to client type
+export interface DatabaseClients {
+	postgres: PrismaClient
+	mongo: Db
+	redis: RedisClientType
+	// add more DB clients here if needed
+}
+
+export interface DatabaseServiceManager {
+	initialize: () => Promise<void>
+	shutdown: () => Promise<void>
+	getDatabases: () => ConnectedDatabases
+}
 
 const currentConfig = config.get('database')
 let prismaInstance: PrismaClient | undefined
@@ -122,10 +172,10 @@ function getDatabases(): ConnectedDatabases {
 	}
 }
 
-const databaseServiceManager: databaseServiceManager = {
+const databaseServiceManager: DatabaseServiceManager = {
 	initialize,
 	shutdown,
 	getDatabases: getDatabases
 }
 
-export default databaseServiceManager
+export { databaseServiceManager }

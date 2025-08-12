@@ -1,6 +1,6 @@
-import { ValidationSchema } from 'fastest-validator'
+import { UseCaseRules } from '@/types/useCase/UseCaseRulesInterface'
 
-export const exampleGetUseCaseRules = {
+export const auditGetUseCaseRules: UseCaseRules = {
 	// Rules to validate `job.data` (payload)
 	data: {
 		foo: {
@@ -32,4 +32,4 @@ export const exampleGetUseCaseRules = {
 	// recaptchaResponse: {},
 	// Rules for validating `job.attempts` In case there is any limitation of attempts - e.g. recaptchaAlias
 	// attempts: {}
-} as unknown as Record<string, ValidationSchema>
+}

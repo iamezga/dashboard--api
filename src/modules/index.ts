@@ -1,64 +1,78 @@
-import * as example from './example'
+import * as audit from './audit'
+import * as user from './user'
 
 /**
  * MODULES
- * To define the use cases, an organization is defined in modules and sub modules.
- * This structure will group related use cases in the same business logic
- * and will also facilitate exports.
- * The structure will always be
- * - modules/
- * 		- example/
- * 			- get/
- * 				- ExampleGetUseCase.ts
- * 				- ExampleGetJobInterface.ts
- * 				- exampleGetUseCaseRules.ts
- * 				- index.ts
  *
- * The name of the use case will also be defined based on the structure
- * UseCase name: `[module][action]UseCase`
+ * Each module represents a part of the business logic.
  *
- * The export will be staggered towards `modules/` through index.ts files and in these exports
- * only rules and use cases will be included.
- * The index of `modules/` will be responsible for grouping the rules and use cases, and will export them
- * to be used by the corresponding middlewares
+ * A module contains:
+ * - entities/ → Domain entities and contracts (interfaces).
+ * - repository/ → Repository implementation for persistence (only one repository per module).
+ * - useCases/ → Use cases organized by action (subfolders by verb/action).
+ *
+ * Example structure:
+ * modules/
+ *   user/
+ *     entities/
+ *       User.ts
+ *       UserRepositoryInterface.ts
+ *     repository/
+ *       PostgresUserRepository.ts
+ *     useCases/
+ *       get/
+ *         UserGetUseCase.ts
+ *         UserGetJobInterface.ts
+ *         userGetUseCaseRules.ts
+ *         index.ts
+ *       index.ts
+ *     index.ts
+ *
+ * Use case names follow the pattern:
+ *    [Module][Action]UseCase
+ *
+ * The `index.ts` of each module only exports:
+ * - Use cases (UseCase)
+ * - Business rules (Rules)
+ *
+ * The `index.ts` at `modules/` level merges all modules and
+ * exports their rules and use cases, so they can be injected into middlewares.
  */
 
 // Merge all modules
 const allModules = {
-	...example
+	...audit,
+	...user
 }
 
 type AllModules = typeof allModules
 
-type RuleKeys = {
-	[K in keyof AllModules]: K extends `${string}Rules` ? K : never
-}[keyof AllModules]
+type RuleKeys = Extract<keyof AllModules, `${string}Rules`>
+type UseCaseKeys = Extract<keyof AllModules, `${string}UseCase`>
 
-type UseCaseKeys = {
-	[K in keyof AllModules]: K extends `${string}UseCase` ? K : never
-}[keyof AllModules]
-
-type RulesType = { [K in RuleKeys]: AllModules[K] }
-type UseCasesType = { [K in UseCaseKeys]: AllModules[K] }
-
-type GroupedModules = {
-	rules: Partial<RulesType>
-	useCases: Partial<UseCasesType>
+type RulesType = {
+	[K in RuleKeys]: AllModules[K]
 }
 
-export const { rules, useCases } = Object.entries(
-	allModules
-).reduce<GroupedModules>(
-	(acc, [key, imported]) => {
-		if (key.endsWith('Rules')) {
-			acc.rules[key as RuleKeys] = imported as RulesType[RuleKeys]
-		} else if (key.endsWith('UseCase')) {
-			acc.useCases[key as UseCaseKeys] = imported as UseCasesType[UseCaseKeys]
+type UseCasesType = {
+	[K in UseCaseKeys]: AllModules[K]
+}
+
+function groupModules<T extends object>(
+	modules: Record<string, unknown>,
+	filter: (key: string) => boolean
+): Partial<T> {
+	return Object.entries(modules).reduce((acc, [key, val]) => {
+		if (filter(key)) {
+			;(acc as any)[key] = val
 		}
 		return acc
-	},
-	{
-		rules: {},
-		useCases: {}
-	}
+	}, {} as Partial<T>)
+}
+
+export const rules = groupModules<RulesType>(allModules, key =>
+	key.endsWith('Rules')
+)
+export const useCases = groupModules<UseCasesType>(allModules, key =>
+	key.endsWith('UseCase')
 )

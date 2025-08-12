@@ -1,7 +1,7 @@
 import config from '@/services/config'
 import logger from '@/services/logger'
 import { app } from './http/app'
-import databaseServiceManager from './services/databaseServiceManager'
+import { databaseServiceManager } from './services/databaseServiceManager'
 ;(async () => {
 	try {
 		// connect databases

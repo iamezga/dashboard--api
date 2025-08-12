@@ -1,26 +1,26 @@
 import { UseCase } from '@/lib/UseCase'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
-import { ExampleGetJobInterface } from './ExampleGetJobInterface'
+import { UserGetJobInterface } from './UserGetJobInterface'
 
 /**
- * Example use case to define the standard structure that each new case of use must follow
- *
+ * UseCase Example to define the standard structure that each new useCase of use must follo
  */
-export class ExampleGetUseCase extends UseCase<ExampleGetJobInterface> {
+export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 	constructor(container: DependencyContainer) {
 		super(container)
 	}
 
-	async run(job: ExampleGetJobInterface): Promise<UseCaseResponseInterface> {
+	async run(job: UserGetJobInterface): Promise<UseCaseResponseInterface> {
 		// ...Some business logic
 		const data = job.getData()
 		this.container.logger.info(data)
+		const user = await this.container.repositories.userRepository.findById(
+			data.id
+		)
 
 		return {
-			data: {
-				message: `Data received for foo: ${data.foo}, bar: ${data.bar}`
-			},
+			data: user || {},
 			metadata: {
 				attempts: job.getAttempts()
 			}

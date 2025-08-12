@@ -1,6 +1,6 @@
 import { JobInterface } from '@/types/job/JobInterface'
 
-export interface ExampleGetJobInterface extends JobInterface {
+export interface AuditGetJobInterface extends JobInterface {
 	// Define getData return type
 	getData(): {
 		foo: string
