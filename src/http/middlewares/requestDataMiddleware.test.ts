@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express' // Importamos Request, Response, NextFunction para los mocks
+import { NextFunction, Request, Response } from 'express'
 import '../../types/express.d.ts'
 import { requestDataMiddleware } from './requestDataMiddleware'
 

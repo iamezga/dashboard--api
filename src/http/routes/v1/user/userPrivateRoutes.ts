@@ -1,6 +1,6 @@
-import { sendJsonMiddleware } from '@/http/middleware/sendJsonMiddleware'
-import { useCaseMiddleware } from '@/http/middleware/useCaseMiddleware'
-import { validationMiddleware } from '@/http/middleware/validationMiddleware'
+import { sendJsonMiddleware } from '@/http/middlewares/sendJsonMiddleware'
+import { useCaseMiddleware } from '@/http/middlewares/useCaseMiddleware'
+import { validationMiddleware } from '@/http/middlewares/validationMiddleware'
 import { Router } from 'express'
 
 const router = Router()

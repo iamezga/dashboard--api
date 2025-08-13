@@ -4,8 +4,8 @@ import { helmet } from '@/services/helmet'
 import * as Sentry from '@sentry/node'
 import cors from 'cors'
 import express from 'express'
-import { errorMiddleware } from './middleware/errorMiddleware'
-import { requestDataMiddleware } from './middleware/requestDataMiddleware'
+import { errorMiddleware } from './middlewares/errorMiddleware'
+import { requestDataMiddleware } from './middlewares/requestDataMiddleware'
 import { initRoutes } from './routes'
 
 const app = express()

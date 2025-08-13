@@ -1,4 +1,4 @@
-import { jobMiddleware } from '@/http/middleware/jobMiddleware'
+import { jobMiddleware } from '@/http/middlewares/jobMiddleware'
 import { Router } from 'express'
 import { authRoutes } from './authRoutes'
 import { privateRoutes } from './privateRoutes'
