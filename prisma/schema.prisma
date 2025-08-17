@@ -6,3 +6,131 @@ datasource db {
   provider = "postgresql"
   url      = env("PRISMA_URL")
 }
+
+enum PermissionScope {
+  GLOBAL
+  MODULE
+}
+
+model Organization {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  users User[]
+  roles Role[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+
+model Module {
+  id     String  @id @default(uuid()) @db.Uuid
+  key    String  @unique
+  label  String
+  active Boolean @default(true)
+
+  permissions Permission[]
+  userModules UserModule[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+
+model Permission {
+  id            String          @id @default(uuid()) @db.Uuid
+  key           String          @unique
+  label         String
+  description   String?
+  scope         PermissionScope @default(GLOBAL)
+  moduleId      String?         @db.Uuid
+  defaultConfig Json            @default("{}")
+  active        Boolean         @default(true)
+
+  module          Module?                  @relation(fields: [moduleId], references: [id])
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+
+model Role {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  name           String
+  label          String
+  description    String?
+  active         Boolean       @default(true)
+
+  rolePermissions RolePermission[]
+  users           User[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@unique([organizationId, name])
+}
+
+model RolePermission {
+  roleId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  config       Json     @default("{}")
+  assignedAt   DateTime @default(now()) @db.Timestamptz
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String?   @db.Uuid
+  name           String
+  surname        String?
+  email          String    @unique
+  passwordHash   String
+  active         Boolean   @default(true)
+  lastLogin      DateTime? @db.Timestamptz
+  roleId         String?   @db.Uuid
+  config         Json      @default("{}")
+
+  organization        Organization?            @relation(fields: [organizationId], references: [id])
+  role                Role?                    @relation(fields: [roleId], references: [id])
+  permissionOverrides UserPermissionOverride[]
+  modules             UserModule[]
+
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+  deletedAt DateTime? @db.Timestamptz
+}
+
+model UserModule {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @db.Uuid
+  moduleId String  @db.Uuid
+  enabled  Boolean @default(true)
+  config   Json    @default("{}")
+
+  user   User   @relation(fields: [userId], references: [id])
+  module Module @relation(fields: [moduleId], references: [id])
+
+  @@unique([userId, moduleId])
+  @@index([moduleId])
+}
+
+model UserPermissionOverride {
+  userId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  disabled     Boolean  @default(false)
+  config       Json     @default("{}")
+  assignedAt   DateTime @default(now()) @db.Timestamptz
+
+  user       User       @relation(fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+}

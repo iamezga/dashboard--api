@@ -2,6 +2,7 @@ import config from '@/services/config'
 import { databaseServiceManager } from '@/services/databaseServiceManager'
 import { loadRepositories } from '@/services/repositoryLoader'
 import { validator } from '@/services/validationService'
+import * as argon2 from 'argon2'
 import logger from './logger'
 
 /**
@@ -16,6 +17,7 @@ export const dependencyContainer = {
 	repositories: loadRepositories(databaseServiceManager.getDatabases()),
 	thirdParties: {
 		// Here we can inject all third-party libraries that are used natively
+		argon2
 	}
 }
 
