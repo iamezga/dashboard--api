@@ -1,2 +1,23 @@
-# dashboard--api
-Backend API for a generic dashboard app, focusing on core functionalities like user authentication, user management, and CRUD operations (e.g., roles/permissions/posts/items,etc). 
+# api--ts-template
+
+**TypeScript API template** designed for single-tenant apps
+
+Getting Started
+
+To get this API template up and running, follow these basic steps:
+
+- Clone the repository:
+
+```sh
+    git clone git@github.com:iamezga/ts--api-template.git ts--api-template
+    cd ts--api-template
+```
+
+- Install dependencies:
+
+```sh
+    npm install
+```
+
+- Configure environment variables:
+  Create an `.env` file following the `.env.example` file.
