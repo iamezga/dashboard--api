@@ -11,17 +11,17 @@ import { initRoutes } from './routes'
 const app = express()
 app.set('trust proxy', true)
 
-app.use(requestDataMiddleware())
-
 app.use(helmet)
 app.set('trust proxy', true)
 app.use(cors({ origin: config.get('express.corsOrigin') }))
+app.use(express.json({ limit: config.get('express.requestBodySize') }))
 app.use(
 	express.urlencoded({
 		extended: true,
 		limit: config.get('express.requestBodySize')
 	})
 )
+app.use(requestDataMiddleware())
 
 // Initialize routes
 initRoutes(app)
