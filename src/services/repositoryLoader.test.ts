@@ -34,8 +34,8 @@ describe('loadRepositories', () => {
 
 		expect(mockPostgresUserRepository).toHaveBeenCalledWith(mockClients.prisma)
 		expect(mockMongoAuditRepository).toHaveBeenCalledWith(mockClients.mongo)
-		expect(repos).toHaveProperty('userRepository')
-		expect(repos).toHaveProperty('auditRepository')
+		expect(repos).toHaveProperty('user')
+		expect(repos).toHaveProperty('audit')
 	})
 
 	it('should not instantiate a repository if its database client is not provided', () => {
@@ -61,8 +61,8 @@ describe('loadRepositories', () => {
 
 describe('normalizeRepoName', () => {
 	it('should correctly normalize a repo name with a valid prefix', () => {
-		expect(normalizeRepoName('PostgresUserRepository')).toBe('userRepository')
-		expect(normalizeRepoName('MongoAuditRepository')).toBe('auditRepository')
+		expect(normalizeRepoName('PostgresUserRepository')).toBe('user')
+		expect(normalizeRepoName('MongoAuditRepository')).toBe('audit')
 	})
 
 	it('should throw an error for a repo name with an invalid prefix', () => {

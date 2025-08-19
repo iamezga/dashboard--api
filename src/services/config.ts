@@ -118,6 +118,28 @@ const config = convict({
 				env: 'REDIS_DB'
 			}
 		}
+	},
+	jwt: {
+		secret: {
+			format: String,
+			env: 'JWT_SECRET',
+			default: ''
+		},
+		maxAge: {
+			format: String,
+			env: 'MAX_AGE',
+			default: '1 day'
+		},
+		expiresIn: {
+			format: String,
+			env: 'JWT_EXPIRES_IN',
+			default: '1 day'
+		},
+		passwordRecoverExpiresIn: {
+			format: String,
+			env: 'JWT_PASSWORD_RECOVER_EXPIRES_IN',
+			default: '1 hour'
+		}
 	}
 })
 

@@ -6,7 +6,12 @@ export const repositories = {
 	MongoAuditRepository
 }
 
+/**
+ * @type RepositoryMap
+ * @description Defines the shape of the `repositories` object within the Dependency Container,
+ * mapping normalized repository names (e.g., 'user', 'audit') to their corresponding interfaces.
+ */
 export type RepositoryMap = {
-	userRepository: UserRepositoryInterface
-	auditRepository: AuditRepositoryInterface
+	user: UserRepositoryInterface
+	audit: AuditRepositoryInterface
 }

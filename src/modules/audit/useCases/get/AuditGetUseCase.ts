@@ -16,7 +16,7 @@ export class AuditGetUseCase extends UseCase<AuditGetJobInterface> {
 		// ...Some business logic
 		const data = job.getData()
 		this.container.logger.info(data)
-		const user = await this.container.repositories.userRepository.findById('1')
+		const user = await this.container.repositories.user.findById('1')
 		console.log(user)
 
 		return {

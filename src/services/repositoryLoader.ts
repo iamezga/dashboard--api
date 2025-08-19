@@ -10,11 +10,24 @@ export const DB_CLIENT_MAP: Record<DBType, keyof ConnectedDatabases> = {
 	redis: 'redis'
 } as const
 
-/** Convert "PostgresUserRepository" → "userRepository" */
-export function normalizeRepoName(className: string) {
+/**
+ * @function normalizeRepoName
+ * @description Converts a concrete repository class name (e.g., "PostgresUserRepository")
+ * into its normalized, camelCase form (e.g., "user").
+ * This name is used as the key in the `repositories` object within the Dependency Container.
+ * @param {string} className - The name of the concrete repository class.
+ * @returns {string} The normalized repository name.
+ * @throws {Error} If the class name does not start with a recognized DB prefix.
+ * @example
+ *
+ * normalizeRepoName("PostgresUserRepository") -> Returns "user"
+ * normalizeRepoName("MongoAuditRepository") -> Returns "audit"
+ */
+export function normalizeRepoName(className: string): string {
 	const prefix = DB_PREFIXES.find(p => className.startsWith(p))
 	if (!prefix) throw new Error(`DB prefix not supported in ${className}`)
-	const baseName = className.replace(prefix, '')
+	// Remove both the DB prefix and the "Repository" suffix, then convert to camelCase.
+	const baseName = className.replace(prefix, '').replace('Repository', '')
 	return baseName.charAt(0).toLowerCase() + baseName.slice(1)
 }
 
@@ -26,40 +39,14 @@ export function detectDBType(className: string): DBType {
 }
 
 /**
- * Dynamically instantiates and registers all repository classes in the project.
- *
+ * @function loadRepositories
+ * @description Dynamically instantiates and registers all repository classes in the project.
  * This loader detects the database type each repository is designed for
- * based on its class name (e.g., `PostgresUserRepository`, `MongoOrderRepository`)
+ * based on its class name (e.g., `PostgresUserRepository`, `MongoAuditRepository`)
  * and automatically injects the corresponding connected database client.
  *
- * Purpose:
- * - Centralize repository instantiation so that repositories do not need to
- *   manually manage or request database clients.
- * - Allow the application to support multiple database engines at the same time.
- * - Enable easy database migrations without modifying business logic or use cases.
- *
- * How it works:
- * 1. Reads all repository classes exported in `modules/repositories.ts`.
- * 2. Determines the database type from the class name prefix (e.g., `Postgres`, `Mongo`, `Redis`).
- * 3. Checks if there is an active client for that database in the provided `clients` object.
- * 4. If a client exists, instantiates the repository with that client.
- * 5. Registers the repository instance in a `RepositoryMap` for application-wide access.
- *
- * Benefits:
- * - Adding a new repository is as simple as creating a class that follows the
- *   naming convention and exporting it from `modules/repositories.ts`.
- * - Repositories automatically get the right database client without manual wiring.
- * - Switching or removing databases only requires changes to the database connection
- *   configuration, not in repository or use case code.
- *
- * Example:
- *  If you add a `MongoProductRepository` class and export it from `modules/repositories.ts`,
- *  this loader will automatically detect it and inject the active MongoDB client.
- *
- * @param {ConnectedDatabases} clients
- *   Active database clients available for injection into repositories.
- * @returns {RepositoryMap}
- *   A map of repository names to their instantiated objects.
+ * @param {ConnectedDatabases} clients - Active database clients available for injection into repositories.
+ * @returns {RepositoryMap} A map of normalized repository names (e.g., 'user', 'audit') to their instantiated objects.
  */
 export function loadRepositories(clients: ConnectedDatabases): RepositoryMap {
 	const repos = {} as RepositoryMap

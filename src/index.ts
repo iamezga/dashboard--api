@@ -2,10 +2,16 @@ import config from '@/services/config'
 import logger from '@/services/logger'
 import { app } from './http/app'
 import { databaseServiceManager } from './services/databaseServiceManager'
+import { dependencyContainer } from './services/dependencyContainer'
 ;(async () => {
 	try {
 		// connect databases
 		await databaseServiceManager.initialize()
+
+		// initialize repositories
+		await dependencyContainer.initializeRepositories()
+		logger.info('Dependency container: repositories initialized successfully.')
+
 		// Run server
 		app.listen(config.get('port') || 5000, () =>
 			logger.info(`Running on port ${config.get('port')}`)

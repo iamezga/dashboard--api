@@ -1,24 +1,60 @@
+import { RepositoryMap } from '@/modules/repositories'
 import config from '@/services/config'
-import { databaseServiceManager } from '@/services/databaseServiceManager'
+import {
+	ConnectedDatabases,
+	databaseServiceManager
+} from '@/services/databaseServiceManager'
 import { loadRepositories } from '@/services/repositoryLoader'
 import { validator } from '@/services/validationService'
 import * as argon2 from 'argon2'
+import jwt from 'jsonwebtoken'
 import logger from './logger'
 
 /**
- * This service allows you to import other third-party services and libraries
- * so that multiple dependency injections can be reduced to just one, allowing for clear code with simple constructors.
+ * @interface DependencyContainerInterface
+ * @description Defines the structure of the dependency container after repositories initialization,
+ * providing access to services and third-party libraries.
  */
-export const dependencyContainer = {
-	// First level for own services and customizations
-	config,
-	validator,
-	logger,
-	repositories: loadRepositories(databaseServiceManager.getDatabases()),
+export interface DependencyContainerInterface {
+	config: typeof config
+	validator: typeof validator
+	logger: typeof logger
+	repositories: RepositoryMap
 	thirdParties: {
-		// Here we can inject all third-party libraries that are used natively
-		argon2
+		argon2: typeof argon2
+		jwt: typeof jwt
 	}
 }
 
-export type DependencyContainer = typeof dependencyContainer
+/**
+ * @class DependencyContainerClass
+ * @description The central dependency container for the application.
+ * This service allows you to centralize services and third-party libraries needed for
+ * different use cases, avoiding multiple injections when instantiating them.
+ * So, they can be reduced to a single injection, allowing for clean code with simple use-case constructors.
+ */
+class DependencyContainerClass implements DependencyContainerInterface {
+	public config: typeof config = config
+	public validator: typeof validator = validator
+	public logger: typeof logger = logger
+	public repositories!: RepositoryMap // Will be assigned during repositories initialization
+	public thirdParties = {
+		argon2,
+		jwt
+	}
+
+	/**
+	 * Initializes the repositories within the dependency container.
+	 * This method should be called after database connections have been established [databaseServiceManager.initialize()].
+	 * @returns {Promise<void>} A promise that resolves when the repositories are loaded.
+	 */
+	public async initializeRepositories(): Promise<void> {
+		this.logger.info('DependencyContainer: Initializing repositories...')
+		const dbClients: ConnectedDatabases = databaseServiceManager.getDatabases()
+		this.repositories = loadRepositories(dbClients)
+		this.logger.info('DependencyContainer: Repositories loaded.')
+	}
+}
+
+export const dependencyContainer = new DependencyContainerClass()
+export type DependencyContainer = InstanceType<typeof DependencyContainerClass>

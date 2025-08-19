@@ -15,9 +15,7 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		// ...Some business logic
 		const data = job.getData()
 		this.container.logger.info(data)
-		const user = await this.container.repositories.userRepository.findById(
-			data.id
-		)
+		const user = await this.container.repositories.user.findById(data.id)
 
 		return {
 			data: user || {},
