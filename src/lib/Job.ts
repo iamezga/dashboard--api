@@ -1,3 +1,4 @@
+import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { JobInterface } from '@/types/job/JobInterface'
 import { JobMetaInterface } from '@/types/job/JobMetaInterface'
 import { JobUserInterface } from '@/types/job/JobUserInterface'
@@ -49,7 +50,7 @@ export class Job implements JobInterface {
 		this.data = structuredClone(options.data ?? {})
 		this.recaptchaResponse = options.recaptchaResponse
 		this.meta = structuredClone(options.meta ?? ({} as JobMetaInterface))
-		this.user = structuredClone(options.user)
+		this.user = options.user ? structuredClone(options.user) : undefined
 		this.logger = options.logger ?? pino()
 	}
 
@@ -79,11 +80,20 @@ export class Job implements JobInterface {
 		return structuredClone(this.user)
 	}
 
-	// WIP - pending implementation
-	getPublicUser(): Partial<JobUserInterface> | undefined {
+	getPublicUser(): UserLoginDetails | undefined {
 		if (!this.user) return undefined
-		// TODO: define qué propiedades públicas exponer
-		return {} // WIP
+		// Map the internal JobUserInterface to the public UserLoginDetails DTO
+		// This ensures no sensitive internal data leaks and matches API response structure.
+		return {
+			id: this.user.id,
+			organizationId: this.user.organizationId,
+			email: this.user.email,
+			name: (this.user as any).name,
+			surname: (this.user as any).surname,
+			roleId: this.user.roleId,
+			active: this.user.active,
+			config: this.user.config
+		}
 	}
 	getAttempts(): number {
 		return this.attempts

@@ -1,3 +1,4 @@
+import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { JobMetaInterface } from './JobMetaInterface'
 import { JobUserInterface } from './JobUserInterface'
 
@@ -6,7 +7,7 @@ export interface JobInterface {
 	getMeta(): JobMetaInterface
 	getData(): Record<string, any>
 	getUser(): JobUserInterface
-	getPublicUser(): Partial<JobUserInterface> | undefined
+	getPublicUser(): UserLoginDetails | undefined
 
 	getAttempts(): number
 	getProgress(): number
