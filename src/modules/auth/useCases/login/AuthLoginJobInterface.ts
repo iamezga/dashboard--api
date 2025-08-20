@@ -1,0 +1,16 @@
+import { JobInterface } from '@/types/job/JobInterface'
+
+/**
+ * @interface AuthLoginJobInterface
+ * @description Defines the specific structure of the Job for the AuthLoginUseCase.
+ */
+export interface AuthLoginJobInterface extends JobInterface {
+	/**
+	 * Overrides the generic getData method to return the specific input for login.
+	 * @returns {{ email: string; password: string; }} The login credentials.
+	 */
+	getData(): {
+		email: string
+		password: string
+	}
+}
