@@ -1,5 +1,6 @@
 import * as audit from './audit'
 import * as auth from './auth'
+import * as permission from './permission'
 import * as user from './user'
 
 /**
@@ -40,7 +41,8 @@ import * as user from './user'
 const allModules = {
 	...auth,
 	...audit,
-	...user
+	...user,
+	...permission
 }
 
 type AllModules = typeof allModules
