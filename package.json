@@ -1,7 +1,7 @@
 {
-	"name": "dashboard--api",
+	"name": "api--ts-template",
 	"version": "1.0.0",
-	"description": "Backend API for a generic dashboard app, focusing on core functionalities like user authentication, user management, and CRUD operations (e.g., roles/permissions/posts/items,etc).",
+	"description": "TypeScript API template designed for single-tenant apps",
 	"main": "index.js",
 	"scripts": {
 		"test": "jest",
@@ -17,15 +17,15 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/iamezga/dashboard--api.git"
+		"url": "git+https://github.com/iamezga/api--ts-template.git"
 	},
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
 	"bugs": {
-		"url": "https://github.com/iamezga/dashboard--api/issues"
+		"url": "https://github.com/iamezga/api--ts-template/issues"
 	},
-	"homepage": "https://github.com/iamezga/dashboard--api#readme",
+	"homepage": "https://github.com/iamezga/api--ts-template#readme",
 	"dependencies": {
 		"@prisma/client": "^6.13.0",
 		"@sentry/node": "^10.0.0",
