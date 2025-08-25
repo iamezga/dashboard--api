@@ -64,6 +64,7 @@ model Role {
   name           String
   label          String
   description    String?
+  config         Json          @default("{}")
   active         Boolean       @default(true)
 
   rolePermissions RolePermission[]
