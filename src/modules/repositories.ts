@@ -3,11 +3,13 @@ import {
 	PermissionRepositoryInterface,
 	PostgresPermissionRepository
 } from './permission'
+import { PostgresRoleRepository, RoleRepositoryInterface } from './role'
 import { PostgresUserRepository, UserRepositoryInterface } from './user'
 
 export const repositories = {
 	PostgresUserRepository,
 	PostgresPermissionRepository,
+	PostgresRoleRepository,
 	MongoAuditRepository
 }
 
@@ -19,5 +21,6 @@ export const repositories = {
 export type RepositoryMap = {
 	user: UserRepositoryInterface
 	permission: PermissionRepositoryInterface
+	role: RoleRepositoryInterface
 	audit: AuditRepositoryInterface
 }
