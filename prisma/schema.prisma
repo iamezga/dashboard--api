@@ -13,8 +13,11 @@ enum PermissionScope {
 }
 
 model Organization {
-  id   String @id @default(uuid()) @db.Uuid
-  name String
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  email   String?
+  phone   String?
+  address String?
 
   users User[]
   roles Role[]
