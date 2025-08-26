@@ -2,7 +2,7 @@ import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
 import { DatabaseClients } from '@/services/databaseServiceManager'
 import { Prisma, User as PrismaUserModel } from '@prisma/client'
-import { User, UserCreateInput, UserUpdateInput } from '../entities/User'
+import { User, UserRepoCreateInput, UserUpdateInput } from '../entities/User'
 
 export class PostgresUserRepository implements UserRepositoryInterface {
 	constructor(readonly db: DatabaseClients['postgres']) {}
@@ -119,7 +119,7 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 	 * @param data - The data for the new user.
 	 * @returns {Promise<User>} The created user entity.
 	 */
-	async create(data: UserCreateInput): Promise<User> {
+	async create(data: UserRepoCreateInput): Promise<User> {
 		const prismaUser = await this.db.user.create({
 			data: {
 				...data

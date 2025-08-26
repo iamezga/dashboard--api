@@ -21,20 +21,35 @@ export interface User {
 
 /**
  * @interface UserCreateInput
- * @description Defines the input structure for creating a new User.
- * This might differ from the full User entity or Prisma's create input.
+ * @description Defines the input structure for creating a new User entity from the perspective of the UseCase/Job.
+ * This input includes the raw password that will be hashed by the UseCase.
  */
 export interface UserCreateInput {
-	organizationId?: string | null
+	organizationId: string
+	name: string
+	surname?: string | null
+	email: string
+	password: string
+	active?: boolean
+	roleId: string
+	config?: object
+}
+
+/**
+ * @interface UserRepoCreateInput
+ * @description Defines the input structure for creating a new User entity specifically for the Repository.
+ * This input includes the passwordHash which has already been processed by the UseCase.
+ */
+export interface UserRepoCreateInput {
+	organizationId: string
 	name: string
 	surname?: string | null
 	email: string
 	passwordHash: string
 	active?: boolean
-	roleId?: string | null
+	roleId: string
 	config?: object
 }
-
 /**
  * @interface UserUpdateInput
  * @description Defines the input structure for updating an existing User.

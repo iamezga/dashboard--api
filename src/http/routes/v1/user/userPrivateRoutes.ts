@@ -5,6 +5,12 @@ import { Router } from 'express'
 
 const router = Router()
 
+router.post(
+	'/',
+	validationMiddleware('userCreateUseCaseRules'),
+	useCaseMiddleware('UserCreateUseCase'),
+	sendJsonMiddleware
+)
 router.get(
 	'/',
 	validationMiddleware('userGetUseCaseRules'),
