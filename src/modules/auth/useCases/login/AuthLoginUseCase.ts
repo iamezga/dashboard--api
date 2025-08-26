@@ -1,6 +1,7 @@
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
 import {
+	JwtUserPayload,
 	LoginOutput,
 	UserLoginDetails
 } from '@/modules/auth/entities/AuthDataTypes'
@@ -106,7 +107,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		)
 
 		// Generate JWT Token
-		const jwtPayload = {
+		const jwtPayload: JwtUserPayload = {
 			userId: updatedUser.id,
 			organizationId: updatedUser.organizationId,
 			roleId: updatedUser.roleId

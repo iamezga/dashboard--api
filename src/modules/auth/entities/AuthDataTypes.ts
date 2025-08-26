@@ -4,11 +4,11 @@
  */
 export interface UserLoginDetails {
 	id: string
-	organizationId: string | null
+	organizationId: string
 	email: string
 	name: string
 	surname: string | null
-	roleId: string | null
+	roleId: string
 	active: boolean
 	config: object
 }
@@ -28,13 +28,36 @@ export interface LoginOutput {
  */
 export interface UserAuthDetails {
 	id: string
-	organizationId: string | null
+	organizationId: string
 	email: string
 	passwordHash: string
 	active: boolean
 	name: string
 	surname: string | null
-	roleId: string | null
+	roleId: string
 	config: object
 	lastLogin: Date | null
+}
+
+/**
+ * @interface JwtUserPayload
+ * @description Define the payload to generate the token.
+ */
+export interface JwtUserPayload {
+	userId: string
+	organizationId: string
+	roleId: string
+}
+
+/**
+ * @interface DecodedUserToken
+ * @description Defines the expected payload structure after decoding a JWT.
+ * This should match what is put into the token during login, plus standard JWT claims.
+ */
+export interface DecodedUserToken {
+	userId: string
+	organizationId: string
+	roleId: string
+	iat: number // Issued at (timestamp)
+	exp: number // Expiration time (timestamp)
 }

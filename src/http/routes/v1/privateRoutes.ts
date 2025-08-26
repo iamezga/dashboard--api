@@ -1,11 +1,20 @@
+import { authMiddleware } from '@/http/middlewares/authMiddleware'
+import { dependencyContainer } from '@/services/dependencyContainer'
 import { Router } from 'express'
 import { authPrivateRoutes } from './auth'
 import { userPrivateRoutes } from './user'
 
 const router = Router()
 
-// Private global middlewares
-// @example -> router.use(authMiddleware)
+/**
+ * @file privateRoutes.ts
+ * @description Consolidates all private API routes for version 1.
+ * These routes typically require authentication and authorization.
+ */
+
+// Apply the authentication middleware to all subsequent private routes.
+// This middleware verifies the user's JWT and attaches their full entity to the Job context.
+router.use(authMiddleware(dependencyContainer))
 
 router.use('/auth', authPrivateRoutes)
 router.use('/user', userPrivateRoutes)

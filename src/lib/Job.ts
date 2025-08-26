@@ -1,7 +1,7 @@
 import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
+import { User } from '@/modules/user/entities/User'
 import { JobInterface } from '@/types/job/JobInterface'
 import { JobMetaInterface } from '@/types/job/JobMetaInterface'
-import { JobUserInterface } from '@/types/job/JobUserInterface'
 import pino, { Logger } from 'pino'
 
 interface JobOptions {
@@ -10,7 +10,7 @@ interface JobOptions {
 	data?: Record<string, any>
 	recaptchaResponse?: string
 	meta?: JobMetaInterface
-	user?: JobUserInterface
+	user?: User
 	logger?: Logger
 }
 
@@ -35,7 +35,7 @@ export class Job implements JobInterface {
 	private data: Record<string, any>
 	private recaptchaResponse?: string
 	private meta: JobMetaInterface
-	private user?: JobUserInterface
+	private user?: User
 	private logger: Logger
 
 	// Event Callbacks
@@ -72,17 +72,17 @@ export class Job implements JobInterface {
 	getData(): Record<string, any> {
 		return structuredClone(this.data)
 	}
-	setUser(user: JobUserInterface): void {
+	setUser(user: User): void {
 		this.user = structuredClone(user)
 	}
-	getUser(): JobUserInterface {
+	getUser(): User {
 		if (!this.user) throw new Error('User data is missing in Job context')
 		return structuredClone(this.user)
 	}
 
 	getPublicUser(): UserLoginDetails | undefined {
 		if (!this.user) return undefined
-		// Map the internal JobUserInterface to the public UserLoginDetails DTO
+		// Map the User to the public UserLoginDetails DTO
 		// This ensures no sensitive internal data leaks and matches API response structure.
 		return {
 			id: this.user.id,

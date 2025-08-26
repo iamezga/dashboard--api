@@ -47,11 +47,16 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 			}
 		})
 
-		const { 'g-recaptcha-response': recaptchaResponse, ...payload } = inputData
+		const {
+			'g-recaptcha-response': recaptchaResponse,
+			token,
+			...payload
+		} = inputData
 
 		req.requestData = {
 			id: <string>req.headers['x-job-id'] || crypto.randomUUID(),
 			attempts: parseInt(<string>req.headers['x-job-attempts'] || '0') + 1,
+			token,
 			payload,
 			recaptchaResponse,
 			meta: {

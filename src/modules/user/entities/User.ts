@@ -6,13 +6,13 @@
  */
 export interface User {
 	id: string
-	organizationId: string | null
+	organizationId: string
 	name: string
 	surname: string | null
 	email: string
 	active: boolean
 	lastLogin: Date | null
-	roleId: string | null
+	roleId: string
 	config: object
 	createdAt: Date
 	updatedAt: Date
