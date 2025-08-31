@@ -6,6 +6,7 @@ import {
 } from '@/services/databaseServiceManager'
 import { loadRepositories } from '@/services/repositoryLoader'
 import { validator } from '@/services/validationService'
+import { UtilityMap, utils as utilities } from '@/utils'
 import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import logger from './logger'
@@ -24,6 +25,7 @@ export interface DependencyContainerInterface {
 		argon2: typeof argon2
 		jwt: typeof jwt
 	}
+	utils: UtilityMap
 }
 
 /**
@@ -38,6 +40,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	public validator: typeof validator = validator
 	public logger: typeof logger = logger
 	public repositories!: RepositoryMap // Will be assigned during repositories initialization
+	public utils: UtilityMap = utilities
 	public thirdParties = {
 		argon2,
 		jwt
