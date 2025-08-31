@@ -4,6 +4,12 @@ import Validator, {
 	ValidationSchema,
 	ValidatorConstructorOptions
 } from 'fastest-validator'
+import * as aliases from './validationAliases'
+
+export interface ValidationContextInterface {
+	[key: string]: any
+	meta: { [key: string]: any; validator: ValidationService }
+}
 
 export class ValidationService extends Validator {
 	private _cache: Record<string, SyncCheckFunction | AsyncCheckFunction> = {}
@@ -26,7 +32,7 @@ export class ValidationService extends Validator {
 	async validate(
 		value: any,
 		schema: ValidationSchema,
-		meta: { [key: string]: any; validator?: ValidationService } = {}
+		meta: Record<string, any> = {}
 	) {
 		const check = this.compile({ $$async: true, $$strict: true, ...schema })
 		const errors = await check(value, { meta: { ...meta, validator: this } })
@@ -35,5 +41,10 @@ export class ValidationService extends Validator {
 }
 
 const validator = new ValidationService()
+
+// Add aliases
+Object.entries(aliases).forEach(([alias, rules]) =>
+	validator.alias(alias, rules)
+)
 
 export { validator }
