@@ -21,6 +21,7 @@ export interface DependencyContainerInterface {
 	validator: typeof validator
 	logger: typeof logger
 	repositories: RepositoryMap
+	databaseClients: ConnectedDatabases
 	thirdParties: {
 		argon2: typeof argon2
 		jwt: typeof jwt
@@ -40,6 +41,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	public validator: typeof validator = validator
 	public logger: typeof logger = logger
 	public repositories!: RepositoryMap // Will be assigned during repositories initialization
+	public databaseClients!: ConnectedDatabases // Will be assigned during repositories initialization
 	public utils: UtilityMap = utilities
 	public thirdParties = {
 		argon2,
@@ -53,8 +55,8 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	 */
 	public async initializeRepositories(): Promise<void> {
 		this.logger.info('DependencyContainer: Initializing repositories...')
-		const dbClients: ConnectedDatabases = databaseServiceManager.getDatabases()
-		this.repositories = loadRepositories(dbClients)
+		this.databaseClients = databaseServiceManager.getDatabases()
+		this.repositories = loadRepositories(this.databaseClients)
 		this.logger.info('DependencyContainer: Repositories loaded.')
 	}
 }
