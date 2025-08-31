@@ -11,6 +11,7 @@ import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
 import op from 'object-path'
+import { Dayjs, dayjs } from './dayjs'
 import logger from './logger'
 
 /**
@@ -29,6 +30,7 @@ export interface DependencyContainerInterface {
 		jwt: typeof jwt
 		ms: typeof ms
 		op: typeof op
+		dayjs: Dayjs
 	}
 	utils: UtilityMap
 }
@@ -51,7 +53,8 @@ class DependencyContainerClass implements DependencyContainerInterface {
 		argon2,
 		jwt,
 		ms,
-		op
+		op,
+		dayjs
 	}
 
 	/**
