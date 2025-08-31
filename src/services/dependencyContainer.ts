@@ -9,6 +9,8 @@ import { validator } from '@/services/validationService'
 import { UtilityMap, utils as utilities } from '@/utils'
 import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
+import ms from 'ms'
+import op from 'object-path'
 import logger from './logger'
 
 /**
@@ -25,6 +27,8 @@ export interface DependencyContainerInterface {
 	thirdParties: {
 		argon2: typeof argon2
 		jwt: typeof jwt
+		ms: typeof ms
+		op: typeof op
 	}
 	utils: UtilityMap
 }
@@ -45,7 +49,9 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	public utils: UtilityMap = utilities
 	public thirdParties = {
 		argon2,
-		jwt
+		jwt,
+		ms,
+		op
 	}
 
 	/**
