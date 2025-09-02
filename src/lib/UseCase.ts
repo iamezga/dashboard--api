@@ -21,6 +21,7 @@ import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterfa
 export abstract class UseCase<J extends JobInterface = JobInterface>
 	implements UseCaseInterface<J>
 {
+	static readonly permission?: string
 	constructor(protected container: DependencyContainer) {}
 
 	/**

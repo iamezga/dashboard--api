@@ -2,6 +2,7 @@ import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
 import { OrganizationRepositoryInterface } from '@/modules/organization'
 import { DependencyContainer } from '@/services/dependencyContainer'
+import { JobInterface } from '@/types/job/JobInterface'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { hash } from 'argon2'
 import { RoleRepositoryInterface } from '../../../role/entities/RoleRepositoryInterface'
@@ -17,6 +18,7 @@ import { UserCreateJobInterface } from './UserCreateJobInterface'
  * @permission user.create
  */
 export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
+	static readonly permission: string = 'user.create'
 	private userRepository: UserRepositoryInterface
 	private roleRepository: RoleRepositoryInterface
 	private organizationRepository: OrganizationRepositoryInterface
@@ -28,6 +30,22 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		this.roleRepository = container.repositories.role
 		this.organizationRepository = container.repositories.organization
 		this.argon2Hash = container.thirdParties.argon2.hash
+	}
+
+	static async getPermissionValidationData(job: JobInterface) {
+		const permissions = job.getUser().permissions
+
+		const data = {
+			permission: UserCreateUseCase.permission
+		}
+		const schema = {
+			permission: {
+				type: 'enum',
+				values: Object.keys(permissions)
+			}
+		}
+
+		return { schema, data }
 	}
 
 	/**
