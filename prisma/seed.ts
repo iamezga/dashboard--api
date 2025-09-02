@@ -23,7 +23,7 @@ interface IPermissionSeedData {
 	description: string
 	scope: PermissionScope
 	moduleId?: string // Optional for GLOBAL scope permissions
-	defaultConfig?: Prisma.JsonObject // Changed to Prisma.JsonObject for better type compatibility
+	config?: Record<string, unknown> // Changed to Prisma.JsonObject for better type compatibility
 	active: boolean
 }
 
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
 			description: 'Allows users to log into the system.',
 			scope: PermissionScope.GLOBAL,
 			active: true,
-			defaultConfig: {
+			config: {
 				timezones: ['Europe/Madrid'],
 				accessDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
 				accessTime: { startTime: '09:00', endTime: '18:00' },
@@ -216,7 +216,7 @@ async function main(): Promise<void> {
 			key: 'permission.update',
 			label: 'Update Permissions',
 			description:
-				'Allows modifying the configuration of existing permissions (e.g., defaultConfig).',
+				'Allows modifying the configuration of existing permissions (e.g., config).',
 			scope: PermissionScope.MODULE,
 			moduleId: permissionsModule?.id,
 			active: true
@@ -251,10 +251,8 @@ async function main(): Promise<void> {
 				scope: permissionData.scope,
 				moduleId: permissionData.moduleId,
 				active: permissionData.active,
-				// Cast defaultConfig to Prisma.InputJsonValue to resolve type incompatibility
-				defaultConfig: permissionData.defaultConfig as
-					| Prisma.InputJsonValue
-					| undefined
+				// Cast config to Prisma.InputJsonValue to resolve type incompatibility
+				config: permissionData.config as Prisma.InputJsonValue | undefined
 			},
 			create: {
 				...permissionData,
@@ -263,10 +261,10 @@ async function main(): Promise<void> {
 					permissionData.moduleId === undefined
 						? null
 						: permissionData.moduleId,
-				defaultConfig:
-					permissionData.defaultConfig === undefined
+				config:
+					permissionData.config === undefined
 						? {}
-						: permissionData.defaultConfig
+						: (permissionData.config as Prisma.InputJsonValue)
 			}
 		})
 		createdPermissions.push(permission)

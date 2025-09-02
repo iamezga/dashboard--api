@@ -9,7 +9,9 @@ datasource db {
 
 enum PermissionScope {
   GLOBAL
+  ORGANIZATION
   MODULE
+  USER
 }
 
 model Organization {
@@ -42,14 +44,14 @@ model Module {
 }
 
 model Permission {
-  id            String          @id @default(uuid()) @db.Uuid
-  key           String          @unique
-  label         String
-  description   String?
-  scope         PermissionScope @default(GLOBAL)
-  moduleId      String?         @db.Uuid
-  defaultConfig Json            @default("{}")
-  active        Boolean         @default(true)
+  id          String          @id @default(uuid()) @db.Uuid
+  key         String          @unique
+  label       String
+  description String?
+  scope       PermissionScope @default(GLOBAL)
+  moduleId    String?         @db.Uuid
+  config      Json            @default("{}")
+  active      Boolean         @default(true)
 
   module          Module?                  @relation(fields: [moduleId], references: [id])
   rolePermissions RolePermission[]

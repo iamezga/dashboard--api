@@ -1,12 +1,12 @@
 import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
-import { User } from '@/modules/user/entities/User'
+import { AuthenticatedUser } from '@/modules/user/entities/User'
 import { JobMetaInterface } from './JobMetaInterface'
 
 export interface JobInterface {
 	getId(): string
 	getMeta(): JobMetaInterface
 	getData(): Record<string, any>
-	getUser(): User
+	getUser(): AuthenticatedUser
 	getPublicUser(): UserLoginDetails | undefined
 
 	getAttempts(): number
@@ -16,7 +16,7 @@ export interface JobInterface {
 	setMeta(meta: JobMetaInterface): void
 	updateMeta(meta: Partial<JobMetaInterface>): void
 	setData(data: Record<string, any>): void
-	setUser(user: User): void
+	setUser(user: AuthenticatedUser): void
 	setAttempts(attempts: number): void
 	setRecaptchaResponse(recaptchaResponse: string): void
 	markFailed(errorId: string, err: Error): void

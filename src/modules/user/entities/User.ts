@@ -13,10 +13,19 @@ export interface User {
 	active: boolean
 	lastLogin: Date | null
 	roleId: string
-	config: object
+	config: Record<string, any>
 	createdAt: Date
 	updatedAt: Date
 	deletedAt: Date | null
+}
+
+/**
+ * @interface AuthenticatedUser
+ * @description Represents a User entity that has been successfully authenticated,
+ * and for which permissions are guaranteed to be present and available.
+ */
+export interface AuthenticatedUser extends User {
+	permissions: Record<string, any>
 }
 
 /**
@@ -32,7 +41,7 @@ export interface UserCreateInput {
 	password: string
 	active?: boolean
 	roleId: string
-	config?: object
+	config?: Record<string, any>
 }
 
 /**
@@ -48,7 +57,7 @@ export interface UserRepoCreateInput {
 	passwordHash: string
 	active?: boolean
 	roleId: string
-	config?: object
+	config?: Record<string, any>
 }
 /**
  * @interface UserUpdateInput
@@ -63,6 +72,6 @@ export interface UserUpdateInput {
 	active?: boolean
 	lastLogin?: Date | null
 	roleId?: string | null
-	config?: object
+	config?: Record<string, any>
 	deletedAt?: Date | null
 }

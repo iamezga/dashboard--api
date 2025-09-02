@@ -1,5 +1,5 @@
 import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
-import { User } from '@/modules/user/entities/User'
+import { AuthenticatedUser } from '@/modules/user/entities/User'
 import { JobInterface } from '@/types/job/JobInterface'
 import { JobMetaInterface } from '@/types/job/JobMetaInterface'
 import pino, { Logger } from 'pino'
@@ -10,7 +10,7 @@ interface JobOptions {
 	data?: Record<string, any>
 	recaptchaResponse?: string
 	meta?: JobMetaInterface
-	user?: User
+	user?: AuthenticatedUser
 	logger?: Logger
 }
 
@@ -35,7 +35,7 @@ export class Job implements JobInterface {
 	private data: Record<string, any>
 	private recaptchaResponse?: string
 	private meta: JobMetaInterface
-	private user?: User
+	private user?: AuthenticatedUser
 	private logger: Logger
 
 	// Event Callbacks
@@ -72,10 +72,10 @@ export class Job implements JobInterface {
 	getData(): Record<string, any> {
 		return structuredClone(this.data)
 	}
-	setUser(user: User): void {
+	setUser(user: AuthenticatedUser): void {
 		this.user = structuredClone(user)
 	}
-	getUser(): User {
+	getUser(): AuthenticatedUser {
 		if (!this.user) throw new Error('User data is missing in Job context')
 		return structuredClone(this.user)
 	}
