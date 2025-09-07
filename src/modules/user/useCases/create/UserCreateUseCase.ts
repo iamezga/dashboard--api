@@ -3,6 +3,7 @@ import { UseCase } from '@/lib/UseCase'
 import { OrganizationRepositoryInterface } from '@/modules/organization'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
+import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { hash } from 'argon2'
 import { RoleRepositoryInterface } from '../../../role/entities/RoleRepositoryInterface'
@@ -32,7 +33,17 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		this.argon2Hash = container.thirdParties.argon2.hash
 	}
 
-	static async getPermissionValidationData(job: JobInterface) {
+	/**
+	 * Provides the validation schema and data for the `user.create` permission check.
+	 * It dynamically generates the schema based on the permission config,
+	 * @param {JobInterface} job - The job object containing the user context and request metadata.
+	 * @param {DependencyContainer} container - The application's dependency container.
+	 * @returns {Promise<UseCasePermissionValidationData>} A promise that resolves to the schema and data for validation.
+	 */
+	static async getPermissionValidationData(
+		job: JobInterface,
+		_container: DependencyContainer
+	): Promise<UseCasePermissionValidationData> {
 		const permissions = job.getUser().permissions
 
 		const data = {

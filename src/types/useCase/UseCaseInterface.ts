@@ -1,4 +1,6 @@
+import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
+import { UseCasePermissionValidationData } from './UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from './UseCaseResponseInterface'
 
 export interface UseCaseInterface<J extends JobInterface = JobInterface> {
@@ -10,7 +12,8 @@ export interface UseCaseInterface<J extends JobInterface = JobInterface> {
 	 * @param job The Job object containing all request data.
 	 */
 	getPermissionValidationData?(
-		job: JobInterface
-	): Promise<{ schema: Record<string, any>; data: Record<string, any> }>
+		job: JobInterface,
+		container: DependencyContainer
+	): Promise<UseCasePermissionValidationData>
 	run: (job: J) => Promise<UseCaseResponseInterface>
 }

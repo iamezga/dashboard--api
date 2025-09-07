@@ -16,7 +16,6 @@ export const sendJsonMiddleware = (
 	return res.status(200).json({
 		jobId: job.getId(),
 		data: useCaseResponse.data,
-		metadata: useCaseResponse.metadata,
-		user: job.getPublicUser()
+		metadata: useCaseResponse.metadata
 	})
 }

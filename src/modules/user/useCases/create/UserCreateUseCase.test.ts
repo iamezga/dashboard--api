@@ -3,10 +3,15 @@ import { DependencyContainer } from '../../../../services/dependencyContainer'
 import { UserCreateJobInterface } from './UserCreateJobInterface'
 import { UserCreateUseCase } from './UserCreateUseCase'
 
-const makeJob = (data: any, attempts = 1): UserCreateJobInterface =>
+const makeJob = (
+	data: any,
+	attempts = 1,
+	permissions: Record<string, boolean> = {}
+) =>
 	({
 		getData: () => data,
-		getAttempts: () => attempts
+		getAttempts: () => attempts,
+		getUser: () => ({ permissions })
 	} as unknown as UserCreateJobInterface)
 
 describe('UserCreateUseCase', () => {
@@ -53,6 +58,28 @@ describe('UserCreateUseCase', () => {
 		roleRepo.findById.mockResolvedValue(baseRole)
 		organizationRepo.findById.mockResolvedValue(baseOrganization)
 		argon2.hash.mockResolvedValue('hashed-pass')
+	})
+
+	it('should have a static permission defined', () => {
+		expect(UserCreateUseCase.permission).toBe('user.create')
+	})
+
+	it('should build permission validation schema and data correctly', async () => {
+		const job = makeJob({}, 1, { 'user.create': true, 'user.update': true })
+		const result = await UserCreateUseCase.getPermissionValidationData(
+			job,
+			{} as any
+		)
+
+		expect(result).toEqual({
+			data: { permission: 'user.create' },
+			schema: {
+				permission: {
+					type: 'enum',
+					values: ['user.create', 'user.update']
+				}
+			}
+		})
 	})
 
 	it('Should throw BadRequest if email is already in use', async () => {

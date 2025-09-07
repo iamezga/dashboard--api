@@ -1,3 +1,5 @@
+import { MergedPermissionData } from '@/modules/session/entities/Session'
+
 /**
  * @interface User
  * @description Represents the domain entity for a User within the application.
@@ -25,7 +27,7 @@ export interface User {
  * and for which permissions are guaranteed to be present and available.
  */
 export interface AuthenticatedUser extends User {
-	permissions: Record<string, any>
+	permissions: Record<string, MergedPermissionData>
 }
 
 /**
@@ -74,4 +76,13 @@ export interface UserUpdateInput {
 	roleId?: string | null
 	config?: Record<string, any>
 	deletedAt?: Date | null
+}
+
+export interface UserStatus {
+	active: boolean
+	config: Record<string, any>
+	lastLogin: Date | null
+	createdAt: Date
+	updatedAt: Date
+	deletedAt: Date | null
 }

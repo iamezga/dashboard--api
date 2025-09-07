@@ -42,8 +42,7 @@ describe('sendJsonMiddleware', () => {
 		expect(mockRes.json).toHaveBeenCalledWith({
 			jobId: 'job-123',
 			data: { foo: 'bar' },
-			metadata: { total: 1 },
-			user: { id: 'user-456', name: 'Test User' }
+			metadata: { total: 1 }
 		})
 	})
 })

@@ -2,7 +2,12 @@ import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
 import { DatabaseClients } from '@/services/databaseServiceManager'
 import { Prisma, User as PrismaUserModel } from '@prisma/client'
-import { User, UserRepoCreateInput, UserUpdateInput } from '../entities/User'
+import {
+	User,
+	UserRepoCreateInput,
+	UserStatus,
+	UserUpdateInput
+} from '../entities/User'
 
 export class PostgresUserRepository implements UserRepositoryInterface {
 	constructor(readonly db: DatabaseClients['postgres']) {}
@@ -22,7 +27,7 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 			active: prismaUser.active,
 			lastLogin: prismaUser.lastLogin,
 			roleId: prismaUser.roleId,
-			config: prismaUser.config as object,
+			config: prismaUser.config as Record<string, any>,
 			createdAt: prismaUser.createdAt,
 			updatedAt: prismaUser.updatedAt,
 			deletedAt: prismaUser.deletedAt
@@ -48,6 +53,9 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 			| 'roleId'
 			| 'config'
 			| 'lastLogin'
+			| 'createdAt'
+			| 'updatedAt'
+			| 'deletedAt'
 		>
 	): UserAuthDetails {
 		return {
@@ -59,8 +67,37 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 			name: prismaUserSubset.name,
 			surname: prismaUserSubset.surname,
 			roleId: prismaUserSubset.roleId,
-			config: prismaUserSubset.config as object,
-			lastLogin: prismaUserSubset.lastLogin
+			config: prismaUserSubset.config as Record<string, any>,
+			lastLogin: prismaUserSubset.lastLogin,
+			createdAt: prismaUserSubset.createdAt,
+			updatedAt: prismaUserSubset.updatedAt,
+			deletedAt: prismaUserSubset.deletedAt
+		}
+	}
+
+	/**
+	 * Maps a subset of Prisma User properties to the domain UserStatus interface.
+	 * @param {Pick<PrismaUserModel, 'active' | 'config' | 'lastLogin' | 'createdAt' | 'updatedAt' | 'deletedAt'>} prismaUserStatus - The partial user object from Prisma.
+	 * @returns {UserStatus} The mapped domain UserStatus entity.
+	 */
+	private mapPrismaUserStatusToDomain(
+		prismaUserStatus: Pick<
+			PrismaUserModel,
+			| 'active'
+			| 'config'
+			| 'lastLogin'
+			| 'createdAt'
+			| 'updatedAt'
+			| 'deletedAt'
+		>
+	): UserStatus {
+		return {
+			active: prismaUserStatus.active,
+			config: prismaUserStatus.config as Record<string, any>,
+			lastLogin: prismaUserStatus.lastLogin,
+			createdAt: prismaUserStatus.createdAt,
+			updatedAt: prismaUserStatus.updatedAt,
+			deletedAt: prismaUserStatus.deletedAt
 		}
 	}
 
@@ -108,10 +145,33 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 				surname: true,
 				roleId: true,
 				config: true,
-				lastLogin: true
+				lastLogin: true,
+				createdAt: true,
+				updatedAt: true,
+				deletedAt: true
 			}
 		})
 		return prismaUser ? this.mapPrismaAuthDetailsToDomain(prismaUser) : null
+	}
+
+	/**
+	 * Finds a user status by id, retrieving essential status fields.
+	 * @param id - User id.
+	 * @returns {Promise<UserAuthDetails | null>}
+	 */
+	async findStatusById(id: string): Promise<UserStatus | null> {
+		const user = await this.db.user.findUnique({
+			where: { id },
+			select: {
+				active: true,
+				lastLogin: true,
+				config: true,
+				createdAt: true,
+				updatedAt: true,
+				deletedAt: true
+			}
+		})
+		return user ? { ...this.mapPrismaUserStatusToDomain(user) } : null
 	}
 
 	/**

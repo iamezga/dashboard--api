@@ -1,7 +1,7 @@
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { DatabaseClients } from '@/services/databaseServiceManager'
 import { RepositoryInterface } from '@/types/useCase/RepositoryInterface'
-import { User, UserRepoCreateInput } from './User'
+import { User, UserRepoCreateInput, UserStatus } from './User'
 
 export interface UserRepositoryInterface
 	extends RepositoryInterface<User, DatabaseClients['postgres']> {
@@ -20,6 +20,13 @@ export interface UserRepositoryInterface
 	 * @returns {Promise<UserAuthDetails | null>} The authentication-specific user details or null if not found.
 	 */
 	findUserAuthDetailsByEmail(email: string): Promise<UserAuthDetails | null>
+
+	/**
+	 * Finds a user status by id, retrieving essential user status fields.
+	 * @param id - User id.
+	 * @returns {Promise<UserAuthDetails | null>}
+	 */
+	findStatusById(id: string): Promise<UserStatus | null>
 
 	/**
 	 * Creates a new user.

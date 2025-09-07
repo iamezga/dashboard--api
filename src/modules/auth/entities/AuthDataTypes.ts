@@ -10,7 +10,7 @@ export interface UserLoginDetails {
 	surname: string | null
 	roleId: string
 	active: boolean
-	config: object
+	config: Record<string, any>
 }
 
 /**
@@ -35,8 +35,11 @@ export interface UserAuthDetails {
 	name: string
 	surname: string | null
 	roleId: string
-	config: object
+	config: Record<string, any>
 	lastLogin: Date | null
+	createdAt: Date
+	updatedAt: Date
+	deletedAt: Date | null
 }
 
 /**

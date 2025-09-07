@@ -8,9 +8,11 @@ import {
 	PostgresPermissionRepository
 } from './permission'
 import { PostgresRoleRepository, RoleRepositoryInterface } from './role'
+import { RedisSessionRepository, SessionRepositoryInterface } from './session'
 import { PostgresUserRepository, UserRepositoryInterface } from './user'
 
 export const repositories = {
+	RedisSessionRepository,
 	PostgresOrganizationRepository,
 	PostgresUserRepository,
 	PostgresPermissionRepository,
@@ -24,6 +26,7 @@ export const repositories = {
  * mapping normalized repository names (e.g., 'user', 'audit') to their corresponding interfaces.
  */
 export type RepositoryMap = {
+	session: SessionRepositoryInterface
 	organization: OrganizationRepositoryInterface
 	user: UserRepositoryInterface
 	permission: PermissionRepositoryInterface

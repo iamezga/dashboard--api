@@ -1,6 +1,7 @@
 import { UseCase } from '@/lib/UseCase'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
+import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { UserGetJobInterface } from './UserGetJobInterface'
 
@@ -13,7 +14,17 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		super(container)
 	}
 
-	static async getPermissionValidationData(job: JobInterface) {
+	/**
+	 * Provides the validation schema and data for the `user.get` permission check.
+	 * It dynamically generates the schema based on the permission config,
+	 * @param {JobInterface} job - The job object containing the user context and request metadata.
+	 * @param {DependencyContainer} container - The application's dependency container.
+	 * @returns {Promise<UseCasePermissionValidationData>} A promise that resolves to the schema and data for validation.
+	 */
+	static async getPermissionValidationData(
+		job: JobInterface,
+		_container: DependencyContainer
+	): Promise<UseCasePermissionValidationData> {
 		const permissions = job.getUser().permissions
 
 		const data = {

@@ -3,6 +3,7 @@ import { Prisma, Permission as PrismaPermissionModel } from '@prisma/client'
 import {
 	Permission,
 	PermissionCreateInput,
+	PermissionScope,
 	PermissionUpdateInput
 } from '../entities/Permission'
 import { PermissionRepositoryInterface } from '../entities/PermissionRepositoryInterface'
@@ -30,6 +31,10 @@ export class PostgresPermissionRepository
 			key: prismaPermission.key,
 			label: prismaPermission.label,
 			description: prismaPermission.description,
+			active: prismaPermission.active,
+			config: prismaPermission.config as Record<string, any>,
+			moduleId: prismaPermission.moduleId,
+			scope: prismaPermission.scope as PermissionScope,
 			createdAt: prismaPermission.createdAt,
 			updatedAt: prismaPermission.updatedAt,
 			deletedAt: prismaPermission.deletedAt

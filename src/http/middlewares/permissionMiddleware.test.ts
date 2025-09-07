@@ -73,7 +73,7 @@ describe('permissionMiddleware', () => {
 	it('should throw UnauthorizedError if validator returns errors', async () => {
 		;(useCases as any).SecureCase = class {
 			static readonly permission = 'user.create'
-			static getPermissionValidationData() {
+			static async getPermissionValidationData() {
 				return {
 					schema: { permission: { type: 'enum', values: ['user.create'] } },
 					data: { permission: 'invalid.permission' }
@@ -96,7 +96,7 @@ describe('permissionMiddleware', () => {
 	it('should call next() if validator returns no errors', async () => {
 		;(useCases as any).SecureCase = class {
 			static readonly permission = 'user.create'
-			static getPermissionValidationData() {
+			static async getPermissionValidationData() {
 				return {
 					schema: { permission: { type: 'enum', values: ['user.create'] } },
 					data: { permission: 'user.create' }

@@ -3,6 +3,7 @@ import * as auth from './auth'
 import * as organization from './organization'
 import * as permission from './permission'
 import * as role from './role'
+import * as session from './session'
 import * as user from './user'
 
 /**
@@ -41,6 +42,7 @@ import * as user from './user'
 
 // Merge all module exports into a single object for dynamic processing
 const allModules = {
+	...session,
 	...auth,
 	...audit,
 	...organization,

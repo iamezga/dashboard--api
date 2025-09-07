@@ -13,7 +13,7 @@ export interface Role {
 	label: string // Human-readable name for UI (e.g., 'Super Administrador')
 	description: string | null
 	active: boolean
-	config: object // Role-specific configurations (e.g., default dashboard, theme)
+	config: Record<string, any> // Role-specific configurations (e.g., default dashboard, theme)
 	createdAt: Date
 	updatedAt: Date
 	deletedAt: Date | null
@@ -30,7 +30,7 @@ export interface RoleCreateInput {
 	label: string
 	description?: string | null
 	active?: boolean
-	config?: object
+	config?: Record<string, any>
 	permissionKeys?: string[]
 }
 
@@ -44,10 +44,20 @@ export interface RoleUpdateInput {
 	label?: string
 	description?: string | null
 	active?: boolean
-	config?: object
+	config?: Record<string, any>
 	deletedAt?: Date | null
 	permissionKeysToAdd?: string[]
 	permissionKeysToRemove?: string[]
+}
+
+/**
+ * @interface RolePermissionDetail
+ * @description Represents a permission with its specific configuration when assigned to a role.
+ * This is used within RoleWithPermissions to provide access to the `config` from `RolePermission`.
+ */
+export interface RolePermissionDetail {
+	permission: Permission // The actual Permission entity
+	config: Record<string, any> // The configuration specific to this role-permission assignment
 }
 
 /**
@@ -56,5 +66,5 @@ export interface RoleUpdateInput {
  * Useful for scenarios where the full role and its permissions are needed.
  */
 export interface RoleWithPermissions extends Role {
-	permissions: Permission[]
+	rolePermissions: RolePermissionDetail[]
 }

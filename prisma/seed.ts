@@ -89,9 +89,23 @@ async function main(): Promise<void> {
 			scope: PermissionScope.GLOBAL,
 			active: true,
 			config: {
-				timezones: ['Europe/Madrid'],
-				accessDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-				accessTime: { startTime: '09:00', endTime: '18:00' },
+				conditions: {
+					timezones: {
+						enabled: false,
+						values: ['Europe/Madrid']
+					},
+					accessDays: {
+						enabled: true,
+						values: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+					},
+					accessTime: {
+						enabled: true,
+						options: {
+							from: '09:00',
+							to: '18:00'
+						}
+					}
+				},
 				maxSessionTime: 86400, // seconds (24 hours)
 				maxInactivityTime: 86400 // seconds (24 hours)
 			}
