@@ -53,9 +53,9 @@ model Permission {
   config      Json            @default("{}")
   active      Boolean         @default(true)
 
-  module          Module?                  @relation(fields: [moduleId], references: [id])
+  module          Module?          @relation(fields: [moduleId], references: [id])
   rolePermissions RolePermission[]
-  userOverrides   UserPermissionOverride[]
+  userPermissions UserPermission[]
 
   createdAt DateTime  @default(now()) @db.Timestamptz
   updatedAt DateTime  @updatedAt @db.Timestamptz
@@ -111,10 +111,10 @@ model User {
   roleId         String    @db.Uuid
   config         Json      @default("{}")
 
-  organization        Organization?            @relation(fields: [organizationId], references: [id])
-  role                Role?                    @relation(fields: [roleId], references: [id])
-  permissionOverrides UserPermissionOverride[]
-  modules             UserModule[]
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  role            Role?            @relation(fields: [roleId], references: [id])
+  userPermissions UserPermission[]
+  modules         UserModule[]
 
   createdAt DateTime  @default(now()) @db.Timestamptz
   updatedAt DateTime  @updatedAt @db.Timestamptz
@@ -139,7 +139,7 @@ model UserModule {
   @@index([moduleId])
 }
 
-model UserPermissionOverride {
+model UserPermission {
   userId       String   @db.Uuid
   permissionId String   @db.Uuid
   disabled     Boolean  @default(false)

@@ -1,3 +1,5 @@
+import { UserPermission } from '@/modules/user/entities/User'
+
 /**
  * @interface UserLoginDetails
  * @description Represents the public user data returned after a successful login.
@@ -36,6 +38,7 @@ export interface UserAuthDetails {
 	surname: string | null
 	roleId: string
 	config: Record<string, any>
+	userPermissions: UserPermission[]
 	lastLogin: Date | null
 	createdAt: Date
 	updatedAt: Date

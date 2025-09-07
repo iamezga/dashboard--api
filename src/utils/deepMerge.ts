@@ -1,53 +1,52 @@
 /**
- * @file deepMerge.ts
- * @description Provides a utility function for performing a deep merge of two objects.
- * This function recursively merges properties, allowing for nested configurations
- * to be combined correctly without overwriting entire sub-objects.
- */
-
-/**
- * Performs a deep merge of two objects.
- * Properties in the source object will overwrite properties in the target object.
- * If a property exists in both and is an object (and not an array), it will be recursively merged.
- * Primitive values and arrays from the source will always overwrite those in the target.
+ * Deeply merges two objects.
  *
- * @param {Record<string, any>} target - The target object to merge into.
- * @param {Record<string, any>} source - The source object to merge from.
- * @returns {Record<string, any>} A new object representing the deeply merged result.
+ * - Nested objects are merged recursively.
+ * - Primitive values and arrays in source overwrite those in target.
+ * - Empty objects in source do not overwrite non-empty target objects.
+ * - Undefined values in source are ignored.
+ * - Non-object target/source values are converted to empty objects only at the root call.
  */
 export function deepMerge(
-	target: Record<string, any>,
-	source: Record<string, any>
+	target: Record<string, any> = {},
+	source: Record<string, any> = {},
+	isRoot = true
 ): Record<string, any> {
-	const output = { ...target } // Start with a a shallow copy of target
+	// Only at root, convert non-objects to empty objects
+	if (isRoot) {
+		if (typeof target !== 'object' || target === null) target = {}
+		if (typeof source !== 'object' || source === null) source = {}
+	}
 
-	if (
-		target &&
-		typeof target === 'object' &&
-		source &&
-		typeof source === 'object'
-	) {
-		Object.keys(source).forEach(key => {
-			if (
-				source[key] &&
-				typeof source[key] === 'object' &&
-				!Array.isArray(source[key])
-			) {
-				// If the source key is an object (and not an array)
-				if (!(key in target)) {
-					// If target doesn't have the key, just assign it (deeply cloned)
-					// structuredClone is used here to ensure a deep copy of any sub-object
-					// from the source if it doesn't exist in the target.
-					Object.assign(output, { [key]: structuredClone(source[key]) })
-				} else {
-					// If target has the key, and both target[key] and source[key] are objects, recursively merge
-					output[key] = deepMerge(target[key], source[key])
+	const output: Record<string, any> = { ...target }
+
+	for (const key of Object.keys(source)) {
+		const srcVal = source[key]
+		const tgtVal = target[key]
+
+		if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+			// copy empty objects if target does not have the key
+			if (Object.keys(srcVal).length === 0) {
+				if (tgtVal === undefined) {
+					output[key] = structuredClone(srcVal)
 				}
-			} else {
-				// If it's a primitive value or an array, or if target[key] is not an object, overwrite
-				Object.assign(output, { [key]: source[key] })
+				continue
 			}
-		})
+
+			if (tgtVal && typeof tgtVal === 'object' && !Array.isArray(tgtVal)) {
+				output[key] = deepMerge(tgtVal, srcVal, false)
+			} else {
+				output[key] = structuredClone(srcVal)
+			}
+
+			if (tgtVal && typeof tgtVal === 'object' && !Array.isArray(tgtVal)) {
+				output[key] = deepMerge(tgtVal, srcVal, false)
+			} else {
+				output[key] = structuredClone(srcVal)
+			}
+		} else if (srcVal !== undefined) {
+			output[key] = srcVal
+		}
 	}
 
 	return output

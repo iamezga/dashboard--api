@@ -1,4 +1,18 @@
+import { Permission } from '@/modules/permission/entities/Permission'
 import { MergedPermissionData } from '@/modules/session/entities/Session'
+
+/**
+ * @interface UserPermission
+ * @description Represents the domain entity for a UserPermission.
+ * This interface defines the properties of a custom permission override
+ * assigned to a user, independent of the underlying database schema.
+ */
+export interface UserPermission {
+	config: Record<string, any>
+	assignedAt: Date
+	deletedAt: Date | null
+	permission: Permission
+}
 
 /**
  * @interface User

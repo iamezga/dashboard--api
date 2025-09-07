@@ -1,7 +1,7 @@
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { DatabaseClients } from '@/services/databaseServiceManager'
 import { RepositoryInterface } from '@/types/useCase/RepositoryInterface'
-import { User, UserRepoCreateInput, UserStatus } from './User'
+import { User, UserRepoCreateInput, UserStatus, UserUpdateInput } from './User'
 
 export interface UserRepositoryInterface
 	extends RepositoryInterface<User, DatabaseClients['postgres']> {
@@ -34,4 +34,12 @@ export interface UserRepositoryInterface
 	 * @returns {Promise<User>} The created User entity.
 	 */
 	create(data: UserRepoCreateInput): Promise<User>
+
+	/**
+	 * Updates an existing user.
+	 * @param id - The ID of the user to update.
+	 * @param data - The partial data to update.
+	 * @returns {Promise<User | null>} The updated user entity or null if not found.
+	 */
+	update(id: string, data: UserUpdateInput): Promise<User | null>
 }

@@ -74,17 +74,9 @@ export class PostgresRoleRepository implements RoleRepositoryInterface {
 			.filter(rp => !rp.permission.deletedAt && rp.permission.active) // Only active and non-deleted permissions
 			.map(rp => ({
 				permission: {
-					id: rp.permission.id,
-					key: rp.permission.key,
-					label: rp.permission.label,
-					description: rp.permission.description,
-					active: rp.permission.active,
-					config: (rp.permission.config ?? {}) as Record<string, any>,
-					moduleId: rp.permission.moduleId,
+					...rp.permission,
 					scope: rp.permission.scope as PermissionScope,
-					createdAt: rp.permission.createdAt,
-					updatedAt: rp.permission.updatedAt,
-					deletedAt: rp.permission.deletedAt
+					config: (rp.permission.config ?? {}) as Record<string, any>
 				},
 				config: rp.config
 			})) as RolePermissionDetail[]

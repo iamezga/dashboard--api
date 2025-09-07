@@ -2,6 +2,7 @@ import { BadRequestError, UnauthorizedError } from '../../../../errors'
 import { Job } from '../../../../lib/Job'
 import { dayjs } from '../../../../services/dayjs'
 import { DependencyContainer } from '../../../../services/dependencyContainer'
+import { deepMerge } from '../../../../utils/deepMerge'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 import { AuthLoginUseCase } from './AuthLoginUseCase'
 
@@ -37,6 +38,7 @@ const makeUserAuthDetails = (overrides?: Partial<any>) => ({
 	roleId: 'role1',
 	config: {},
 	lastLogin: null,
+	userPermissions: [],
 	...overrides
 })
 
@@ -83,7 +85,7 @@ const makeContainer = (): DependencyContainer =>
 		thirdParties: { argon2, jwt, ms, dayjs },
 		logger,
 		config: { get: configGet },
-		utils: { deepMerge: (a: any, b: any) => ({ ...a, ...b }) },
+		utils: { deepMerge },
 		validator
 	} as unknown as DependencyContainer)
 
@@ -197,7 +199,10 @@ describe('AuthLoginUseCase', () => {
 		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
 			active: true,
 			rolePermissions: [
-				{ permission: { key: 'auth.login', active: true }, config: {} }
+				{
+					permission: { key: 'auth.login', active: true, config: {} },
+					config: {}
+				}
 			]
 		})
 		userRepo.update.mockResolvedValueOnce(null)
@@ -430,32 +435,6 @@ describe('AuthLoginUseCase', () => {
 		)
 	})
 
-	it('Should handle case when user has no auth.login permission', async () => {
-		const container = makeContainer() as any
-		const useCase = new AuthLoginUseCase(container)
-
-		const userAuthDetails = makeUserAuthDetails({ roleId: 'role1' })
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userAuthDetails)
-		argon2.verify.mockResolvedValueOnce(true)
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: [
-				{
-					permission: { key: 'other.permission', active: true, config: {} },
-					config: {}
-				}
-			]
-		})
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob()
-		await useCase.run(job)
-
-		const sessionData = sessionRepo.save.mock.calls[0][1]
-		expect(sessionData.config).toEqual({})
-	})
-
 	it('Should skip inactive or deleted permissions', async () => {
 		const container = makeContainer() as any
 		const useCase = new AuthLoginUseCase(container)
@@ -491,5 +470,61 @@ describe('AuthLoginUseCase', () => {
 
 		const mergedPermissions = (job as unknown as Job).getUser().permissions
 		expect(mergedPermissions).toEqual({})
+	})
+	it('Should merge rolePermissions and userPermissions', async () => {
+		const container = makeContainer()
+		const useCase = new AuthLoginUseCase(container)
+
+		const rolePermission = [
+			{
+				permission: { key: 'user.custom', active: true, deletedAt: null },
+				config: { fromUser: true }
+			},
+			{
+				permission: { key: 'auth.login', active: true, deletedAt: null },
+				config: { fromRole: true }
+			}
+		]
+
+		const userPermission = [
+			{
+				permission: { key: 'user.custom', active: true, deletedAt: null },
+				config: { fromUser: false }
+			},
+			{
+				permission: { key: 'user.custom2', active: false, deletedAt: null },
+				config: {}
+			}
+		]
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
+			makeUserAuthDetails({
+				roleId: 'role1',
+				userPermissions: userPermission
+			})
+		)
+
+		argon2.verify.mockResolvedValueOnce(true)
+
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			active: true,
+			rolePermissions: rolePermission
+		})
+
+		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
+		jwt.sign.mockReturnValueOnce('signed.jwt.token')
+
+		await useCase.run(makeLoginJob())
+
+		const sessionData = sessionRepo.save.mock.calls[0][1]
+
+		expect(sessionData.permissions['auth.login']).toBeDefined()
+		expect(sessionData.permissions['user.custom']).toBeDefined()
+		expect(sessionData.permissions['auth.login'].config).toEqual({
+			fromRole: true
+		})
+		expect(sessionData.permissions['user.custom'].config).toEqual({
+			fromUser: false
+		})
 	})
 })

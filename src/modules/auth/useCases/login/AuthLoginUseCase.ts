@@ -7,16 +7,13 @@ import {
 } from '@/modules/auth/entities/AuthDataTypes'
 import { RoleRepositoryInterface } from '@/modules/role'
 import { SessionRepositoryInterface } from '@/modules/session'
-import {
-	MergedPermissionData,
-	SessionData,
-	SessionUser
-} from '@/modules/session/entities/Session'
+import { SessionData, SessionUser } from '@/modules/session/entities/Session'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
+import { deepMerge } from '@/utils/deepMerge'
 import { verify } from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms, { StringValue } from 'ms'
@@ -39,6 +36,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	private jwtExpiresIn: string
 	private argon2Verify: typeof verify
 	private msConverter: typeof ms
+	private deepMerge: typeof deepMerge
 
 	constructor(container: DependencyContainer) {
 		super(container)
@@ -51,6 +49,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		this.argon2Verify = container.thirdParties.argon2.verify
 		this.argon2Verify = container.thirdParties.argon2.verify
 		this.msConverter = container.thirdParties.ms
+		this.deepMerge = container.utils.deepMerge
 
 		if (!this.jwtSecret) {
 			throw new Error('JWT SECRET is not defined')
@@ -58,21 +57,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		if (!this.jwtExpiresIn) {
 			throw new Error('JWT EXPIRES IN is not defined')
 		}
-	}
-
-	/**
-	 * Private helper to merge the base configuration of a permission with
-	 * the role-specific configuration.
-	 * Uses a deep merge to ensure nested properties are correctly combined.
-	 * @param {Record<string, any> | null} baseConfig - Base configuration from the Permission (Permission.config).
-	 * @param {Record<string, any> | null} roleSpecificConfig - Specific configuration from the Role-Permission relation (RolePermission.config).
-	 * @returns {Record<string, any>} The merged effective configuration.
-	 */
-	private mergePermissionConfigs(
-		baseConfig: Record<string, any>,
-		roleSpecificConfig: Record<string, any>
-	): Record<string, any> {
-		return this.container.utils.deepMerge(baseConfig, roleSpecificConfig)
 	}
 
 	/**
@@ -204,35 +188,32 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			)
 		}
 
-		const mergedPermissions: Record<string, MergedPermissionData> = {}
+		const rolePermissions = roleWithPermissions.rolePermissions.reduce(
+			(acc, curr) => {
+				if (!curr.permission.active || curr.permission.deletedAt) return acc
+				const permission = this.deepMerge(curr.permission, {
+					config: curr.config
+				})
+				return (acc = { ...acc, [curr.permission.key]: permission })
+			},
+			<Record<string, any>>{}
+		)
+		const userPermissions = userAuthDetails.userPermissions.reduce(
+			(acc, curr) => {
+				if (!curr.permission.active || curr.permission.deletedAt) return acc
+				const permission = this.deepMerge(curr.permission, {
+					config: curr.config
+				})
+				return (acc = { ...acc, [curr.permission.key]: permission })
+			},
+			<Record<string, any>>{}
+		)
 
-		// Iterate through role's permissions
-		// Assuming roleWithPermissions.rolePermissions is an array of { permission: Permission, config: JsonObject }
-		for (const rolePermissionDetail of roleWithPermissions.rolePermissions) {
-			const permission = rolePermissionDetail.permission
-			// Only include active and non-deleted permissions
-			if (!permission.active || permission.deletedAt) continue
-
-			const effectiveConfig = this.mergePermissionConfigs(
-				permission.config, // Base config from the Permission
-				rolePermissionDetail.config // Specific config from the Role-Permission relation
-			)
-
-			mergedPermissions[permission.key] = {
-				key: permission.key,
-				label: permission.label,
-				description: permission.description || undefined,
-				scope: permission.scope,
-				config: effectiveConfig
-			}
-		}
-
-		// | Future extension: Logic for userPermissionOverride would be added here.
-		// | It would further merge configurations on top of role-based permissions.
+		const permissions = this.deepMerge(rolePermissions, userPermissions)
 
 		job.setUser({
 			...userAuthDetails,
-			permissions: mergedPermissions
+			permissions
 		})
 
 		const { data, schema } = await AuthLoginUseCase.getPermissionValidationData(
@@ -262,7 +243,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			`User ${userAuthDetails.email} successfully logged in.`
 		)
 
-		// 8. Prepare session data for Redis
 		// Convert JWT expiresIn string (e.g., "1h") to seconds for Redis TTL
 		const jwtExpiresInMilliseconds = this.msConverter(
 			this.jwtExpiresIn as StringValue
@@ -280,19 +260,19 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		// Prepare session data with the embedded user snapshot
-		const permissionConfig =
-			mergedPermissions[AuthLoginUseCase.permission]?.config || {}
+		const loginPermissionConfig =
+			permissions[AuthLoginUseCase.permission]?.config || {}
 		const sessionData: SessionData = {
 			user: sessionUser,
-			permissions: mergedPermissions,
+			permissions,
 			sessionStartTime: currentTime.getTime(),
 			lastActivity: currentTime.getTime(),
-			maxSessionTime: permissionConfig.maxSessionTime || jwtExpiresInSeconds,
-			maxInactiveTime: permissionConfig.maxInactiveTime || jwtExpiresInSeconds,
-			config: permissionConfig
+			maxSessionTime:
+				loginPermissionConfig.maxSessionTime || jwtExpiresInSeconds,
+			maxInactiveTime:
+				loginPermissionConfig.maxInactiveTime || jwtExpiresInSeconds
 		}
 
-		// 9. Save session to Redis
 		// Use maxSessionTime as TTL for the Redis key
 		await this.sessionRepository.save(
 			sessionData.user.id,

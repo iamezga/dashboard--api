@@ -47,16 +47,16 @@ describe('deepMerge', () => {
 		const result = deepMerge(target, source)
 
 		expect(result).toEqual({ a: { b: 1, c: 2 } })
-		expect(target).toEqual({ a: { b: 1 } }) // unchanged
-		expect(source).toEqual({ a: { c: 2 } }) // unchanged
+		expect(target).toEqual({ a: { b: 1 } })
+		expect(source).toEqual({ a: { c: 2 } })
 	})
 
-	it('should handle null and undefined values correctly', () => {
+	it('should ignore undefined values and empty objects from source', () => {
 		const target = { a: { b: 1 }, d: 4 }
-		const source = { a: null, c: undefined }
+		const source = { a: null, c: undefined, e: {} }
 		const result = deepMerge(target, source)
 
-		expect(result).toEqual({ a: null, d: 4, c: undefined })
+		expect(result).toEqual({ a: null, d: 4, c: undefined, e: {} })
 	})
 
 	it('should return shallow copy if source is empty', () => {
@@ -64,7 +64,7 @@ describe('deepMerge', () => {
 		const result = deepMerge(target, {})
 
 		expect(result).toEqual({ a: 1 })
-		expect(result).not.toBe(target) // new object
+		expect(result).not.toBe(target)
 	})
 
 	it('should return shallow copy if target is empty', () => {
@@ -72,5 +72,137 @@ describe('deepMerge', () => {
 		const result = deepMerge({}, source)
 
 		expect(result).toEqual({ a: 1 })
+	})
+
+	it('should overwrite value when source provides a primitive or array', () => {
+		const target1 = { a: { b: 1 } }
+		const source1 = { a: 42 }
+		const result1 = deepMerge(target1, source1)
+		expect(result1).toEqual({ a: 42 })
+
+		const target2 = { a: { b: 1 } }
+		const source2 = { a: [1, 2, 3] }
+		const result2 = deepMerge(target2, source2)
+		expect(result2).toEqual({ a: [1, 2, 3] })
+	})
+
+	it('should skip empty nested objects in source', () => {
+		const target = { a: { b: 1, c: 2 } }
+		const source = { a: {} }
+		const result = deepMerge(target, source)
+
+		expect(result).toEqual({ a: { b: 1, c: 2 } })
+	})
+
+	it('should merge non-empty nested objects when key exists in target', () => {
+		const target = { a: { b: 1 } }
+		const source = { a: { c: 2 } }
+		const result = deepMerge(target, source)
+
+		expect(result).toEqual({ a: { b: 1, c: 2 } })
+	})
+
+	it('should handle target or source being non-objects', () => {
+		const result1 = deepMerge(42 as any, { a: 1 })
+		expect(result1).toEqual({ a: 1 })
+
+		const result2 = deepMerge({ a: 1 }, null as any)
+		expect(result2).toEqual({ a: 1 })
+
+		const result3 = deepMerge(42 as any, 'hello' as any)
+		expect(result3).toEqual({})
+	})
+
+	it('should convert both target and source to empty object if both non-objects at root', () => {
+		const result = deepMerge()
+		expect(result).toEqual({})
+	})
+
+	it('should convert both target and source to empty object if both non-objects at root', () => {
+		const result = deepMerge()
+		expect(result).toEqual({})
+	})
+
+	it('should preserve original config when merging with empty config', () => {
+		const target = {
+			key: 'auth.login',
+			active: true,
+			deletedAt: null,
+			config: {
+				conditions: {
+					accessDays: {
+						enabled: true,
+						values: ['Monday', 'Tuesday']
+					},
+					accessTime: {
+						enabled: true,
+						options: { from: '08:00', to: '18:00' }
+					}
+				}
+			}
+		}
+		const source = { config: {} }
+
+		const result = deepMerge(target, source)
+
+		expect(result).toEqual(target)
+	})
+
+	it('should override specific primitive in nested config while keeping the rest', () => {
+		const target = {
+			key: 'auth.login',
+			active: true,
+			deletedAt: null,
+			config: {
+				conditions: {
+					accessDays: {
+						enabled: true,
+						values: ['Monday', 'Tuesday']
+					},
+					accessTime: {
+						enabled: true,
+						options: { from: '08:00', to: '18:00' }
+					}
+				}
+			}
+		}
+		const source = {
+			config: {
+				conditions: {
+					accessDays: {
+						enabled: false
+					}
+				}
+			}
+		}
+
+		const expected = {
+			key: 'auth.login',
+			active: true,
+			deletedAt: null,
+			config: {
+				conditions: {
+					accessDays: {
+						enabled: false,
+						values: ['Monday', 'Tuesday']
+					},
+					accessTime: {
+						enabled: true,
+						options: { from: '08:00', to: '18:00' }
+					}
+				}
+			}
+		}
+
+		const result = deepMerge(target, source)
+
+		expect(result).toEqual(expected)
+	})
+
+	it('should add missing empty objects from source', () => {
+		const target = { key: 'auth.login', active: true }
+		const source = { config: {} }
+		const result = deepMerge(target, source)
+		expect(result).toEqual({ key: 'auth.login', active: true, config: {} })
 	})
 })
