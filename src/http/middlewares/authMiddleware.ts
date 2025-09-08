@@ -1,35 +1,31 @@
 import { UnauthorizedError } from '@/errors'
 import { Job } from '@/lib/Job'
 import { DecodedUserToken } from '@/modules/auth/entities/AuthDataTypes'
-import { SessionData } from '@/modules/session/entities/Session'
-import { AuthenticatedUser } from '@/modules/user/entities/User'
+import { SessionRepositoryInterface } from '@/modules/session'
+import { SessionData, SessionUser } from '@/modules/session/entities/Session'
+import { UserRepositoryInterface } from '@/modules/user'
+import { AuthenticatedUser, UserStatus } from '@/modules/user/entities/User'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken'
 
 /**
  * @function authMiddleware
- * @description Factory function that creates and returns an Express middleware for user authentication via JWT and session validation.
- * It extracts the JWT, verifies it, retrieves the session data from Redis,
- * and attaches the session information and the User object to the Job context.
+ * @description Factory function that creates and returns an Express middleware for user authentication.
+ * It validates a JWT, verifies the associated session in Redis, and populates the Job with user data and permissions.
  * @param {DependencyContainer} container - The application's dependency container.
  * @returns {RequestHandler} An Express middleware function.
  */
 export const authMiddleware = (
 	container: DependencyContainer
 ): RequestHandler => {
-	const { jwt, ms: msConverter } = container.thirdParties
-	const { config, repositories } = container
-
+	const { jwt } = container.thirdParties
+	const { config, repositories, logger } = container
 	const jwtSecret = config.get('jwt.secret')
 	const jwtExpiresIn = config.get('jwt.expiresIn')
 
-	if (!jwtSecret) {
-		throw new Error('JWT_SECRET is not defined in the configuration.')
-	}
-
-	if (!jwtExpiresIn) {
-		throw new Error('JWT_EXPIRES_IN is not defined in the configuration.')
+	if (!jwtSecret || !jwtExpiresIn) {
+		throw new Error('JWT configuration is missing in the environment.')
 	}
 
 	return async (
@@ -37,125 +33,103 @@ export const authMiddleware = (
 		res: Response,
 		next: NextFunction
 	): Promise<void> => {
-		if (!req.requestData) {
-			return next(
-				new Error(
-					'`requestDataMiddleware` must be run before `authMiddleware`.'
-				)
+		if (!req.requestData || !res.locals.job) {
+			logger.error(
+				'`requestDataMiddleware` and `jobMiddleware` must run before `authMiddleware`'
 			)
+			throw new UnauthorizedError('Authentication failed.')
 		}
 
+		const job = res.locals.job as Job
 		let token: string | undefined = req.requestData.token
 
 		if (!token) {
 			const authHeader = req.headers.authorization
 			if (!authHeader || !authHeader.startsWith('Bearer ')) {
-				throw new UnauthorizedError(
-					'No authentication token provided or token malformed.'
-				)
+				throw new UnauthorizedError('Authentication failed.')
 			}
 			token = authHeader.split('Bearer ')[1]
 		}
 
-		const job = res.locals.job as Job
-		if (!job) {
-			throw new Error('`jobMiddleware` must be run before `authMiddleware`.')
-		}
-
 		try {
-			const decodedPayload = jwt.verify(token, jwtSecret) as DecodedUserToken
+			const sessionRepository: SessionRepositoryInterface = repositories.session
+			const userRepository: UserRepositoryInterface = repositories.user
 
-			const session: SessionData | null = await repositories.session.findById(
-				decodedPayload.userId
-			)
+			const { userId, sessionId } = jwt.verify(
+				token,
+				jwtSecret
+			) as DecodedUserToken
 
-			if (!session) {
-				// Session not found in Redis, token is invalid or session has expired/been deleted
-				throw new UnauthorizedError('Authentication failed: Session not found.')
+			// Retrieve session metadata from Redis
+			const sessionMetadata: SessionData | null =
+				await sessionRepository.getSessionMetadata(sessionId)
+
+			if (!sessionMetadata) {
+				throw new UnauthorizedError('Authentication failed.')
 			}
 
 			const now = Date.now()
-			const maxInactiveTime = msConverter(session.maxInactiveTime) // ms returns milliseconds
-			const maxSessionTime = msConverter(session.maxSessionTime) // ms returns milliseconds
+			// Convert Redis values from seconds to milliseconds for comparison
+			const maxInactiveTimeInMs = sessionMetadata.maxInactiveTime * 1000
+			const maxSessionTimeInMs = sessionMetadata.maxSessionTime * 1000
+
 			const sessionIsInactive =
-				now - session.lastActivity > Number(maxInactiveTime)
+				now - sessionMetadata.lastActivity > maxInactiveTimeInMs
 			const sessionIsExpired =
-				now - session.sessionStartTime > Number(maxSessionTime)
+				now - sessionMetadata.sessionStartTime > maxSessionTimeInMs
 
 			if (sessionIsInactive || sessionIsExpired) {
 				// Delete the expired/inactive session from Redis
-				await repositories.session.delete(decodedPayload.userId)
-				throw new UnauthorizedError(
-					'Authentication failed: Session expired due to inactivity.'
-				)
+				await sessionRepository.deleteSession(sessionId)
+				throw new UnauthorizedError('Authentication failed.')
 			}
 
-			// Lightweight DB check for critical, volatile data (e.g., active status)
-			const userStatus = await repositories.user.findStatusById(
-				decodedPayload.userId
+			const sessionUser: SessionUser | null =
+				await sessionRepository.getUserData(userId)
+			if (!sessionUser) {
+				await sessionRepository.deleteAllUserSessions(userId)
+				throw new UnauthorizedError('Authentication failed.')
+			}
+
+			const userStatus: UserStatus | null = await userRepository.findStatusById(
+				userId
 			)
-			// If user doesn't exist in DB or is inactive, invalidate the session
 			if (!userStatus || !userStatus.active || userStatus.deletedAt) {
-				await repositories.session.delete(decodedPayload.userId) // Clean up stale session
-				throw new UnauthorizedError(
-					'Authentication failed: User is inactive or not found.'
-				)
+				await sessionRepository.deleteAllUserSessions(userId)
+				throw new UnauthorizedError('Authentication failed.')
 			}
 
-			// Construct the AuthenticatedUser object from session data and the live status check
 			const authenticatedUser: AuthenticatedUser = {
-				...session.user,
-				active: userStatus.active, //userStatus.active,
-				permissions: session.permissions,
-				// Fill in other User properties not stored in session with default/null values
-				// as they are generally not needed for authorization logic in subsequent use cases.
-				lastLogin: null,
-				config: userStatus.config,
-				createdAt: userStatus.createdAt,
-				updatedAt: userStatus.updatedAt,
-				deletedAt: null
+				...sessionUser,
+				...userStatus
 			}
 
 			// Set authenticated user in the job
 			job.setUser(authenticatedUser)
 
 			// Update the 'lastActivity' in Redis to refresh the TTL
-			await repositories.session.updateLastActivity(
-				decodedPayload.userId,
-				session.maxSessionTime
+			await sessionRepository.updateLastActivity(
+				sessionId,
+				sessionMetadata.maxSessionTime
 			)
 
 			next()
 		} catch (error: any) {
 			if (error instanceof TokenExpiredError) {
-				next(
-					new UnauthorizedError(
-						`Authentication failed: Token expired at ${error.expiredAt}.`
-					)
-				)
-			} else if (
-				error instanceof JsonWebTokenError ||
-				error instanceof SyntaxError
-			) {
-				next(
-					new UnauthorizedError(
-						'Authentication failed: Incorrect token signature or format.'
-					)
-				)
-			} else if (error instanceof UnauthorizedError) {
-				next(error)
-			} else {
-				container.logger.error(
-					`AuthMiddleware unexpected error: ${
-						error instanceof Error ? error.message : String(error)
-					}`
-				)
-				next(
-					new UnauthorizedError(
-						'Authentication failed due to an unexpected error.'
-					)
-				)
+				return next(new UnauthorizedError(`Authentication failed.`))
 			}
+			if (error instanceof JsonWebTokenError || error instanceof SyntaxError) {
+				return next(new UnauthorizedError('Authentication failed.'))
+			}
+			if (error instanceof UnauthorizedError) {
+				return next(error)
+			}
+			logger.error(
+				`AuthMiddleware unexpected error: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			)
+			return next(new UnauthorizedError('Authentication failed.'))
 		}
 	}
 }

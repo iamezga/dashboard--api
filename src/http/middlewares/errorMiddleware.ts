@@ -11,7 +11,7 @@ import logger from '@/services/logger'
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'fastest-validator'
-import crypto from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 type HandledError =
 	| BadRequestError
@@ -27,7 +27,7 @@ export const errorMiddleware = async (
 	_next: NextFunction
 ) => {
 	const job = res.locals.job as Job | undefined
-	const errorId = crypto.randomUUID()
+	const errorId = randomUUID()
 
 	let statusCode: HttpStatusCode = HttpStatusCode.INTERNAL_SERVER_ERROR
 	let message = 'An unexpected error has occurred.'

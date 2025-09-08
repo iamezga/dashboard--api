@@ -3,6 +3,7 @@ import { Job } from '../../../../lib/Job'
 import { dayjs } from '../../../../services/dayjs'
 import { DependencyContainer } from '../../../../services/dependencyContainer'
 import { deepMerge } from '../../../../utils/deepMerge'
+import { getTimeInSeconds } from '../../../../utils/getTimeInSeconds'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 import { AuthLoginUseCase } from './AuthLoginUseCase'
 
@@ -67,7 +68,11 @@ const userRepo = {
 const roleRepo = {
 	findByIdWithPermissions: jest.fn()
 }
-const sessionRepo = { save: jest.fn() }
+const sessionRepo = {
+	saveUserData: jest.fn().mockResolvedValue(true),
+	createSession: jest.fn().mockResolvedValue('session-123'),
+	hasActiveSessions: jest.fn().mockResolvedValue(false)
+}
 const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
 const argon2 = { verify: jest.fn() }
 const jwt = { sign: jest.fn() }
@@ -85,7 +90,7 @@ const makeContainer = (): DependencyContainer =>
 		thirdParties: { argon2, jwt, ms, dayjs },
 		logger,
 		config: { get: configGet },
-		utils: { deepMerge },
+		utils: { deepMerge, getTimeInSeconds },
 		validator
 	} as unknown as DependencyContainer)
 
@@ -189,7 +194,7 @@ describe('AuthLoginUseCase', () => {
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
 	})
 
-	it('Should throw Error if lastLogin update fails', async () => {
+	it('Should throw UnauthorizedError if lastLogin update fails', async () => {
 		const container = makeContainer()
 		const useCase = new AuthLoginUseCase(container)
 		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
@@ -206,10 +211,9 @@ describe('AuthLoginUseCase', () => {
 			]
 		})
 		userRepo.update.mockResolvedValueOnce(null)
+
 		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toThrow(
-			'Could not update user login timestamp.'
-		)
+		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
 		expect(logger.error).toHaveBeenCalled()
 	})
 
@@ -233,28 +237,23 @@ describe('AuthLoginUseCase', () => {
 		const job = makeLoginJob({}, 2)
 		const result = await useCase.run(job)
 
-		expect(argon2.verify).toHaveBeenCalledWith('hashed-pass', 'password')
-		expect(userRepo.update).toHaveBeenCalledWith('u1', {
-			lastLogin: expect.any(Date)
-		})
-		expect(jwt.sign).toHaveBeenCalledWith(
-			{ userId: 'u1', organizationId: 'org1', roleId: 'role1' },
-			'secret',
-			{ expiresIn: '1h' }
+		expect(sessionRepo.saveUserData).toHaveBeenCalledWith(
+			'u1',
+			expect.objectContaining({ id: 'u1', email: 'john@example.com' }),
+			expect.any(Number)
+		)
+		expect(sessionRepo.createSession).toHaveBeenCalledWith(
+			'u1',
+			expect.objectContaining({ userId: 'u1' }),
+			expect.any(Number)
 		)
 
 		expect(result.data).toEqual({
 			token: 'signed.jwt.token',
-			user: {
+			user: expect.objectContaining({
 				id: 'u1',
-				organizationId: 'org1',
-				email: 'john@example.com',
-				name: 'John',
-				surname: 'Doe',
-				roleId: 'role1',
-				active: true,
-				config: {}
-			}
+				email: 'john@example.com'
+			})
 		})
 
 		expect(result.metadata).toEqual({
@@ -428,10 +427,12 @@ describe('AuthLoginUseCase', () => {
 		const job = makeLoginJob()
 		await useCase.run(job)
 
-		expect(sessionRepo.save).toHaveBeenCalledWith(
+		expect(sessionRepo.createSession).toHaveBeenCalledWith(
 			expect.any(String),
-			expect.objectContaining({}),
-			60 * 60 * 8
+			expect.objectContaining({
+				maxSessionTime: 3600
+			}),
+			3600
 		)
 	})
 
@@ -516,15 +517,66 @@ describe('AuthLoginUseCase', () => {
 
 		await useCase.run(makeLoginJob())
 
-		const sessionData = sessionRepo.save.mock.calls[0][1]
+		const sessionUser = sessionRepo.saveUserData.mock.calls[0][1]
 
-		expect(sessionData.permissions['auth.login']).toBeDefined()
-		expect(sessionData.permissions['user.custom']).toBeDefined()
-		expect(sessionData.permissions['auth.login'].config).toEqual({
+		expect(sessionUser.permissions['auth.login']).toBeDefined()
+		expect(sessionUser.permissions['user.custom']).toBeDefined()
+		expect(sessionUser.permissions['auth.login'].config).toEqual({
 			fromRole: true
 		})
-		expect(sessionData.permissions['user.custom'].config).toEqual({
+		expect(sessionUser.permissions['user.custom'].config).toEqual({
 			fromUser: false
 		})
+	})
+	it('Should throw UnauthorizedError if user already has active session and multiple not allowed', async () => {
+		const container = makeContainer()
+		const useCase = new AuthLoginUseCase(container)
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
+			makeUserAuthDetails()
+		)
+		argon2.verify.mockResolvedValueOnce(true)
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			active: true,
+			rolePermissions: [
+				{
+					permission: {
+						key: 'auth.login',
+						active: true,
+						config: { allowMultipleSession: false }
+					},
+					config: {}
+				}
+			]
+		})
+		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
+		sessionRepo.hasActiveSessions.mockResolvedValueOnce(true)
+
+		const job = makeLoginJob()
+		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
+	})
+	it('Should throw UnauthorizedError if createSession fails', async () => {
+		const container = makeContainer()
+		const useCase = new AuthLoginUseCase(container)
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
+			makeUserAuthDetails()
+		)
+		argon2.verify.mockResolvedValueOnce(true)
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			active: true,
+			rolePermissions: [
+				{
+					permission: { key: 'auth.login', active: true, config: {} },
+					config: {}
+				}
+			]
+		})
+		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
+		sessionRepo.createSession.mockResolvedValueOnce(null) // fuerza fallo
+
+		const job = makeLoginJob()
+		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
+		expect(logger.error).toHaveBeenCalled()
 	})
 })

@@ -7,16 +7,20 @@ import {
 } from '@/modules/auth/entities/AuthDataTypes'
 import { RoleRepositoryInterface } from '@/modules/role'
 import { SessionRepositoryInterface } from '@/modules/session'
-import { SessionData, SessionUser } from '@/modules/session/entities/Session'
+import {
+	SessionDataInput,
+	SessionUser
+} from '@/modules/session/entities/Session'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { deepMerge } from '@/utils/deepMerge'
+import { getTimeInSeconds } from '@/utils/getTimeInSeconds'
 import { verify } from 'argon2'
 import jwt from 'jsonwebtoken'
-import ms, { StringValue } from 'ms'
+import { StringValue } from 'ms'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 
 /**
@@ -35,7 +39,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	private jwtSecret: string
 	private jwtExpiresIn: string
 	private argon2Verify: typeof verify
-	private msConverter: typeof ms
+	private getTimeInSeconds: typeof getTimeInSeconds
 	private deepMerge: typeof deepMerge
 
 	constructor(container: DependencyContainer) {
@@ -48,7 +52,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		this.jwtExpiresIn = container.config.get('jwt.expiresIn')
 		this.argon2Verify = container.thirdParties.argon2.verify
 		this.argon2Verify = container.thirdParties.argon2.verify
-		this.msConverter = container.thirdParties.ms
+		this.getTimeInSeconds = container.utils.getTimeInSeconds
 		this.deepMerge = container.utils.deepMerge
 
 		if (!this.jwtSecret) {
@@ -176,16 +180,22 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 		if (!userAuthDetails.roleId) {
 			// This is a system-level issue if a user has no role, UnauthorizedError is appropriate here
-			throw new UnauthorizedError('User has no assigned role, cannot log in.')
+			this.container.logger.error(
+				{ userAuthDetails },
+				'User with no assigned role attempted to log in.'
+			)
+			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		const roleWithPermissions =
 			await this.roleRepository.findByIdWithPermissions(userAuthDetails.roleId)
 
 		if (!roleWithPermissions || !roleWithPermissions.active) {
-			throw new UnauthorizedError(
-				'User role is invalid or inactive, cannot log in.'
+			this.container.logger.error(
+				{ userAuthDetails },
+				'An attempt was made to log in with an invalid or inactive role.'
 			)
+			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		const rolePermissions = roleWithPermissions.rolePermissions.reduce(
@@ -223,7 +233,19 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const errors = await this.container.validator.validate(data, schema)
 		if (errors.length) {
 			throw new UnauthorizedError(
-				`Authorization failed: you don't have permissions for this action.`
+				`Authentication failed: Insufficient permissions.`
+			)
+		}
+
+		const loginPermissionConfig =
+			permissions[AuthLoginUseCase.permission]?.config || {}
+
+		if (
+			!loginPermissionConfig.allowMultipleSession &&
+			(await this.sessionRepository.hasActiveSessions(userAuthDetails.id))
+		) {
+			throw new UnauthorizedError(
+				`Authentication failed: You have already logged in to another device.`
 			)
 		}
 
@@ -237,17 +259,16 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			this.container.logger.error(
 				`Failed to update last login for user: ${userAuthDetails.email}`
 			)
-			throw new Error('Could not update user login timestamp.')
+			throw new UnauthorizedError(`Authentication failed.`)
 		}
 		this.container.logger.info(
 			`User ${userAuthDetails.email} successfully logged in.`
 		)
 
 		// Convert JWT expiresIn string (e.g., "1h") to seconds for Redis TTL
-		const jwtExpiresInMilliseconds = this.msConverter(
+		const jwtExpiresInSeconds = this.getTimeInSeconds(
 			this.jwtExpiresIn as StringValue
-		) // 'ms' returns milliseconds
-		const jwtExpiresInSeconds = jwtExpiresInMilliseconds / 1000
+		)
 
 		// Create the user snapshot for the session
 		const sessionUser: SessionUser = {
@@ -256,32 +277,50 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			roleId: updatedUser.roleId,
 			name: updatedUser.name,
 			surname: updatedUser.surname,
-			email: updatedUser.email
+			email: updatedUser.email,
+			permissions
 		}
 
+		const sessionTTL =
+			(loginPermissionConfig.maxSessionTime as number) || jwtExpiresInSeconds
 		// Prepare session data with the embedded user snapshot
-		const loginPermissionConfig =
-			permissions[AuthLoginUseCase.permission]?.config || {}
-		const sessionData: SessionData = {
-			user: sessionUser,
-			permissions,
+		const sessionData: SessionDataInput = {
+			userId: updatedUser.id,
 			sessionStartTime: currentTime.getTime(),
 			lastActivity: currentTime.getTime(),
-			maxSessionTime:
-				loginPermissionConfig.maxSessionTime || jwtExpiresInSeconds,
+			maxSessionTime: sessionTTL,
 			maxInactiveTime:
-				loginPermissionConfig.maxInactiveTime || jwtExpiresInSeconds
+				(loginPermissionConfig.maxInactiveTime as number) || jwtExpiresInSeconds
 		}
-
-		// Use maxSessionTime as TTL for the Redis key
-		await this.sessionRepository.save(
-			sessionData.user.id,
-			sessionData,
-			sessionData.maxSessionTime || 60 * 60 * 8 // 8hs
+		await this.sessionRepository.saveUserData(
+			updatedUser.id,
+			sessionUser,
+			sessionTTL
 		)
+
+		const sessionId = await this.sessionRepository.createSession(
+			updatedUser.id,
+			sessionData,
+			sessionTTL
+		)
+
+		if (!sessionId) {
+			this.container.logger.error(
+				{
+					createSessionParams: {
+						userId: updatedUser.id,
+						sessionData,
+						sessionTTL
+					}
+				},
+				'Could not create user session in Redis.'
+			)
+			throw new UnauthorizedError(`Authorization failed.`)
+		}
 
 		// Generate JWT Token
 		const jwtPayload: JwtUserPayload = {
+			sessionId,
 			userId: updatedUser.id,
 			organizationId: updatedUser.organizationId,
 			roleId: updatedUser.roleId

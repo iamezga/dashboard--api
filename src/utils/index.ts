@@ -1,7 +1,9 @@
 import { deepMerge } from './deepMerge'
+import { getTimeInSeconds } from './getTimeInSeconds'
 
 export const utils = {
-	deepMerge
+	deepMerge,
+	getTimeInSeconds
 }
 
 export type UtilityMap = typeof utils

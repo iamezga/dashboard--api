@@ -1,45 +1,89 @@
-import { SessionData } from './Session'
+import { SessionData, SessionDataInput, SessionUser } from './Session'
 
 /**
  * @interface SessionRepositoryInterface
  * @description Defines the contract for session data access operations using Redis.
- * It provides methods to create, retrieve, update, and delete user session data.
+ * It provides methods to manage user-related data and individual session metadata.
  */
 export interface SessionRepositoryInterface {
 	readonly name?: 'SessionRepository'
 
 	/**
-	 * Creates or updates a user's session data in Redis.
-	 * @param {string} sessionId - The unique ID of the session (e.g., userId).
-	 * @param {SessionData} data - The session data to store.
-	 * @param {number} expiresInSeconds - Time-to-live (TTL) for the session in seconds.
-	 * @returns {Promise<boolean>} True if the session was saved successfully, false otherwise.
+	 * Creates or updates a user's data and permissions snapshot.
+	 * This key is separate from individual sessions and should be updated
+	 * only when the user's permissions or core data change.
+	 * @param {string} userId - The user's unique ID.
+	 * @param {SessionUser} data - The user's permissions and data snapshot.
+	 * @param {number} expiresInSeconds - Time-to-live for the user's data key.
+	 * @returns {Promise<boolean>} True if the data was saved, false otherwise.
 	 */
-	save(
-		sessionId: string,
-		data: SessionData,
+	saveUserData(
+		userId: string,
+		data: SessionUser,
 		expiresInSeconds: number
 	): Promise<boolean>
 
 	/**
-	 * Retrieves a user's session data from Redis.
-	 * @param {string} sessionId - The unique ID of the session.
-	 * @returns {Promise<SessionData | null>} The session data or null if not found.
+	 * Retrieves the user's data and permissions snapshot.
+	 * @param {string} userId - The user's unique ID.
+	 * @returns {Promise<SessionUser | null>} The user data, or null if not found.
 	 */
-	findById(sessionId: string): Promise<SessionData | null>
+	getUserData(userId: string): Promise<SessionUser | null>
 
 	/**
-	 * Deletes a user's session data from Redis.
+	 * Creates a new unique session entry for a user, adding it to the user's
+	 * list of active sessions.
+	 * @param {string} userId - The unique ID of the user.
+	 * @param {Omit<SessionData, 'sessionId'>} data - Session data without sessionId
+	 * @param {number} expiresInSeconds - Time-to-live (TTL) for the session in seconds.
+	 * @returns {Promise<string | null>} The new unique sessionId or null on failure.
+	 */
+	createSession(
+		userId: string,
+		data: SessionDataInput,
+		expiresInSeconds: number
+	): Promise<string | null>
+
+	/**
+	 * Retrieves all active session IDs for a given user.
+	 * @param {string} userId - The unique ID of the user.
+	 * @returns {Promise<string[]>} An array of session IDs.
+	 */
+	getUserSessionIds(userId: string): Promise<string[]>
+
+	/**
+	 * Retrieves the metadata for a specific session.
+	 * @param {string} sessionId - The unique ID of the session.
+	 * @returns {Promise<SessionData | null>} The session metadata or null if not found.
+	 */
+	getSessionMetadata(sessionId: string): Promise<SessionData | null>
+
+	/**
+	 * Checks if a user has any active sessions.
+	 * @param {string} userId - The user's unique ID.
+	 * @returns {Promise<boolean>} True if the user has one or more active sessions, false otherwise.
+	 */
+	hasActiveSessions(userId: string): Promise<boolean>
+
+	/**
+	 * Deletes a specific session entry and removes it from the user's list of sessions.
 	 * @param {string} sessionId - The unique ID of the session to delete.
 	 * @returns {Promise<boolean>} True if the session was deleted, false otherwise.
 	 */
-	delete(sessionId: string): Promise<boolean>
+	deleteSession(sessionId: string): Promise<boolean>
 
 	/**
-	 * Updates the 'lastActivity' timestamp of a session and refreshes its TTL if applicable.
+	 * Deletes all active sessions for a user, as well as their main user data.
+	 * @param {string} userId - The unique ID of the user.
+	 * @returns {Promise<void>}
+	 */
+	deleteAllUserSessions(userId: string): Promise<void>
+
+	/**
+	 * Updates the 'lastActivity' timestamp of a session and refreshes its TTL.
 	 * @param {string} sessionId - The unique ID of the session.
-	 * @param {number} expiresInSeconds - Time-to-live (TTL) for the session in seconds.
-	 * @returns {Promise<boolean>} True if updated, false if session not found.
+	 * @param {number} expiresInSeconds - New TTL for the session in seconds.
+	 * @returns {Promise<boolean>} True if updated, false if session not found or update failed.
 	 */
 	updateLastActivity(
 		sessionId: string,

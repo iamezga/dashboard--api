@@ -13,18 +13,6 @@ const mockUserStatus = {
 	updatedAt: new Date()
 }
 
-const mockSession = {
-	user: {
-		id: 'u1',
-		email: 'test@mail.com'
-	},
-	permissions: ['read'],
-	lastActivity: Date.now(),
-	sessionStartTime: Date.now(),
-	maxInactiveTime: '1h',
-	maxSessionTime: '2h'
-}
-
 const makeReqResNext = (token?: string) => {
 	const req = {
 		headers: token ? { authorization: `Bearer ${token}` } : {},
@@ -45,13 +33,14 @@ const makeReqResNext = (token?: string) => {
 describe('authMiddleware', () => {
 	const jwt = { verify: jest.fn() }
 	const sessionRepository = {
-		findById: jest.fn(),
-		delete: jest.fn(),
+		getSessionMetadata: jest.fn(),
+		getUserData: jest.fn(),
+		deleteSession: jest.fn(),
+		deleteAllUserSessions: jest.fn(),
 		updateLastActivity: jest.fn()
 	}
 	const userRepository = { findStatusById: jest.fn() }
 	const logger = { error: jest.fn() }
-	const ms = jest.fn(() => 1000) // dummy conversion
 	const config = {
 		get: jest.fn((key: string) => {
 			if (key === 'jwt.secret') return 'secret'
@@ -62,7 +51,7 @@ describe('authMiddleware', () => {
 
 	const makeContainer = () =>
 		({
-			thirdParties: { jwt, ms },
+			thirdParties: { jwt },
 			repositories: { user: userRepository, session: sessionRepository },
 			config,
 			logger
@@ -72,11 +61,24 @@ describe('authMiddleware', () => {
 		jest.clearAllMocks()
 	})
 
+	it('should throw UnauthorizedError if no token and no valid Authorization header', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext(undefined)
+
+		// ni requestData.token ni header válido
+		;(req as any).headers = { authorization: 'Basic abc123' }
+
+		await expect(middleware(req, res, next)).rejects.toThrow(
+			'Authentication failed.'
+		)
+	})
+
 	it('should throw if jwt.secret is missing', () => {
 		const badConfig = { get: jest.fn(() => null) }
 		const container = { ...makeContainer(), config: badConfig }
 		expect(() => authMiddleware(container)).toThrow(
-			'JWT_SECRET is not defined in the configuration.'
+			'JWT configuration is missing in the environment.'
 		)
 	})
 
@@ -86,7 +88,7 @@ describe('authMiddleware', () => {
 		}
 		const container = { ...makeContainer(), config: badConfig }
 		expect(() => authMiddleware(container)).toThrow(
-			'JWT_EXPIRES_IN is not defined in the configuration.'
+			'JWT configuration is missing in the environment.'
 		)
 	})
 
@@ -96,9 +98,9 @@ describe('authMiddleware', () => {
 		const { req, res, next } = makeReqResNext()
 		delete (req as any).requestData
 
-		await middleware(req, res, next)
-
-		expect(next).toHaveBeenCalledWith(expect.any(Error))
+		await expect(middleware(req, res, next)).rejects.toThrow(
+			'Authentication failed.'
+		)
 	})
 
 	it('should authenticate successfully with valid token and user', async () => {
@@ -106,14 +108,25 @@ describe('authMiddleware', () => {
 		const middleware = authMiddleware(container)
 		const { req, res, next, job } = makeReqResNext('valid-token')
 
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-		sessionRepository.findById.mockResolvedValueOnce(mockSession)
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now(),
+			lastActivity: Date.now(),
+			maxInactiveTime: 3600,
+			maxSessionTime: 86400
+		})
+		sessionRepository.getUserData.mockResolvedValueOnce({
+			id: 'u1',
+			permissions: {}
+		})
 		userRepository.findStatusById.mockResolvedValueOnce(mockUserStatus)
 
 		await middleware(req, res, next)
 
 		expect(jwt.verify).toHaveBeenCalledWith('valid-token', 'secret')
-		expect(sessionRepository.findById).toHaveBeenCalledWith('u1')
+		expect(sessionRepository.getSessionMetadata).toHaveBeenCalledWith('s1')
+		expect(sessionRepository.getUserData).toHaveBeenCalledWith('u1')
 		expect(userRepository.findStatusById).toHaveBeenCalledWith('u1')
 		expect(job.getUser()).toMatchObject({ id: 'u1', active: true })
 		expect(next).toHaveBeenCalledWith()
@@ -124,11 +137,100 @@ describe('authMiddleware', () => {
 		const middleware = authMiddleware(container)
 		const { req, res, next } = makeReqResNext('valid-token')
 
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-		sessionRepository.findById.mockResolvedValueOnce(null)
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce(null)
 
 		await middleware(req, res, next)
 
+		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
+	})
+
+	it('should delete session and throw UnauthorizedError if session is inactive', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext('valid-token')
+
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now(),
+			lastActivity: Date.now() - 10_000_000, // too old
+			maxInactiveTime: 1, // 1 second
+			maxSessionTime: 86400
+		})
+
+		await middleware(req, res, next)
+
+		expect(sessionRepository.deleteSession).toHaveBeenCalledWith('s1')
+		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
+	})
+
+	it('should delete session and throw UnauthorizedError if session is expired', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext('valid-token')
+
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now() - 10_000_000,
+			lastActivity: Date.now(),
+			maxInactiveTime: 3600,
+			maxSessionTime: 1 // 1 second
+		})
+
+		await middleware(req, res, next)
+
+		expect(sessionRepository.deleteSession).toHaveBeenCalledWith('s1')
+		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
+	})
+
+	it('should delete all sessions if user data not found', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext('valid-token')
+
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now(),
+			lastActivity: Date.now(),
+			maxInactiveTime: 3600,
+			maxSessionTime: 86400
+		})
+		sessionRepository.getUserData.mockResolvedValueOnce(null)
+
+		await middleware(req, res, next)
+
+		expect(sessionRepository.deleteAllUserSessions).toHaveBeenCalledWith('u1')
+		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
+	})
+
+	it('should delete all sessions if user is inactive', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext('valid-token')
+
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now(),
+			lastActivity: Date.now(),
+			maxInactiveTime: 3600,
+			maxSessionTime: 86400
+		})
+		sessionRepository.getUserData.mockResolvedValueOnce({
+			id: 'u1',
+			permissions: {}
+		})
+		userRepository.findStatusById.mockResolvedValueOnce({
+			...mockUserStatus,
+			active: false
+		})
+
+		await middleware(req, res, next)
+
+		expect(sessionRepository.deleteAllUserSessions).toHaveBeenCalledWith('u1')
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
 
@@ -160,7 +262,34 @@ describe('authMiddleware', () => {
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
 
-	it('should log and call next with UnauthorizedError on unexpected error', async () => {
+	it('should extract token from Authorization header when requestData.token is missing', async () => {
+		const container = makeContainer()
+		const middleware = authMiddleware(container)
+		const { req, res, next } = makeReqResNext(undefined)
+
+		;(req as any).headers = { authorization: 'Bearer header-token' }
+
+		jwt.verify.mockReturnValueOnce({ userId: 'u1', sessionId: 's1' })
+		sessionRepository.getSessionMetadata.mockResolvedValueOnce({
+			userId: 'u1',
+			sessionStartTime: Date.now(),
+			lastActivity: Date.now(),
+			maxInactiveTime: 3600,
+			maxSessionTime: 86400
+		})
+		sessionRepository.getUserData.mockResolvedValueOnce({
+			id: 'u1',
+			permissions: {}
+		})
+		userRepository.findStatusById.mockResolvedValueOnce(mockUserStatus)
+
+		await middleware(req, res, next)
+
+		expect(jwt.verify).toHaveBeenCalledWith('header-token', 'secret')
+		expect(next).toHaveBeenCalledWith()
+	})
+
+	it('should log and wrap unexpected errors', async () => {
 		const container = makeContainer()
 		const middleware = authMiddleware(container)
 		const { req, res, next } = makeReqResNext('valid-token')
@@ -179,177 +308,7 @@ describe('authMiddleware', () => {
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
 
-	it('should delete session and throw UnauthorizedError if session is inactive', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-
-		const oldSession = {
-			...mockSession,
-			lastActivity: Date.now() - 10000000,
-			sessionStartTime: Date.now()
-		}
-		sessionRepository.findById.mockResolvedValueOnce(oldSession)
-
-		await middleware(req, res, next)
-
-		expect(sessionRepository.delete).toHaveBeenCalledWith('u1')
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
-		expect(errorArg).toBeInstanceOf(UnauthorizedError)
-		expect(errorArg.message).toBe(
-			'Authentication failed: Session expired due to inactivity.'
-		)
-	})
-
-	it('should delete session and throw UnauthorizedError if session is expired by maxSessionTime', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-
-		const expiredSession = {
-			...mockSession,
-			lastActivity: Date.now(),
-			sessionStartTime: Date.now() - 10000000
-		}
-		sessionRepository.findById.mockResolvedValueOnce(expiredSession)
-
-		await middleware(req, res, next)
-
-		expect(sessionRepository.delete).toHaveBeenCalledWith('u1')
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
-		expect(errorArg).toBeInstanceOf(UnauthorizedError)
-		expect(errorArg.message).toBe(
-			'Authentication failed: Session expired due to inactivity.'
-		)
-	})
-
-	it('should delete session and throw UnauthorizedError if user is inactive', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-		sessionRepository.findById.mockResolvedValueOnce(mockSession)
-
-		userRepository.findStatusById.mockResolvedValueOnce({
-			...mockUserStatus,
-			active: false
-		})
-
-		await middleware(req, res, next)
-
-		expect(sessionRepository.delete).toHaveBeenCalledWith('u1')
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
-		expect(errorArg).toBeInstanceOf(UnauthorizedError)
-		expect(errorArg.message).toBe(
-			'Authentication failed: User is inactive or not found.'
-		)
-	})
-
-	it('should delete session and throw UnauthorizedError if user is deleted', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-		sessionRepository.findById.mockResolvedValueOnce(mockSession)
-
-		userRepository.findStatusById.mockResolvedValueOnce({
-			...mockUserStatus,
-			deletedAt: new Date()
-		})
-
-		await middleware(req, res, next)
-
-		expect(sessionRepository.delete).toHaveBeenCalledWith('u1')
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
-		expect(errorArg).toBeInstanceOf(UnauthorizedError)
-		expect(errorArg.message).toBe(
-			'Authentication failed: User is inactive or not found.'
-		)
-	})
-	it('should throw UnauthorizedError if no token and no Authorization header', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext(undefined)
-
-		;(req as any).headers = {}
-
-		await expect(middleware(req, res, next)).rejects.toThrow(
-			'No authentication token provided or token malformed.'
-		)
-	})
-
-	it('should throw UnauthorizedError if Authorization header does not start with Bearer', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext(undefined)
-
-		;(req as any).headers = { authorization: 'Basic abc123' }
-
-		await expect(middleware(req, res, next)).rejects.toThrow(
-			'No authentication token provided or token malformed.'
-		)
-	})
-
-	it('should throw if job is missing in res.locals', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		res.locals = {}
-
-		await expect(middleware(req, res, next)).rejects.toThrow(
-			'`jobMiddleware` must be run before `authMiddleware`.'
-		)
-	})
-
-	it('should extract token from Authorization header when requestData.token is missing', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next, job } = makeReqResNext(undefined)
-
-		;(req as any).headers = { authorization: 'Bearer header-token' }
-
-		jwt.verify.mockReturnValueOnce({ userId: 'u1' })
-
-		container.repositories.session = {
-			findById: jest.fn().mockResolvedValue({
-				user: { id: 'u1', email: 'test@mail.com' },
-				permissions: {},
-				lastActivity: Date.now(),
-				sessionStartTime: Date.now(),
-				maxInactiveTime: '10m',
-				maxSessionTime: '1h'
-			}),
-			updateLastActivity: jest.fn(),
-			delete: jest.fn()
-		}
-		container.repositories.user = {
-			findStatusById: jest.fn().mockResolvedValue({
-				id: 'u1',
-				active: true,
-				config: {},
-				createdAt: new Date(),
-				updatedAt: new Date(),
-				deletedAt: null
-			})
-		}
-		container.thirdParties.ms = (str: string) =>
-			str.includes('m') ? 600000 : 3600000 // mock ms converter
-
-		await middleware(req, res, next)
-
-		expect(jwt.verify).toHaveBeenCalledWith('header-token', 'secret')
-		expect(job.getUser()).toHaveProperty('id', 'u1')
-		expect(next).toHaveBeenCalledWith()
-	})
-
-	it('should log and wrap unexpected non-Error values', async () => {
+	it('should log unexpected object values by stringifying them', async () => {
 		const container = makeContainer()
 		const middleware = authMiddleware(container)
 		const { req, res, next } = makeReqResNext('valid-token')

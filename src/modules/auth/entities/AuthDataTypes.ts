@@ -53,6 +53,7 @@ export interface JwtUserPayload {
 	userId: string
 	organizationId: string
 	roleId: string
+	sessionId: string
 }
 
 /**
@@ -64,6 +65,7 @@ export interface DecodedUserToken {
 	userId: string
 	organizationId: string
 	roleId: string
+	sessionId: string
 	iat: number // Issued at (timestamp)
 	exp: number // Expiration time (timestamp)
 }

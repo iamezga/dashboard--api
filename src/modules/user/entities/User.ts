@@ -1,5 +1,4 @@
 import { Permission } from '@/modules/permission/entities/Permission'
-import { MergedPermissionData } from '@/modules/session/entities/Session'
 
 /**
  * @interface UserPermission
@@ -11,7 +10,19 @@ export interface UserPermission {
 	config: Record<string, any>
 	assignedAt: Date
 	deletedAt: Date | null
+	disabled: boolean
 	permission: Permission
+}
+
+/**
+ * @interface MergedPermissionData
+ * @description Represents a single permission with its effective, merged configuration
+ * for a specific user session. This includes properties from the Permission entity
+ * and the final configuration resulting from merging permission config, role-specific,
+ * and user-specific overrides.
+ */
+export interface UserMergedPermissions {
+	[key: string]: Permission
 }
 
 /**
@@ -41,7 +52,7 @@ export interface User {
  * and for which permissions are guaranteed to be present and available.
  */
 export interface AuthenticatedUser extends User {
-	permissions: Record<string, MergedPermissionData>
+	permissions: UserMergedPermissions
 }
 
 /**

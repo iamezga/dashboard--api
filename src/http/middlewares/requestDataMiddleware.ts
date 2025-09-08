@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
-import crypto from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 interface RequestMiddlewareInputs {
 	params?: boolean
@@ -54,7 +54,7 @@ export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
 		} = inputData
 
 		req.requestData = {
-			id: <string>req.headers['x-job-id'] || crypto.randomUUID(),
+			id: <string>req.headers['x-job-id'] || randomUUID(),
 			attempts: parseInt(<string>req.headers['x-job-attempts'] || '0') + 1,
 			token,
 			payload,

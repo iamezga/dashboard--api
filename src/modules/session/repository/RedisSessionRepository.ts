@@ -1,56 +1,59 @@
+import { randomUUID } from 'node:crypto'
 import { RedisClientType } from 'redis'
-import { SessionData } from '../entities/Session'
+import { SessionData, SessionDataInput, SessionUser } from '../entities/Session'
 import { SessionRepositoryInterface } from '../entities/SessionRepositoryInterface'
 
 /**
  * @class RedisSessionRepository
- * @description Implements SessionRepositoryInterface for Redis.
- * Handles the storage, retrieval, and management of user session data in Redis,
- * including merged permissions and activity tracking.
+ * @description Implements SessionRepositoryInterface for Redis, managing user data
+ * and multiple concurrent sessions.
  */
 export class RedisSessionRepository implements SessionRepositoryInterface {
+	// Key prefixes for different data types in Redis
+	private static readonly USER_DATA_KEY_PREFIX = 'user:data:'
+	private static readonly SESSION_METADATA_KEY_PREFIX = 'session:metadata:'
+	private static readonly USER_SESSIONS_SET_KEY_PREFIX = 'user:sessions:'
+
 	constructor(readonly db: RedisClientType) {}
 
 	/**
-	 * Converts SessionData to a format suitable for storage in Redis (JSON string).
-	 * @param {SessionData} data - The session data object.
-	 * @returns {string} JSON string representation.
+	 * Serializes a data object to a JSON string for Redis storage.
+	 * @param data - The data to serialize.
+	 * @returns The JSON string.
 	 */
-	private serializeSessionData(data: SessionData): string {
+	private serialize<T>(data: T): string {
 		return JSON.stringify(data)
 	}
 
 	/**
-	 * Parses a JSON string from Redis back into a SessionData object.
-	 * @param {string | null} dataString - The JSON string from Redis.
-	 * @returns {SessionData | null} The parsed session data object or null.
+	 * Deserializes a JSON string from Redis back to an object.
+	 * @param dataString - The JSON string to deserialize.
+	 * @returns The deserialized object or null on failure.
 	 */
-	private deserializeSessionData(
-		dataString: string | null
-	): SessionData | null {
+	private deserialize<T>(dataString: string | null): T | null {
 		if (!dataString) return null
 		try {
-			return JSON.parse(dataString) as SessionData
+			return JSON.parse(dataString) as T
 		} catch (error) {
-			console.error('Failed to parse session data from Redis:', error)
+			console.error('Failed to parse data from Redis:', error)
 			return null
 		}
 	}
 
 	/**
-	 * Saves session data to Redis with a TTL.
-	 * @param {string} sessionId - The user's ID, used as the Redis key.
-	 * @param {SessionData} data - The session data object.
-	 * @param {number} expiresInSeconds - Time-to-live for the key in seconds.
-	 * @returns {Promise<boolean>}
+	 * Saves user's merged permissions and a snapshot of their data.
+	 * @param userId - The user's unique ID.
+	 * @param data - The user's permissions and data snapshot.
+	 * @param expiresInSeconds - Time-to-live for the user's data key.
+	 * @returns True if the data was saved successfully, false otherwise.
 	 */
-	async save(
-		sessionId: string,
-		data: SessionData,
+	async saveUserData(
+		userId: string,
+		data: SessionUser,
 		expiresInSeconds: number
 	): Promise<boolean> {
-		const key = `session:${sessionId}` // Prefix for session keys
-		const serializedData = this.serializeSessionData(data)
+		const key = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
+		const serializedData = this.serialize(data)
 		const result = await this.db.set(key, serializedData, {
 			EX: expiresInSeconds
 		})
@@ -58,52 +61,169 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	}
 
 	/**
-	 * Retrieves session data from Redis.
-	 * @param {string} sessionId - The user's ID, used as the Redis key.
-	 * @returns {Promise<SessionData | null>}
+	 * Retrieves the user's merged permissions and data snapshot.
+	 * @param userId - The user's unique ID.
+	 * @returns The user data, or null if not found.
 	 */
-	async findById(sessionId: string): Promise<SessionData | null> {
-		const key = `session:${sessionId}`
+	async getUserData(userId: string): Promise<SessionUser | null> {
+		const key = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
 		const dataString = await this.db.get(key)
-		return this.deserializeSessionData(dataString)
+		return this.deserialize<SessionUser>(dataString)
 	}
 
 	/**
-	 * Deletes session data from Redis.
-	 * @param {string} sessionId - The user's ID, used as the Redis key.
-	 * @returns {Promise<boolean>}
+	 * Creates a new unique session entry for a user, adding it to the user's
+	 * list of active sessions.
+	 * @param userId - The unique ID of the user.
+	 * @param data - The session metadata to store.
+	 * @param expiresInSeconds - Time-to-live for the session in seconds.
+	 * @returns The new unique sessionId or null on failure.
 	 */
-	async delete(sessionId: string): Promise<boolean> {
-		const key = `session:${sessionId}`
-		const result = await this.db.del(key)
-		return result === 1 // 'del' returns the number of keys deleted
+	async createSession(
+		userId: string,
+		data: SessionDataInput,
+		expiresInSeconds: number
+	): Promise<string | null> {
+		const sessionId = randomUUID()
+		const sessionMetadataKey =
+			RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+		const userSessionsKey =
+			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+
+		const sessionData: SessionData = {
+			...data,
+			sessionId
+		}
+
+		const serializedData = this.serialize(sessionData)
+
+		// Use a transaction to ensure both operations succeed or fail together.
+		const result = await this.db
+			.multi()
+			.sAdd(userSessionsKey, sessionId)
+			.set(sessionMetadataKey, serializedData, { EX: expiresInSeconds })
+			.exec()
+
+		const [sAddResult, setResult] = result as unknown as [number, string]
+
+		if (sAddResult === 1 && setResult === 'OK') {
+			return sessionId
+		}
+
+		return null
+	}
+
+	/**
+	 * Retrieves all active session IDs for a given user.
+	 * @param userId - The unique ID of the user.
+	 * @returns An array of session IDs.
+	 */
+	async getUserSessionIds(userId: string): Promise<string[]> {
+		const key = RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		return this.db.sMembers(key)
+	}
+
+	/**
+	 * Retrieves the metadata for a specific session.
+	 * @param sessionId - The unique ID of the session.
+	 * @returns The session metadata or null if not found.
+	 */
+	async getSessionMetadata(sessionId: string): Promise<SessionData | null> {
+		const key = RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+		const dataString = await this.db.get(key)
+		return this.deserialize<SessionData>(dataString)
+	}
+
+	/**
+	 * Checks if a user has any active sessions.
+	 * @param userId - The user's unique ID.
+	 * @returns True if the user has one or more active sessions, false otherwise.
+	 */
+	async hasActiveSessions(userId: string): Promise<boolean> {
+		const key = RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const count = await this.db.sCard(key)
+		return count > 0
+	}
+
+	/**
+	 * Deletes a specific session entry and removes it from the user's list of sessions.
+	 * @param sessionId - The unique ID of the session to delete.
+	 * @returns True if the session was deleted, false otherwise.
+	 */
+	async deleteSession(sessionId: string): Promise<boolean> {
+		// Need to find userId first to remove from the SET
+		const sessionMetadata = await this.getSessionMetadata(sessionId)
+		if (!sessionMetadata) {
+			return false
+		}
+		const { userId } = sessionMetadata
+		const userSessionsKey =
+			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const sessionMetadataKey =
+			RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+
+		// Use a transaction for atomicity
+		const result = await this.db
+			.multi()
+			.del(sessionMetadataKey)
+			.sRem(userSessionsKey, sessionId)
+			.exec()
+
+		// Check if both operations were successful
+		const [delResult, sRemResult] = result as unknown as [number, number]
+		return delResult === 1 && sRemResult === 1
+	}
+
+	/**
+	 * Deletes all active sessions for a user, as well as their main user data.
+	 * @param userId - The unique ID of the user.
+	 * @returns Promise<void>
+	 */
+	async deleteAllUserSessions(userId: string): Promise<void> {
+		const userSessionsKey =
+			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const userDataKey = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
+
+		// Get all session IDs for the user
+		const sessionIds = await this.db.sMembers(userSessionsKey)
+		if (sessionIds.length === 0) return
+
+		// Use a transaction to delete all related keys
+		const pipeline = this.db.multi()
+		pipeline.del(userDataKey)
+		pipeline.del(userSessionsKey)
+		for (const sessionId of sessionIds) {
+			pipeline.del(
+				RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+			)
+		}
+		await pipeline.exec()
 	}
 
 	/**
 	 * Updates the 'lastActivity' timestamp of a session and refreshes its TTL.
-	 * @param {string} sessionId - The unique ID of the session.
-	 * @param {number} expiresInSeconds - New TTL for the session in seconds.
-	 * @returns {Promise<boolean>} True if updated, false if session not found or update failed.
+	 * @param sessionId - The unique ID of the session.
+	 * @param expiresInSeconds - New TTL for the session in seconds.
+	 * @returns True if updated, false if session not found or update failed.
 	 */
 	async updateLastActivity(
 		sessionId: string,
 		expiresInSeconds: number
 	): Promise<boolean> {
-		const key = `session:${sessionId}`
+		const key = RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 		const dataString = await this.db.get(key)
 		if (!dataString) return false
 
-		const sessionData = this.deserializeSessionData(dataString)
+		const sessionData = this.deserialize<SessionData>(dataString)
 		if (!sessionData) return false
 
-		sessionData.lastActivity = Date.now() // Update the last activity
-		const serializedData = this.serializeSessionData(sessionData)
+		sessionData.lastActivity = Date.now()
+		const serializedData = this.serialize(sessionData)
 
-		// Update the value and cool the TTL
-		// The set command with EX refreshes both, the value and the TTL.
 		const result = await this.db.set(key, serializedData, {
 			EX: expiresInSeconds
 		})
+
 		return result === 'OK'
 	}
 }

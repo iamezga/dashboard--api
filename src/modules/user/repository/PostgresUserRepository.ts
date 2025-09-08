@@ -59,11 +59,12 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 	): UserAuthDetails {
 		const mappedUserPermissions = prismaUserSubset.userPermissions
 			.filter(
-				up => !up.permission.deletedAt && up.permission.active && !up.disabled
+				up => !up.permission.deletedAt && !up.disabled && up.permission.active
 			)
 			.map(up => ({
 				config: up.config as Record<string, any>,
 				deletedAt: up.deletedAt,
+				disabled: up.disabled,
 				assignedAt: up.assignedAt,
 				permission: {
 					...up.permission,

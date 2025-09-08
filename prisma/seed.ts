@@ -107,7 +107,8 @@ async function main(): Promise<void> {
 					}
 				},
 				maxSessionTime: 86400, // seconds (24 hours)
-				maxInactivityTime: 86400 // seconds (24 hours)
+				maxInactivityTime: 86400, // seconds (24 hours)
+				allowMultipleSessions: true
 			}
 		},
 		{
