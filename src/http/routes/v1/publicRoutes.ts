@@ -1,10 +1,14 @@
+import { rateLimiterMiddleware } from '@/http/middlewares/rateLimiterMiddleware'
+import { dependencyContainer } from '@/services/dependencyContainer'
 import { Router } from 'express'
-import { authPublicRoutes } from './auth'
 import { userPublicRoutes } from './user'
 
 const router = Router()
 
-router.use('/auth', authPublicRoutes)
-router.use('/user', userPublicRoutes)
+router.use(
+	'/user',
+	rateLimiterMiddleware(dependencyContainer, 100, 900), // 100 requests per 15 minutes
+	userPublicRoutes
+)
 
 export { router as publicRoutes }

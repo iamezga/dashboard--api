@@ -241,7 +241,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			permissions[AuthLoginUseCase.permission]?.config || {}
 
 		if (
-			!loginPermissionConfig.allowMultipleSession &&
+			!loginPermissionConfig.allowMultipleSessions &&
 			(await this.sessionRepository.hasActiveSessions(userAuthDetails.id))
 		) {
 			throw new UnauthorizedError(

@@ -1,6 +1,5 @@
 import config from '@/services/config'
 import logger from '@/services/logger'
-import { app } from './http/app'
 import { databaseServiceManager } from './services/databaseServiceManager'
 import { dependencyContainer } from './services/dependencyContainer'
 ;(async () => {
@@ -11,6 +10,13 @@ import { dependencyContainer } from './services/dependencyContainer'
 		// initialize repositories
 		await dependencyContainer.initializeRepositories()
 		logger.info('Dependency container: repositories initialized successfully.')
+
+		/**
+		 * Dynamically import and start the Express application after all asynchronous
+		 * services (e.g., database clients) are connected. This prevents a race condition
+		 * where middleware attempts to access uninitialized database clients.
+		 */
+		const { app } = await import('./http/app')
 
 		// Run server
 		app.listen(config.get('port') || 5000, () =>

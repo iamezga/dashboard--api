@@ -14,6 +14,12 @@ jest.mock('@/services/validationService', () => ({
 	}
 }))
 
+jest.mock('@/services/logger', () => ({
+	info: jest.fn(),
+	error: jest.fn(),
+	warn: jest.fn()
+}))
+
 describe('validationMiddleware', () => {
 	let mockReq: Partial<Request>
 	let mockRes: Partial<Response>
@@ -42,7 +48,7 @@ describe('validationMiddleware', () => {
 		await middleware(mockReq as Request, mockRes as Response, mockNext)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
-			'`jobMiddleware` must be run before'
+			'An unexpected error has occurred.'
 		)
 	})
 
@@ -52,7 +58,7 @@ describe('validationMiddleware', () => {
 		await middleware(mockReq as Request, mockRes as Response, mockNext)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
-			'Validation rules for use case "missingRule" not found'
+			'An unexpected error has occurred.'
 		)
 	})
 

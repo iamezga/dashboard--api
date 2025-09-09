@@ -5,6 +5,7 @@ import {
 	NotFoundError,
 	UnauthorizedError
 } from '@/errors'
+import { TooManyRequestsError } from '@/errors/TooManyRequestsError'
 import { Job } from '@/lib/Job'
 import config from '@/services/config'
 import logger from '@/services/logger'
@@ -18,6 +19,7 @@ type HandledError =
 	| ForbiddenError
 	| NotFoundError
 	| UnauthorizedError
+	| TooManyRequestsError
 	| Error
 
 export const errorMiddleware = async (
@@ -39,7 +41,8 @@ export const errorMiddleware = async (
 		err instanceof BadRequestError ||
 		err instanceof ForbiddenError ||
 		err instanceof NotFoundError ||
-		err instanceof UnauthorizedError
+		err instanceof UnauthorizedError ||
+		err instanceof TooManyRequestsError
 	) {
 		statusCode = err.statusCode
 		message = err.message
