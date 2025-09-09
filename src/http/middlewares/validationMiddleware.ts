@@ -1,5 +1,6 @@
 import { BadRequestError, UnauthorizedError } from '@/errors'
 import { rules } from '@/modules'
+import logger from '@/services/logger'
 import { validator } from '@/services/validationService'
 import { JobInterface } from '@/types/job/JobInterface'
 import { NextFunction, Request, Response } from 'express'
@@ -14,21 +15,20 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 			const job = res.locals.job as JobInterface
 
 			if (!job) {
-				return next(
-					new Error(
-						'`jobMiddleware` must be run before `validationMiddleware`.'
-					)
+				logger.error(
+					'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'
 				)
+
+				throw new Error('An unexpected error has occurred.')
 			}
 
 			// Get rules by use case rule name
 			const useCaseRules = rules[useCaseRuleName]
 			if (!useCaseRules) {
-				return next(
-					new Error(
-						`Validation rules for use case "${useCaseRuleName}" not found.`
-					)
+				logger.error(
+					`ValidationMiddleware: Validation rules for use case "${useCaseRuleName}" not found.`
 				)
+				throw new Error('An unexpected error has occurred.')
 			}
 
 			// Validate de job.user
