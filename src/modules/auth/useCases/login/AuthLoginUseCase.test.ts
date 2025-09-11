@@ -1,3 +1,4 @@
+import { Logger } from 'pino'
 import { BadRequestError, UnauthorizedError } from '../../../../errors'
 import { Job } from '../../../../lib/Job'
 import { dayjs } from '../../../../services/dayjs'
@@ -24,8 +25,13 @@ const makeLoginJob = (
 			currentUser = user
 		},
 		getUser: () => currentUser,
-		getMeta: () => ({ timestamp: new Date() })
-	} as unknown as AuthLoginJobInterface
+		getMeta: () => ({ timestamp: new Date() }),
+		logger: {
+			info: jest.fn(),
+			warn: jest.fn(),
+			error: jest.fn()
+		}
+	} as unknown as AuthLoginJobInterface & { logger: Logger }
 }
 
 const makeUserAuthDetails = (overrides?: Partial<any>) => ({
@@ -73,7 +79,6 @@ const sessionRepo = {
 	createSession: jest.fn().mockResolvedValue('session-123'),
 	hasActiveSessions: jest.fn().mockResolvedValue(false)
 }
-const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
 const argon2 = { verify: jest.fn() }
 const jwt = { sign: jest.fn() }
 const ms = jest.fn(_val => 3600000) // 1h in ms
@@ -88,7 +93,6 @@ const makeContainer = (): DependencyContainer =>
 	({
 		repositories: { user: userRepo, role: roleRepo, session: sessionRepo },
 		thirdParties: { argon2, jwt, ms, dayjs },
-		logger,
 		config: { get: configGet },
 		utils: { deepMerge, getTimeInSeconds },
 		validator
@@ -130,7 +134,7 @@ describe('AuthLoginUseCase', () => {
 		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(null)
 		const job = makeLoginJob({ email: 'no@exists.com' })
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(logger.warn).toHaveBeenCalled()
+		expect(job.logger.warn).toHaveBeenCalled()
 	})
 
 	it('Should throw BadRequestError if user inactive', async () => {
@@ -141,7 +145,7 @@ describe('AuthLoginUseCase', () => {
 		)
 		const job = makeLoginJob()
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(logger.warn).toHaveBeenCalled()
+		expect(job.logger.warn).toHaveBeenCalled()
 	})
 
 	it('Should throw BadRequestError if user.deletedAt exists', async () => {
@@ -152,7 +156,7 @@ describe('AuthLoginUseCase', () => {
 		)
 		const job = makeLoginJob()
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(logger.warn).toHaveBeenCalled()
+		expect(job.logger.warn).toHaveBeenCalled()
 	})
 
 	it('Should throw BadRequestError if password invalid', async () => {
@@ -165,7 +169,7 @@ describe('AuthLoginUseCase', () => {
 		const job = makeLoginJob({ password: 'wrong' })
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
 		expect(argon2.verify).toHaveBeenCalledWith('hashed-pass', 'wrong')
-		expect(logger.warn).toHaveBeenCalled()
+		expect(job.logger.warn).toHaveBeenCalled()
 	})
 
 	it('Should throw UnauthorizedError if no roleId', async () => {
@@ -213,8 +217,7 @@ describe('AuthLoginUseCase', () => {
 		userRepo.update.mockResolvedValueOnce(null)
 
 		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
-		expect(logger.error).toHaveBeenCalled()
+		await expect(useCase.run(job)).rejects.toBeInstanceOf(Error)
 	})
 
 	it('Should login successfully and return token', async () => {
@@ -260,7 +263,7 @@ describe('AuthLoginUseCase', () => {
 			attempts: 2,
 			message: 'Login successful.'
 		})
-		expect(logger.info).toHaveBeenCalled()
+		expect(job.logger.info).toHaveBeenCalled()
 	})
 
 	it('Should include accessDay and accessTime in validation data if conditions enabled', async () => {
@@ -576,7 +579,6 @@ describe('AuthLoginUseCase', () => {
 		sessionRepo.createSession.mockResolvedValueOnce(null) // fuerza fallo
 
 		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
-		expect(logger.error).toHaveBeenCalled()
+		await expect(useCase.run(job)).rejects.toBeInstanceOf(Error)
 	})
 })

@@ -28,8 +28,25 @@ export const jobMiddleware = (
 		meta
 	} = req.requestData
 
+	// Create a child logger with job-specific data.
+	const jobLogger = logger.child({
+		jobId: id,
+		attempts,
+		meta: {
+			ip: meta.ip,
+			url: meta.url
+		}
+	})
+
 	// Create a new Job instance with basic request data.
-	const job = new Job({ id, attempts, data, recaptchaResponse, meta, logger })
+	const job = new Job({
+		id,
+		attempts,
+		data,
+		recaptchaResponse,
+		meta,
+		logger: jobLogger
+	})
 
 	// Attach the Job to res.locals so it's accessible by the next middlewares
 	res.locals.job = job

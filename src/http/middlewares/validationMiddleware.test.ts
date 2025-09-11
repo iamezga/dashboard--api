@@ -48,7 +48,7 @@ describe('validationMiddleware', () => {
 		await middleware(mockReq as Request, mockRes as Response, mockNext)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
-			'An unexpected error has occurred.'
+			'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'
 		)
 	})
 
@@ -58,7 +58,7 @@ describe('validationMiddleware', () => {
 		await middleware(mockReq as Request, mockRes as Response, mockNext)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
-			'An unexpected error has occurred.'
+			'ValidationMiddleware: Validation rules for use case "missingRule" not found.'
 		)
 	})
 

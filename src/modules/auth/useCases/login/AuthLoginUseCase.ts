@@ -148,7 +148,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			!userAuthDetails.active ||
 			userAuthDetails.deletedAt
 		) {
-			this.container.logger.warn(
+			job.logger.warn(
 				`Login attempt for inactive or non-existent user: ${email}`
 			)
 			throw new BadRequestError('Incorrect credentials', [
@@ -166,7 +166,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			password
 		)
 		if (!passwordMatch) {
-			this.container.logger.warn(
+			job.logger.warn(
 				`Failed login attempt for user: ${email} (incorrect password)`
 			)
 			throw new BadRequestError('Incorrect credentials', [
@@ -179,11 +179,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		if (!userAuthDetails.roleId) {
-			// This is a system-level issue if a user has no role, UnauthorizedError is appropriate here
-			this.container.logger.error(
-				{ userAuthDetails },
-				'User with no assigned role attempted to log in.'
-			)
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
@@ -191,10 +186,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			await this.roleRepository.findByIdWithPermissions(userAuthDetails.roleId)
 
 		if (!roleWithPermissions || !roleWithPermissions.active) {
-			this.container.logger.error(
-				{ userAuthDetails },
-				'An attempt was made to log in with an invalid or inactive role.'
-			)
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
@@ -256,14 +247,11 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			lastLogin: currentTime
 		})
 		if (!updatedUser) {
-			this.container.logger.error(
+			throw new Error(
 				`Failed to update last login for user: ${userAuthDetails.email}`
 			)
-			throw new UnauthorizedError(`Authentication failed.`)
 		}
-		this.container.logger.info(
-			`User ${userAuthDetails.email} successfully logged in.`
-		)
+		job.logger.info(`User ${userAuthDetails.email} successfully logged in.`)
 
 		// Convert JWT expiresIn string (e.g., "1h") to seconds for Redis TTL
 		const jwtExpiresInSeconds = this.getTimeInSeconds(
@@ -305,17 +293,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		)
 
 		if (!sessionId) {
-			this.container.logger.error(
-				{
-					createSessionParams: {
-						userId: updatedUser.id,
-						sessionData,
-						sessionTTL
-					}
-				},
-				'Could not create user session in Redis.'
-			)
-			throw new UnauthorizedError(`Authorization failed.`)
+			throw new Error('Could not create user session in Redis.')
 		}
 
 		// Generate JWT Token

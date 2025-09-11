@@ -125,9 +125,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		//  Create user
 		const createdUser = await this.userRepository.create(newUserData)
 
-		this.container.logger.info(
-			`User ${createdUser.email} created successfully.`
-		)
+		job.logger.info(`User ${createdUser.email} created successfully.`)
 
 		return {
 			data: createdUser,

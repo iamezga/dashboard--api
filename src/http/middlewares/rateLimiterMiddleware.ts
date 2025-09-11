@@ -1,6 +1,6 @@
 import { TooManyRequestsError } from '@/errors'
+import { Job } from '@/lib/Job'
 import { DependencyContainer } from '@/services/dependencyContainer'
-import { JobInterface } from '@/types/job/JobInterface'
 import { NextFunction, Request, Response } from 'express'
 import { RateLimiterRedis } from 'rate-limiter-flexible'
 
@@ -28,14 +28,12 @@ export const rateLimiterMiddleware = (
 
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
-			const job = res.locals.job as JobInterface
+			const job = res.locals.job as Job
 
 			if (!job) {
-				container.logger.error(
+				throw new Error(
 					'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'
 				)
-
-				throw new Error('An unexpected error has occurred.')
 			}
 			const jobMeta = job.getMeta()
 			const user = job.getPublicUser()

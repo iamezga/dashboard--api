@@ -1,3 +1,4 @@
+import { Logger } from 'pino'
 import { BadRequestError } from '../../../../errors'
 import { DependencyContainer } from '../../../../services/dependencyContainer'
 import { UserCreateJobInterface } from './UserCreateJobInterface'
@@ -11,8 +12,14 @@ const makeJob = (
 	({
 		getData: () => data,
 		getAttempts: () => attempts,
-		getUser: () => ({ permissions })
-	} as unknown as UserCreateJobInterface)
+		getUser: () => ({ permissions }),
+		logger: {
+			info: jest.fn(),
+			warn: jest.fn(),
+			error: jest.fn(),
+			child: jest.fn().mockReturnThis()
+		} as unknown as Logger
+	} as unknown as UserCreateJobInterface & { logger: Logger })
 
 describe('UserCreateUseCase', () => {
 	const userRepo = {
@@ -28,7 +35,7 @@ describe('UserCreateUseCase', () => {
 		findById: jest.fn()
 	}
 
-	const logger = {
+	const globalLogger = {
 		info: jest.fn(),
 		warn: jest.fn(),
 		error: jest.fn()
@@ -46,7 +53,7 @@ describe('UserCreateUseCase', () => {
 				organization: organizationRepo
 			},
 			thirdParties: { argon2 },
-			logger
+			logger: globalLogger
 		} as unknown as DependencyContainer)
 
 	const baseRole = { id: 'role1', active: true }
@@ -185,7 +192,8 @@ describe('UserCreateUseCase', () => {
 			attempts: 2,
 			message: 'User created successfully.'
 		})
-		expect(logger.info).toHaveBeenCalledWith(
+		// logger del job, no el global
+		expect(job.logger.info).toHaveBeenCalledWith(
 			'User new@mail.com created successfully.'
 		)
 	})

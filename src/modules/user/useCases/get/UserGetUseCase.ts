@@ -43,7 +43,7 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 	async run(job: UserGetJobInterface): Promise<UseCaseResponseInterface> {
 		// ...Some business logic
 		const data = job.getData()
-		this.container.logger.info(data)
+		job.logger.info(data)
 		const user = await this.container.repositories.user.findById(data.id)
 
 		return {

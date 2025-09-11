@@ -13,6 +13,7 @@ import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
 import { ValidationError } from 'fastest-validator'
 import { randomUUID } from 'node:crypto'
+import { Logger } from 'pino'
 
 type HandledError =
 	| BadRequestError
@@ -73,6 +74,8 @@ export const errorMiddleware = async (
 		}
 	}
 
+	const logInstance: Logger = job?.logger || logger
+
 	const logData = {
 		errorId,
 		jobId: job?.getId(),
@@ -83,9 +86,9 @@ export const errorMiddleware = async (
 	}
 
 	if (statusCode >= 500) {
-		logger.error(logData)
+		logInstance.error(logData, err.message || message)
 	} else {
-		logger.warn(logData)
+		logInstance.warn(logData, message)
 	}
 
 	// Update Job status

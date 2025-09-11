@@ -1,6 +1,5 @@
 import { UnauthorizedError } from '../../errors'
 import { useCases } from '../../modules'
-import logger from '../../services/logger'
 import { validator } from '../../services/validationService'
 import { permissionMiddleware } from './permissionMiddleware'
 
@@ -28,33 +27,23 @@ describe('permissionMiddleware', () => {
 		res.locals = {}
 	})
 
-	it('should throw UnauthorizedError if job is missing', async () => {
+	it('should throw Error if job is missing', async () => {
 		const middleware = permissionMiddleware('UserCreateUseCase')
 		await middleware(req, res, next)
 
-		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.stringContaining(
-				`Permission Middleware Error: Job object not found for use case UserCreateUseCase`
-			)
-		)
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 
-	it('should throw UnauthorizedError if useCase is missing', async () => {
+	it('should throw Error if useCase is missing', async () => {
 		const middleware = permissionMiddleware('NonExistentUseCase' as any)
 		res.locals.job = { id: 1 }
 
 		await middleware(req, res, next)
 
-		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.stringContaining(
-				`Permission Middleware Error: Use Case "NonExistentUseCase" not found.`
-			)
-		)
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 
-	it('should throw UnauthorizedError if useCase is missing permission configuration', async () => {
+	it('should throw Error if useCase is missing permission configuration', async () => {
 		;(useCases as any).InvalidCase = class {}
 
 		const middleware = permissionMiddleware('InvalidCase' as any)
@@ -62,12 +51,7 @@ describe('permissionMiddleware', () => {
 
 		await middleware(req, res, next)
 
-		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.stringContaining(
-				`Permission Middleware Error: Use Case "InvalidCase" is missing permission configuration.`
-			)
-		)
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 
 	it('should throw UnauthorizedError if validator returns errors', async () => {

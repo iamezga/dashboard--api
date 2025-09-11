@@ -44,7 +44,7 @@ export class AuditGetUseCase extends UseCase<AuditGetJobInterface> {
 	async run(job: AuditGetJobInterface): Promise<UseCaseResponseInterface> {
 		// ...Some business logic
 		const data = job.getData()
-		this.container.logger.info(data)
+		job.logger.info(data)
 		const user = await this.container.repositories.user.findById('1')
 		console.log(user)
 

@@ -108,9 +108,6 @@ describe('rateLimiterMiddleware', () => {
 
 		await middleware(req, res, next)
 
-		expect(logger.error).toHaveBeenCalledWith(
-			'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'
-		)
-		expect(next).toHaveBeenCalledWith(expect.any(TooManyRequestsError))
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 })

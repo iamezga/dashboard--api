@@ -2,7 +2,7 @@ import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { AuthenticatedUser } from '@/modules/user/entities/User'
 import { JobInterface } from '@/types/job/JobInterface'
 import { JobMetaInterface } from '@/types/job/JobMetaInterface'
-import pino, { Logger } from 'pino'
+import { Logger } from 'pino'
 
 interface JobOptions {
 	id: string
@@ -11,7 +11,7 @@ interface JobOptions {
 	recaptchaResponse?: string
 	meta?: JobMetaInterface
 	user?: AuthenticatedUser
-	logger?: Logger
+	logger: Logger
 }
 
 /**
@@ -36,7 +36,7 @@ export class Job implements JobInterface {
 	private recaptchaResponse?: string
 	private meta: JobMetaInterface
 	private user?: AuthenticatedUser
-	private logger: Logger
+	public logger: Logger
 
 	// Event Callbacks
 	private onFailCallback?: (errorId: string, err: Error, job: Job) => void
@@ -51,7 +51,7 @@ export class Job implements JobInterface {
 		this.recaptchaResponse = options.recaptchaResponse
 		this.meta = structuredClone(options.meta ?? ({} as JobMetaInterface))
 		this.user = options.user ? structuredClone(options.user) : undefined
-		this.logger = options.logger ?? pino()
+		this.logger = options.logger
 	}
 
 	getId(): string {

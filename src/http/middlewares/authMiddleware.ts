@@ -20,7 +20,7 @@ export const authMiddleware = (
 	container: DependencyContainer
 ): RequestHandler => {
 	const { jwt } = container.thirdParties
-	const { config, repositories, logger } = container
+	const { config, repositories } = container
 	const jwtSecret = config.get('jwt.secret')
 	const jwtExpiresIn = config.get('jwt.expiresIn')
 
@@ -34,10 +34,9 @@ export const authMiddleware = (
 		next: NextFunction
 	): Promise<void> => {
 		if (!req.requestData || !res.locals.job) {
-			logger.error(
+			throw new Error(
 				'`requestDataMiddleware` and `jobMiddleware` must run before `authMiddleware`'
 			)
-			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		const job = res.locals.job as Job
@@ -121,15 +120,8 @@ export const authMiddleware = (
 			if (error instanceof JsonWebTokenError || error instanceof SyntaxError) {
 				return next(new UnauthorizedError('Authentication failed.'))
 			}
-			if (error instanceof UnauthorizedError) {
-				return next(error)
-			}
-			logger.error(
-				`AuthMiddleware unexpected error: ${
-					error instanceof Error ? error.message : String(error)
-				}`
-			)
-			return next(new UnauthorizedError('Authentication failed.'))
+
+			return next(error)
 		}
 	}
 }

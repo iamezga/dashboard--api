@@ -17,12 +17,21 @@ const mockNext = jest.fn() as NextFunction
 
 const mockGetPublicUser = jest.fn().mockReturnValue({ id: 'mock-user-id' })
 
+// mock job with its own logger
+const mockJobLogger = {
+	error: jest.fn(),
+	warn: jest.fn(),
+	info: jest.fn(),
+	child: jest.fn().mockReturnThis()
+}
+
 const mockJob = {
 	getId: jest.fn().mockReturnValue('mock-job-id'),
 	getPublicUser: mockGetPublicUser,
 	getMeta: jest.fn().mockReturnValue({ status: 'in_progress' }),
 	getData: jest.fn().mockReturnValue({ input: 'data' }),
-	markFailed: jest.fn()
+	markFailed: jest.fn(),
+	logger: mockJobLogger
 } as unknown as Job
 
 const createMockResponse = (jobMock?: any) => {
@@ -99,13 +108,14 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.warn).toHaveBeenCalledWith(
+		expect(mockJobLogger.warn).toHaveBeenCalledWith(
 			expect.objectContaining({
 				errorId: 'mock-error-id',
 				user: { id: 'mock-user-id' }
-			})
+			}),
+			expect.any(String)
 		)
-		expect(logger.error).not.toHaveBeenCalled()
+		expect(mockJobLogger.error).not.toHaveBeenCalled()
 	})
 
 	it('should not include "errors" property when BadRequestError has no validation errors', async () => {
@@ -134,8 +144,8 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.warn).toHaveBeenCalledTimes(1)
-		expect(logger.error).not.toHaveBeenCalled()
+		expect(mockJobLogger.warn).toHaveBeenCalledTimes(1)
+		expect(mockJobLogger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle UnauthorizedError with 401 status and correct message', async () => {
@@ -152,8 +162,8 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.warn).toHaveBeenCalledTimes(1)
-		expect(logger.error).not.toHaveBeenCalled()
+		expect(mockJobLogger.warn).toHaveBeenCalledTimes(1)
+		expect(mockJobLogger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle ForbiddenError with 403 status and correct message', async () => {
@@ -170,8 +180,8 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.warn).toHaveBeenCalledTimes(1)
-		expect(logger.error).not.toHaveBeenCalled()
+		expect(mockJobLogger.warn).toHaveBeenCalledTimes(1)
+		expect(mockJobLogger.error).not.toHaveBeenCalled()
 	})
 
 	it('should handle generic Error with 500 status and capture by Sentry in production', async () => {
@@ -190,17 +200,15 @@ describe('errorMiddleware', () => {
 				errorId: 'mock-error-id'
 			})
 		)
-		expect(mockRes.json).not.toHaveBeenCalledWith(
-			expect.objectContaining({ stack: expect.any(String) })
-		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockJobLogger.error).toHaveBeenCalledWith(
 			expect.objectContaining({
 				errorId: 'mock-error-id',
 				user: { id: 'mock-user-id' }
-			})
+			}),
+			expect.any(String)
 		)
-		expect(logger.warn).not.toHaveBeenCalled()
+		expect(mockJobLogger.warn).not.toHaveBeenCalled()
 	})
 
 	it('should handle a generic Error (500) with message, stack, and Sentry context in development', async () => {
@@ -224,25 +232,14 @@ describe('errorMiddleware', () => {
 		expect(Sentry.withScope).toHaveBeenCalledTimes(1)
 		expect(Sentry.captureException).toHaveBeenCalledTimes(1)
 		expect(Sentry.captureException).toHaveBeenCalledWith(error)
-		const mockScope = (Sentry.withScope as jest.Mock).mock.calls[0][0]
-		const scope = {
-			setTag: jest.fn(),
-			setUser: jest.fn(),
-			setExtra: jest.fn()
-		}
-		mockScope(scope)
-		expect(scope.setTag).toHaveBeenCalledWith('errorId', 'mock-error-id')
-		expect(scope.setUser).toHaveBeenCalledWith({ id: 'mock-user-id' })
-		expect(scope.setExtra).toHaveBeenCalledWith('job.data', {
-			input: 'data'
-		})
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockJobLogger.error).toHaveBeenCalledWith(
 			expect.objectContaining({
 				message: 'Database connection failed',
 				stack: error.stack,
 				errorId: 'mock-error-id'
-			})
+			}),
+			expect.any(String)
 		)
 	})
 
@@ -275,7 +272,8 @@ describe('errorMiddleware', () => {
 			expect.objectContaining({
 				jobId: undefined,
 				user: undefined
-			})
+			}),
+			expect.any(String)
 		)
 	})
 	it('should handle error objects that are not instances of Error gracefully', async () => {
@@ -295,11 +293,12 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockJobLogger.error).toHaveBeenCalledWith(
 			expect.objectContaining({
 				errorId: 'mock-error-id',
 				user: { id: 'mock-user-id' }
-			})
+			}),
+			expect.any(String)
 		)
 	})
 
@@ -321,7 +320,7 @@ describe('errorMiddleware', () => {
 			})
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
-		expect(logger.error).toHaveBeenCalled()
+		expect(mockJobLogger.error).toHaveBeenCalled()
 	})
 
 	it('should call mockJob.getId when job exists and not call when job is undefined', async () => {

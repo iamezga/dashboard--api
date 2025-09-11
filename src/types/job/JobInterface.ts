@@ -1,8 +1,13 @@
 import { UserLoginDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { AuthenticatedUser } from '@/modules/user/entities/User'
+import { Logger } from 'pino'
 import { JobMetaInterface } from './JobMetaInterface'
 
 export interface JobInterface {
+	// props
+	logger: Logger
+
+	// Methods
 	getId(): string
 	getMeta(): JobMetaInterface
 	getData(): Record<string, any>

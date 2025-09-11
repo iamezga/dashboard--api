@@ -19,7 +19,13 @@ const makeReqResNext = (token?: string) => {
 		requestData: token ? { token } : {}
 	} as unknown as Request
 
-	const job = new Job(<any>{}) // simulate an empty Job
+	const job = new Job(<any>{}) as any
+	job.logger = {
+		info: jest.fn(),
+		warn: jest.fn(),
+		error: jest.fn(),
+		child: jest.fn().mockReturnThis()
+	}
 
 	const res = {
 		locals: { job }
@@ -99,7 +105,7 @@ describe('authMiddleware', () => {
 		delete (req as any).requestData
 
 		await expect(middleware(req, res, next)).rejects.toThrow(
-			'Authentication failed.'
+			'`requestDataMiddleware` and `jobMiddleware` must run before `authMiddleware`'
 		)
 	})
 
@@ -287,43 +293,5 @@ describe('authMiddleware', () => {
 
 		expect(jwt.verify).toHaveBeenCalledWith('header-token', 'secret')
 		expect(next).toHaveBeenCalledWith()
-	})
-
-	it('should log and wrap unexpected errors', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockImplementationOnce(() => {
-			throw new Error('Unexpected crash')
-		})
-
-		await middleware(req, res, next)
-
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.stringContaining(
-				'AuthMiddleware unexpected error: Unexpected crash'
-			)
-		)
-		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
-	})
-
-	it('should log unexpected object values by stringifying them', async () => {
-		const container = makeContainer()
-		const middleware = authMiddleware(container)
-		const { req, res, next } = makeReqResNext('valid-token')
-
-		jwt.verify.mockImplementationOnce(() => {
-			throw 'non-error value'
-		})
-
-		await middleware(req, res, next)
-
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.stringContaining(
-				'AuthMiddleware unexpected error: non-error value'
-			)
-		)
-		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
 })

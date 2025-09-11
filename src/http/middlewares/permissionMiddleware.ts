@@ -1,9 +1,8 @@
 import { UnauthorizedError } from '@/errors'
+import { Job } from '@/lib/Job'
 import { useCases } from '@/modules'
 import { dependencyContainer } from '@/services/dependencyContainer'
-import logger from '@/services/logger'
 import { validator } from '@/services/validationService'
-import { JobInterface } from '@/types/job/JobInterface'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 
 /**
@@ -20,31 +19,28 @@ export const permissionMiddleware = (
 ): RequestHandler => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
-			const job = res.locals.job as JobInterface
+			const job = res.locals.job as Job
 			const useCaseClass = useCases[useCaseName]
 
 			if (!job) {
-				logger.error(
+				throw new Error(
 					`Permission Middleware Error: Job object not found for use case ${useCaseName}`
 				)
-				throw new UnauthorizedError(`Authorization failed.`)
 			}
 
 			if (!useCaseClass) {
-				logger.error(
+				throw new Error(
 					`Permission Middleware Error: Use Case "${useCaseName}" not found.`
 				)
-				throw new UnauthorizedError(`Authorization failed.`)
 			}
 			// The `permission` property and `getPermissionValidationData` method are mandatory for private use case
 			if (
 				!(useCaseClass as any).permission ||
 				typeof (useCaseClass as any).getPermissionValidationData !== 'function'
 			) {
-				logger.error(
+				throw new Error(
 					`Permission Middleware Error: Use Case "${useCaseName}" is missing permission configuration.`
 				)
-				throw new UnauthorizedError(`Authorization failed.`)
 			}
 
 			// Get the validation schema and data from the use case's method.
