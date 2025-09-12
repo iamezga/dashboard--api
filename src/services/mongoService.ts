@@ -1,87 +1,85 @@
-import config from '@/services/config'
+import convictConfig from '@/services/config'
 import logger from '@/services/logger'
 import { Db, MongoClient } from 'mongodb'
 
-let client: MongoClient | null = null
-let db: Db | null = null
+export class MongoService {
+	private client: MongoClient | null = null
+	private dbInstance: Db | null = null
+	public displayName = 'MongoDB'
 
-const mongoConfig = config.get('database.mongo')
+	constructor(private config = convictConfig.get('database.mongo')) {}
 
-/**
- * Mongodb connection.
- * If Mongodb is disabled in the configuration or is already connected, it does nothing.
- * @returns db instance or null
- * @throws Error if Mongodb is enabled but the URL is not configured or the connection fails.
- */
-export const connectMongo = async (): Promise<Db | null> => {
-	if (!mongoConfig.enabled) {
-		logger.info('MongoDB is disabled in configuration. Skipping connection.')
-		return null
+	/**
+	 * Connects to MongoDB and returns the db instance.
+	 */
+	public async connect(): Promise<Db | null> {
+		if (!this.config.enabled) {
+			logger.info(`${this.displayName} is disabled. Skipping connection.`)
+			return null
+		}
+
+		if (!this.config.url) {
+			logger.error(`${this.displayName} URL is not configured.`)
+			throw new Error('MongoDB URL is not configured.')
+		}
+
+		if (!this.config.db) {
+			logger.error(`${this.displayName} database name is not configured.`)
+			throw new Error('MongoDB database name is not configured.')
+		}
+
+		if (this.client && this.dbInstance) {
+			logger.info(`${this.displayName} client already initialized.`)
+			return this.dbInstance
+		}
+
+		try {
+			this.client = new MongoClient(this.config.url)
+			await this.client.connect()
+			this.dbInstance = this.client.db(this.config.db)
+
+			this.client.on('close', () => logger.warn('MongoDB connection closed.'))
+			this.client.on('reconnect', () => logger.info('MongoDB reconnected.'))
+			this.client.on('error', err => logger.error('MongoDB error:', err))
+
+			logger.info(`${this.displayName} connected successfully.`)
+			return this.dbInstance
+		} catch (error) {
+			logger.error(`Failed to connect ${this.displayName}:`, error)
+			throw error
+		}
 	}
 
-	if (!mongoConfig.url) {
-		logger.error('MongoDB URL is not configured when MongoDB is enabled.')
-		throw new Error('MongoDB URL is not configured.')
+	/**
+	 * Returns the connected db instance.
+	 */
+	public getClient(): Db {
+		if (!this.dbInstance) {
+			throw new Error('MongoDB not connected. Call connect() first.')
+		}
+		return this.dbInstance
 	}
 
-	// If the client already exists and is "ready"
-	if (client && db) {
-		logger.info('MongoDB client already initialized and potentially connected.')
-		return db
+	/**
+	 * Disconnects from MongoDB.
+	 */
+	public async disconnect(): Promise<void> {
+		if (this.client) {
+			await this.client.close()
+			this.client = null
+			this.dbInstance = null
+			logger.info(`${this.displayName} disconnected.`)
+		}
 	}
 
-	if (!mongoConfig.db) {
-		logger.error(
-			'MongoDB database name is not configured when MongoDB is enabled.'
-		)
-		throw new Error('MongoDB database name is not configured.')
-	}
-
-	try {
-		client = new MongoClient(mongoConfig.url)
-		await client.connect()
-
-		// Get db instance
-		db = client.db(mongoConfig.db)
-		logger.info('MongoDB connected successfully.')
-
-		// Listeners
-		client.on('close', () => {
-			logger.warn('MongoDB connection closed.')
-			// The driver handles automatic reconnection if possible.
-			// To force full reconnection, set null the client and dB variables
-		})
-		client.on('reconnect', () => logger.info('MongoDB reconnected.'))
-		client.on('error', error => logger.error('MongoDB error:', error))
-
-		return db
-	} catch (error) {
-		logger.error('Failed to connect to MongoDB:', error)
-		throw error
-	}
-}
-
-/**
- * Get database instance.
- * @returns db instance
- * @throws Error if Mongodb is not connected.
- */
-export const getMongoDb = (): Db => {
-	if (!db) {
-		throw new Error('MongoDB not connected. Call connectMongo() first.')
-	}
-	return db
-}
-
-/**
- * Disconnect the current Mongodb connection.
- * If there is no active connection, it does nothing.
- */
-export const disconnectMongo = async (): Promise<void> => {
-	if (client) {
-		await client.close()
-		client = null
-		db = null
-		logger.info('MongoDB disconnected.')
+	/**
+	 * Reset internal state for testing
+	 */
+	public __resetForTests() {
+		this.client = null
+		this.dbInstance = null
 	}
 }
+
+// Singleton instance for registry
+export const mongoService = new MongoService()

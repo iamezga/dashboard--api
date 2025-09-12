@@ -1,63 +1,96 @@
-import config from '@/services/config'
 import logger from '@/services/logger'
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
+import convictConfig from './config'
 
-let prisma: PrismaClient | null = null
+export class PrismaService {
+	private client: PrismaClient | null = null
+	public displayName = 'Prisma (PostgreSQL)'
 
-const prismaConfig = config.get('database.prisma')
+	constructor(private config = convictConfig.get('database.prisma')) {}
 
-export const connectPrisma = async (): Promise<PrismaClient | null> => {
-	if (!prismaConfig.enabled) {
-		logger.info('Prisma is disabled in configuration. Skipping connection.')
-		return null
+	/**
+	 * Connects Prisma client if not already connected.
+	 */
+	public async connect(): Promise<PrismaClient | null> {
+		if (!this.config.enabled) {
+			logger.info(
+				`${this.displayName} is disabled in configuration. Skipping connection.`
+			)
+			return null
+		}
+
+		if (this.client) {
+			logger.info(`${this.displayName} already initialized.`)
+			return this.client
+		}
+
+		if (!this.config.url) {
+			logger.error(`${this.displayName} URL is not configured.`)
+			throw new Error('Prisma url is not configured.')
+		}
+
+		try {
+			this.client = new PrismaClient({
+				log: [
+					{ level: 'query', emit: 'event' },
+					{ level: 'error', emit: 'event' },
+					{ level: 'info', emit: 'event' },
+					{ level: 'warn', emit: 'event' }
+				]
+			})
+
+			this.client.$on(<never>'error', (e: Prisma.LogEvent) =>
+				logger.error('Prisma Error:', e)
+			)
+			this.client.$on(<never>'info', (e: Prisma.LogEvent) =>
+				logger.info('Prisma Info:', e)
+			)
+			this.client.$on(<never>'warn', (e: Prisma.LogEvent) =>
+				logger.warn('Prisma Warn:', e)
+			)
+			// this.client.$on(<never>'quey', (e: Prisma.LogEvent) =>
+			// 	logger.warn('Prisma Query:', e)
+			// )
+
+			await this.client.$connect()
+			logger.info(`${this.displayName} connected successfully.`)
+			return this.client
+		} catch (error) {
+			logger.error(`Failed to connect ${this.displayName}:`, error)
+			throw error
+		}
 	}
 
-	if (prisma) {
-		logger.info('Prisma client already initialized.')
-		return prisma
+	/**
+	 * Returns the connected Prisma client.
+	 */
+	public getClient(): PrismaClient {
+		if (!this.client) {
+			throw new Error(
+				`${this.displayName} not connected. Call connect() first.`
+			)
+		}
+		return this.client
 	}
 
-	if (!prismaConfig.url) {
-		logger.error('Prisma url is not configured when Prisma is enabled.')
-		throw new Error('Prisma url is not configured.')
+	/**
+	 * Disconnects the Prisma client if connected.
+	 */
+	public async disconnect(): Promise<void> {
+		if (this.client) {
+			await this.client.$disconnect()
+			this.client = null
+			logger.info(`${this.displayName} disconnected.`)
+		}
 	}
 
-	try {
-		prisma = new PrismaClient({
-			log: [
-				{ level: 'query', emit: 'event' },
-				{ level: 'error', emit: 'event' },
-				{ level: 'info', emit: 'event' },
-				{ level: 'warn', emit: 'event' }
-			]
-		})
-
-		// Connect prisma logging
-		;(prisma as any).$on('error', (e: any) => logger.error('Prisma Error:', e))
-		;(prisma as any).$on('info', (e: any) => logger.info('Prisma Info:', e))
-		;(prisma as any).$on('warn', (e: any) => logger.warn('Prisma Warn:', e))
-		// (prisma as any).$on('query', (e: any) => logger.debug('Prisma Query:', e));
-
-		await prisma.$connect()
-		logger.info('Prisma connected successfully.')
-		return prisma
-	} catch (error) {
-		logger.error('Failed to connect Prisma:', error)
-		throw error
+	/**
+	 * For testing purposes: reset the internal client
+	 */
+	public __resetForTests() {
+		this.client = null
 	}
 }
 
-export const getPrismaClient = (): PrismaClient => {
-	if (!prisma) {
-		throw new Error('Prisma not connected. Call connectPrisma() first.')
-	}
-	return prisma
-}
-
-export const disconnectPrisma = async (): Promise<void> => {
-	if (prisma) {
-		await prisma.$disconnect()
-		prisma = null
-		logger.info('Prisma disconnected.')
-	}
-}
+// Export a singleton instance compatible with registry
+export const prismaService = new PrismaService()
