@@ -39,7 +39,10 @@ describe('RedisService', () => {
 		const client = await service.connect()
 		expect(createClient).toHaveBeenCalledWith({
 			url: 'redis://localhost:6379/0',
-			password: undefined
+			password: undefined,
+			socket: expect.objectContaining({
+				reconnectStrategy: expect.any(Function)
+			})
 		})
 		expect(mockClient.connect).toHaveBeenCalled()
 		expect(client).toBe(mockClient)

@@ -118,7 +118,15 @@ export function getDatabases(): ConnectedDatabases {
 /**
  * Reset module state (for testing)
  */
-export function __resetForTests() {}
+export function __resetForTests() {
+	for (const key of Object.keys(registry)) {
+		const entry = registry[key]
+		entry.instance = undefined
+		if (typeof entry.service.__resetForTests === 'function') {
+			entry.service.__resetForTests()
+		}
+	}
+}
 
 /**
  * Export service manager
