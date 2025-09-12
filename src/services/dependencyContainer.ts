@@ -11,6 +11,7 @@ import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
 import op from 'object-path'
+import { AuditService } from './auditService'
 import { Dayjs, dayjs } from './dayjs'
 import logger from './logger'
 
@@ -48,6 +49,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	public logger: typeof logger = logger
 	public repositories!: RepositoryMap // Will be assigned during repositories initialization
 	public databaseClients!: ConnectedDatabases // Will be assigned during repositories initialization
+	public auditService!: AuditService // Will be assigned during repositories initialization
 	public utils: UtilityMap = utilities
 	public thirdParties = {
 		argon2,
@@ -58,7 +60,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	}
 
 	/**
-	 * Initializes the repositories within the dependency container.
+	 * Initializes the repositories and related services within the dependency container.
 	 * This method should be called after database connections have been established [databaseServiceManager.initialize()].
 	 * @returns {Promise<void>} A promise that resolves when the repositories are loaded.
 	 */
@@ -66,6 +68,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 		this.logger.info('DependencyContainer: Initializing repositories...')
 		this.databaseClients = databaseServiceManager.getDatabases()
 		this.repositories = loadRepositories(this.databaseClients)
+		this.auditService = new AuditService(this.repositories.audit)
 		this.logger.info('DependencyContainer: Repositories loaded.')
 	}
 }

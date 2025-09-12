@@ -12,6 +12,7 @@ import {
 	SessionUser
 } from '@/modules/session/entities/Session'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
+import { AuditService } from '@/services/auditService'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
@@ -41,6 +42,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	private argon2Verify: typeof verify
 	private getTimeInSeconds: typeof getTimeInSeconds
 	private deepMerge: typeof deepMerge
+	private auditService: AuditService
 
 	constructor(container: DependencyContainer) {
 		super(container)
@@ -54,6 +56,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		this.argon2Verify = container.thirdParties.argon2.verify
 		this.getTimeInSeconds = container.utils.getTimeInSeconds
 		this.deepMerge = container.utils.deepMerge
+		this.auditService = container.auditService
 
 		if (!this.jwtSecret) {
 			throw new Error('JWT SECRET is not defined')
@@ -251,6 +254,14 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 				`Failed to update last login for user: ${userAuthDetails.email}`
 			)
 		}
+		const meta = job.getMeta()
+		await this.auditService.record(
+			'auth.login',
+			job,
+			'user', // resourceType
+			updatedUser.id, // resourceId
+			{ userAgent: meta.userAgent, loggedAt: currentTime } // payload
+		)
 		job.logger.info(`User ${userAuthDetails.email} successfully logged in.`)
 
 		// Convert JWT expiresIn string (e.g., "1h") to seconds for Redis TTL

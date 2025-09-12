@@ -31,7 +31,10 @@ const makeLoginJob = (
 			warn: jest.fn(),
 			error: jest.fn()
 		}
-	} as unknown as AuthLoginJobInterface & { logger: Logger }
+	} as unknown as AuthLoginJobInterface & {
+		logger: Logger
+		getMeta: () => Record<string, any>
+	}
 }
 
 const makeUserAuthDetails = (overrides?: Partial<any>) => ({
@@ -88,6 +91,9 @@ const configGet = jest.fn((key: string) => {
 	if (key === 'jwt.expiresIn') return '1h'
 	return undefined
 })
+const auditService = {
+	record: jest.fn().mockResolvedValue(undefined)
+}
 
 const makeContainer = (): DependencyContainer =>
 	({
@@ -95,7 +101,8 @@ const makeContainer = (): DependencyContainer =>
 		thirdParties: { argon2, jwt, ms, dayjs },
 		config: { get: configGet },
 		utils: { deepMerge, getTimeInSeconds },
-		validator
+		validator,
+		auditService
 	} as unknown as DependencyContainer)
 
 beforeEach(() => {
@@ -580,5 +587,40 @@ describe('AuthLoginUseCase', () => {
 
 		const job = makeLoginJob()
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(Error)
+	})
+
+	it('Should call auditService.record after successful login', async () => {
+		const container = makeContainer()
+		const useCase = new AuthLoginUseCase(container)
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
+			makeUserAuthDetails()
+		)
+		argon2.verify.mockResolvedValueOnce(true)
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			active: true,
+			rolePermissions: [
+				{ permission: { key: 'auth.login', active: true }, config: {} }
+			]
+		})
+		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
+		jwt.sign.mockReturnValueOnce('signed.jwt.token')
+
+		const job = makeLoginJob()
+		job.getMeta = jest.fn().mockReturnValue({
+			userAgent: 'jest-test-agent'
+		})
+		await useCase.run(job)
+
+		expect(container.auditService.record).toHaveBeenCalledWith(
+			'auth.login',
+			job,
+			'user',
+			'u1',
+			expect.objectContaining({
+				userAgent: 'jest-test-agent',
+				loggedAt: expect.any(Date)
+			})
+		)
 	})
 })
