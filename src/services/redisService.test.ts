@@ -121,4 +121,18 @@ describe('RedisService', () => {
 		service.__resetForTests()
 		expect((service as any).client).toBeNull()
 	})
+
+	it('should apply reconnectStrategy correctly', async () => {
+		await service.connect()
+		const options = (createClient as jest.Mock).mock.calls[0][0]
+		const reconnectStrategy = options.socket.reconnectStrategy
+
+		// case retries < 5
+		expect(reconnectStrategy(2)).toBe(200)
+
+		// case retries >= 5
+		const result = reconnectStrategy(5)
+		expect(result).toBeInstanceOf(Error)
+		expect(result.message).toBe('Max reconnection attempts reached')
+	})
 })
