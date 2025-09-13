@@ -115,22 +115,26 @@ beforeEach(() => {
 })
 
 describe('AuthLoginUseCase', () => {
-	it('Should throw if JWT SECRET is missing', () => {
+	it('Should throw if JWT SECRET is missing', async () => {
 		configGet.mockImplementation(key =>
 			key === 'jwt.secret' ? undefined : '1h'
 		)
 		const container = makeContainer()
-		expect(() => new AuthLoginUseCase(container)).toThrow(
-			'JWT SECRET is not defined'
-		)
+		const useCase = new AuthLoginUseCase(container)
+		const job = makeLoginJob()
+
+		await expect(useCase.run(job)).rejects.toThrow('JWT SECRET is not defined')
 	})
 
-	it('Should throw if JWT EXPIRES IN is missing', () => {
+	it('Should throw if JWT EXPIRES IN is missing', async () => {
 		configGet.mockImplementation(key =>
 			key === 'jwt.expiresIn' ? undefined : 'secret'
 		)
 		const container = makeContainer()
-		expect(() => new AuthLoginUseCase(container)).toThrow(
+		const useCase = new AuthLoginUseCase(container)
+		const job = makeLoginJob()
+
+		await expect(useCase.run(job)).rejects.toThrow(
 			'JWT EXPIRES IN is not defined'
 		)
 	})

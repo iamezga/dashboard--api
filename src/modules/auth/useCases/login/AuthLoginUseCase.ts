@@ -5,21 +5,14 @@ import {
 	LoginOutput,
 	UserLoginDetails
 } from '@/modules/auth/entities/AuthDataTypes'
-import { RoleRepositoryInterface } from '@/modules/role'
-import { SessionRepositoryInterface } from '@/modules/session'
 import {
 	SessionDataInput,
 	SessionUser
 } from '@/modules/session/entities/Session'
-import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
-import { AuditService } from '@/services/auditService'
 import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
-import { deepMerge } from '@/utils/deepMerge'
-import { getTimeInSeconds } from '@/utils/getTimeInSeconds'
-import { verify } from 'argon2'
 import jwt from 'jsonwebtoken'
 import { StringValue } from 'ms'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
@@ -33,37 +26,9 @@ import { AuthLoginJobInterface } from './AuthLoginJobInterface'
  */
 export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	static readonly permission: string = 'auth.login'
-	private userRepository: UserRepositoryInterface
-	private roleRepository: RoleRepositoryInterface
-	private sessionRepository: SessionRepositoryInterface
-	private jwt: typeof jwt
-	private jwtSecret: string
-	private jwtExpiresIn: string
-	private argon2Verify: typeof verify
-	private getTimeInSeconds: typeof getTimeInSeconds
-	private deepMerge: typeof deepMerge
-	private auditService: AuditService
 
 	constructor(container: DependencyContainer) {
 		super(container)
-		this.userRepository = container.repositories.user
-		this.roleRepository = container.repositories.role
-		this.sessionRepository = container.repositories.session
-		this.jwt = container.thirdParties.jwt
-		this.jwtSecret = container.config.get('jwt.secret')
-		this.jwtExpiresIn = container.config.get('jwt.expiresIn')
-		this.argon2Verify = container.thirdParties.argon2.verify
-		this.argon2Verify = container.thirdParties.argon2.verify
-		this.getTimeInSeconds = container.utils.getTimeInSeconds
-		this.deepMerge = container.utils.deepMerge
-		this.auditService = container.auditService
-
-		if (!this.jwtSecret) {
-			throw new Error('JWT SECRET is not defined')
-		}
-		if (!this.jwtExpiresIn) {
-			throw new Error('JWT EXPIRES IN is not defined')
-		}
 	}
 
 	/**
@@ -139,6 +104,13 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	public async run(
 		job: AuthLoginJobInterface
 	): Promise<UseCaseResponseInterface<LoginOutput>> {
+		if (!this.container.config.get('jwt.secret')) {
+			throw new Error('JWT SECRET is not defined')
+		}
+		if (!this.container.config.get('jwt.expiresIn')) {
+			throw new Error('JWT EXPIRES IN is not defined')
+		}
+
 		const { email, password } = job.getData()
 
 		// Find user authentication details
@@ -164,7 +136,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		// Verify the password
-		const passwordMatch = await this.argon2Verify(
+		const passwordMatch = await this.container.thirdParties.argon2.verify(
 			userAuthDetails.passwordHash,
 			password
 		)
@@ -186,7 +158,9 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		const roleWithPermissions =
-			await this.roleRepository.findByIdWithPermissions(userAuthDetails.roleId)
+			await this.container.repositories.role.findByIdWithPermissions(
+				userAuthDetails.roleId
+			)
 
 		if (!roleWithPermissions || !roleWithPermissions.active) {
 			throw new UnauthorizedError('Authentication failed.')
@@ -195,7 +169,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const rolePermissions = roleWithPermissions.rolePermissions.reduce(
 			(acc, curr) => {
 				if (!curr.permission.active || curr.permission.deletedAt) return acc
-				const permission = this.deepMerge(curr.permission, {
+				const permission = this.container.utils.deepMerge(curr.permission, {
 					config: curr.config
 				})
 				return (acc = { ...acc, [curr.permission.key]: permission })
@@ -205,7 +179,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const userPermissions = userAuthDetails.userPermissions.reduce(
 			(acc, curr) => {
 				if (!curr.permission.active || curr.permission.deletedAt) return acc
-				const permission = this.deepMerge(curr.permission, {
+				const permission = this.container.utils.deepMerge(curr.permission, {
 					config: curr.config
 				})
 				return (acc = { ...acc, [curr.permission.key]: permission })
@@ -213,7 +187,10 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			<Record<string, any>>{}
 		)
 
-		const permissions = this.deepMerge(rolePermissions, userPermissions)
+		const permissions = this.container.utils.deepMerge(
+			rolePermissions,
+			userPermissions
+		)
 
 		job.setUser({
 			...userAuthDetails,
@@ -236,7 +213,9 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 		if (
 			!loginPermissionConfig.allowMultipleSessions &&
-			(await this.sessionRepository.hasActiveSessions(userAuthDetails.id))
+			(await this.container.repositories.session.hasActiveSessions(
+				userAuthDetails.id
+			))
 		) {
 			throw new UnauthorizedError(
 				`Authentication failed: You have already logged in to another device.`
@@ -246,16 +225,19 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const currentTime = new Date()
 
 		// Update last login
-		const updatedUser = await this.userRepository.update(userAuthDetails.id, {
-			lastLogin: currentTime
-		})
+		const updatedUser = await this.container.repositories.user.update(
+			userAuthDetails.id,
+			{
+				lastLogin: currentTime
+			}
+		)
 		if (!updatedUser) {
 			throw new Error(
 				`Failed to update last login for user: ${userAuthDetails.email}`
 			)
 		}
 		const meta = job.getMeta()
-		await this.auditService.record(
+		await this.container.auditService.record(
 			'auth.login',
 			job,
 			'user', // resourceType
@@ -265,8 +247,8 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		job.logger.info(`User ${userAuthDetails.email} successfully logged in.`)
 
 		// Convert JWT expiresIn string (e.g., "1h") to seconds for Redis TTL
-		const jwtExpiresInSeconds = this.getTimeInSeconds(
-			this.jwtExpiresIn as StringValue
+		const jwtExpiresInSeconds = this.container.utils.getTimeInSeconds(
+			this.container.config.get('jwt.expiresIn') as StringValue
 		)
 
 		// Create the user snapshot for the session
@@ -291,13 +273,13 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			maxInactiveTime:
 				(loginPermissionConfig.maxInactiveTime as number) || jwtExpiresInSeconds
 		}
-		await this.sessionRepository.saveUserData(
+		await this.container.repositories.session.saveUserData(
 			updatedUser.id,
 			sessionUser,
 			sessionTTL
 		)
 
-		const sessionId = await this.sessionRepository.createSession(
+		const sessionId = await this.container.repositories.session.createSession(
 			updatedUser.id,
 			sessionData,
 			sessionTTL
@@ -315,9 +297,15 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			roleId: updatedUser.roleId
 		}
 
-		const token = this.jwt.sign(jwtPayload, this.jwtSecret, {
-			expiresIn: this.jwtExpiresIn as jwt.SignOptions['expiresIn']
-		})
+		const token = this.container.thirdParties.jwt.sign(
+			jwtPayload,
+			this.container.config.get('jwt.secret'),
+			{
+				expiresIn: this.container.config.get(
+					'jwt.expiresIn'
+				) as jwt.SignOptions['expiresIn']
+			}
+		)
 
 		// Prepare user data for response
 		const userForOutput: UserLoginDetails = {
