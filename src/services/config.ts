@@ -48,19 +48,34 @@ const config = convict({
 		}
 	},
 	database: {
-		mongo: {
-			enabled: {
-				doc: 'Enable MongoDB connection.',
-				format: Boolean,
-				default: false,
-				env: 'MONGO_ENABLED'
+		providers: {
+			business: {
+				doc: 'Database provider for core business data.',
+				format: ['postgres', 'mysql', 'sqlite'], // Add supported databases
+				default: 'postgres',
+				env: 'BUSINESS_DB_PROVIDER'
 			},
+			cache: {
+				doc: 'Database provider for caching and sessions.',
+				format: ['redis', 'memcached', 'none'], // Use 'none' for an optional provider
+				default: 'redis',
+				env: 'CACHE_DB_PROVIDER'
+			},
+			log: {
+				doc: 'Database provider for logs and audit events.',
+				format: ['mongo', 'elastic', 'none'], // Use 'none' for an optional provider
+				default: 'mongo',
+				env: 'LOG_DB_PROVIDER'
+			}
+		},
+		// The configurations for each database remain, but the `enabled` flag is gone.
+		mongo: {
 			url: {
 				doc: 'MongoDB connection URL.',
 				format: String,
 				default: '',
 				env: 'MONGO_URL',
-				sensitive: true // Mark as sensitive to avoid logging in plaintext
+				sensitive: true
 			},
 			db: {
 				doc: 'MongoDB db name.',
@@ -70,28 +85,16 @@ const config = convict({
 				sensitive: true
 			}
 		},
-		prisma: {
-			enabled: {
-				doc: 'Enable Prisma ORM connection (requires DATABASE_URL for Prisma Client).',
-				format: Boolean,
-				default: false,
-				env: 'PRISMA_ENABLED'
-			},
+		postgres: {
 			url: {
 				doc: 'PostgreSQL connection URL.',
 				format: String,
 				default: '',
-				env: 'PRISMA_URL',
+				env: 'POSTGRES_URL',
 				sensitive: true
 			}
 		},
 		redis: {
-			enabled: {
-				doc: 'Enable Redis connection.',
-				format: Boolean,
-				default: false,
-				env: 'REDIS_ENABLED'
-			},
 			host: {
 				doc: 'Redis host.',
 				format: String,

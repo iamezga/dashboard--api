@@ -2,18 +2,10 @@ import logger from '@/services/logger'
 import { PrismaClient } from '@prisma/client'
 import { Db } from 'mongodb'
 import { RedisClientType } from 'redis'
-import { mongoService } from './mongoService'
-import { prismaService } from './prismaService'
-import { redisService } from './redisService'
-
-/**
- * Interfaces for connected database clients
- */
-export interface ConnectedDatabases {
-	prisma?: PrismaClient
-	redis?: RedisClientType
-	mongo?: Db
-}
+import config from './config'
+import { MongoService, mongoService } from './mongoService'
+import { PrismaService, prismaService } from './prismaService'
+import { RedisService, redisService } from './redisService'
 
 // Map of DB type to client type
 export interface DatabaseClients {
@@ -22,26 +14,26 @@ export interface DatabaseClients {
 	redis: RedisClientType
 	// add more DB clients here if needed
 }
+export type DBProviders = 'business' | 'cache' | 'log'
+export const DB_PREFIXES = ['Postgres', 'Mongo', 'Redis'] as const
+export type DBType = Lowercase<(typeof DB_PREFIXES)[number]>
 
 /**
  * Type for service registry entry
  */
 interface ServiceEntry<T> {
-	service: {
-		connect: () => Promise<T | null>
-		getClient: () => T
-		disconnect: () => Promise<void>
-		displayName: string
-		__resetForTests: () => void
-	}
-	instance?: T
+	service: T
+	instance?: any
 }
 
 /**
  * Registry mapping keys to services
  */
-const registry: Record<string, ServiceEntry<any>> = {
-	prisma: { service: prismaService },
+const registry: Record<
+	string,
+	ServiceEntry<PrismaService | RedisService | MongoService>
+> = {
+	postgres: { service: prismaService },
 	redis: { service: redisService },
 	mongo: { service: mongoService }
 }
@@ -53,7 +45,25 @@ const registry: Record<string, ServiceEntry<any>> = {
 export async function initialize(): Promise<void> {
 	logger.info('DatabaseServiceManager: Initializing services...')
 
-	for (const key of Object.keys(registry)) {
+	// Create a Set to store unique database types that need to be initialized.
+	const databasesToInitialize = new Set<string>()
+
+	// Add validation to ensure essential providers are set.
+	const requiredProviders: DBProviders[] = ['business', 'cache', 'log']
+	for (const required of requiredProviders) {
+		if (
+			!config.has(`database.providers.${required}`) ||
+			config.get(`database.providers.${required}`) === 'none'
+		) {
+			throw new Error(
+				`Critical error: The required database provider for '${required}' is not configured.`
+			)
+		}
+		const providerName = config.get(`database.providers.${required}`)
+		databasesToInitialize.add(providerName)
+	}
+
+	for (const key of databasesToInitialize) {
 		const entry = registry[key]
 
 		if (entry.instance) {
@@ -68,13 +78,10 @@ export async function initialize(): Promise<void> {
 		)
 		try {
 			const client = await entry.service.connect()
-			entry.instance = client || undefined
-
-			if (client) {
-				logger.info(
-					`ServiceManager: ${entry.service.displayName} connected successfully.`
-				)
-			}
+			entry.instance = client
+			logger.info(
+				`ServiceManager: ${entry.service.displayName} connected successfully.`
+			)
 		} catch (error: any) {
 			logger.error(
 				`ServiceManager: Failed to connect ${entry.service.displayName}: ${error.message}`
@@ -107,9 +114,9 @@ export async function shutdown(): Promise<void> {
 /**
  * Get currently connected database clients
  */
-export function getDatabases(): ConnectedDatabases {
+export function getDatabases(): DatabaseClients {
 	return {
-		prisma: registry.prisma.instance,
+		postgres: registry.postgres.instance,
 		redis: registry.redis.instance,
 		mongo: registry.mongo.instance
 	}
@@ -122,9 +129,7 @@ export function __resetForTests() {
 	for (const key of Object.keys(registry)) {
 		const entry = registry[key]
 		entry.instance = undefined
-		if (typeof entry.service.__resetForTests === 'function') {
-			entry.service.__resetForTests()
-		}
+		entry.service.__resetForTests()
 	}
 }
 

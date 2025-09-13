@@ -1,13 +1,13 @@
-import { ConnectedDatabases } from './databaseServiceManager'
+import { DatabaseClients } from './databaseServiceManager'
 import { detectDBType, normalizeRepoName } from './repositoryLoader'
 
-const mockClients: ConnectedDatabases = {
-	prisma: {},
+const mockClients: DatabaseClients = {
+	postgres: {},
 	mongo: {}
-} as ConnectedDatabases
+} as DatabaseClients
 
 describe('loadRepositories', () => {
-	let loadRepositoriesFunction: (clients: ConnectedDatabases) => any
+	let loadRepositoriesFunction: (clients: DatabaseClients) => any
 	let mockPostgresUserRepository: jest.Mock
 	let mockMongoAuditRepository: jest.Mock
 
@@ -32,7 +32,9 @@ describe('loadRepositories', () => {
 	it('should instantiate repositories when their clients are available', () => {
 		const repos = loadRepositoriesFunction(mockClients)
 
-		expect(mockPostgresUserRepository).toHaveBeenCalledWith(mockClients.prisma)
+		expect(mockPostgresUserRepository).toHaveBeenCalledWith(
+			mockClients.postgres
+		)
 		expect(mockMongoAuditRepository).toHaveBeenCalledWith(mockClients.mongo)
 		expect(repos).toHaveProperty('user')
 		expect(repos).toHaveProperty('audit')
@@ -40,8 +42,8 @@ describe('loadRepositories', () => {
 
 	it('should not instantiate a repository if its database client is not provided', () => {
 		const clientsWithoutMongo = {
-			prisma: mockClients.prisma
-		} as ConnectedDatabases
+			postgres: mockClients.postgres
+		} as DatabaseClients
 
 		loadRepositoriesFunction(clientsWithoutMongo)
 

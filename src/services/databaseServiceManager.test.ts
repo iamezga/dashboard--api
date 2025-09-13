@@ -1,3 +1,4 @@
+import config from './config'
 import {
 	__resetForTests,
 	databaseServiceManager
@@ -8,158 +9,216 @@ import { redisService } from './redisService'
 
 jest.mock('./logger', () => ({
 	info: jest.fn(),
-	error: jest.fn()
+	error: jest.fn(),
+	warn: jest.fn()
+}))
+
+jest.mock('./config', () => ({
+	has: jest.fn(),
+	get: jest.fn()
 }))
 
 describe('databaseServiceManager', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
 		__resetForTests()
-	})
+		;(config.has as jest.Mock).mockReturnValue(true)
+		;(config.get as jest.Mock).mockImplementation((key: string) => {
+			if (key === 'database.providers.business') return 'postgres'
+			if (key === 'database.providers.cache') return 'redis'
+			if (key === 'database.providers.log') return 'mongo'
+			// config values used by services if needed
+			if (key === 'database.postgres') return { url: 'postgres://test' }
+			if (key === 'database.redis')
+				return { host: 'localhost', port: 6379, db: 0, password: null }
+			if (key === 'database.mongo')
+				return { url: 'mongodb://localhost:27017', db: 'testdb' }
+			return undefined
+		})
 
-	it('Should connect all enabled services', async () => {
-		const mockPrisma = {} as any
-		const mockRedis = {} as any
-		const mockMongo = {} as any
-
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(mockPrisma)
-		jest.spyOn(redisService, 'connect').mockResolvedValue(mockRedis)
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(mockMongo)
-
-		await databaseServiceManager.initialize()
-
-		expect(prismaService.connect).toHaveBeenCalled()
-		expect(redisService.connect).toHaveBeenCalled()
-		expect(mongoService.connect).toHaveBeenCalled()
-
-		const dbs = databaseServiceManager.getDatabases()
-		expect(dbs.prisma).toBe(mockPrisma)
-		expect(dbs.redis).toBe(mockRedis)
-		expect(dbs.mongo).toBe(mockMongo)
-	})
-
-	it('Should skip disabled services (connect returns null)', async () => {
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(null)
-		jest.spyOn(redisService, 'connect').mockResolvedValue({} as any)
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(null)
-
-		await databaseServiceManager.initialize()
-
-		expect(prismaService.connect).toHaveBeenCalled()
-		expect(redisService.connect).toHaveBeenCalled()
-		expect(mongoService.connect).toHaveBeenCalled()
-
-		const dbs = databaseServiceManager.getDatabases()
-		expect(dbs.prisma).toBeUndefined()
-		expect(dbs.redis).toBeDefined()
-		expect(dbs.mongo).toBeUndefined()
-	})
-
-	it('Should throw error if Prisma connection fails', async () => {
 		jest
 			.spyOn(prismaService, 'connect')
-			.mockRejectedValue(new Error('prisma-fail'))
-		jest.spyOn(redisService, 'connect').mockResolvedValue(null)
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(null)
+			.mockResolvedValue({ client: 'prisma' } as any)
+		jest
+			.spyOn(redisService, 'connect')
+			.mockResolvedValue({ client: 'redis' } as any)
+		jest
+			.spyOn(mongoService, 'connect')
+			.mockResolvedValue({ client: 'mongo' } as any)
+
+		jest.spyOn(prismaService, 'disconnect').mockResolvedValue()
+		jest.spyOn(redisService, 'disconnect').mockResolvedValue()
+		jest.spyOn(mongoService, 'disconnect').mockResolvedValue()
+
+		jest.spyOn(prismaService, '__resetForTests').mockImplementation(() => {})
+		jest.spyOn(redisService, '__resetForTests').mockImplementation(() => {})
+		jest.spyOn(mongoService, '__resetForTests').mockImplementation(() => {})
+	})
+
+	it('should throw if a required provider is missing (config.has === false)', async () => {
+		;(config.has as jest.Mock).mockImplementation((key: string) =>
+			key === 'database.providers.business' ? false : true
+		)
 
 		await expect(databaseServiceManager.initialize()).rejects.toThrow(
-			'Failed to initialize Prisma (PostgreSQL) client: prisma-fail'
+			"Critical error: The required database provider for 'business' is not configured."
 		)
 	})
 
-	it('Should throw error if Redis connection fails', async () => {
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(null)
-		jest
-			.spyOn(redisService, 'connect')
-			.mockRejectedValue(new Error('redis-fail'))
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(null)
+	it("should throw if a required provider is set to 'none'", async () => {
+		;(config.get as jest.Mock).mockImplementation((key: string) => {
+			if (key === 'database.providers.business') return 'none'
+			if (key === 'database.providers.cache') return 'redis'
+			if (key === 'database.providers.log') return 'mongo'
+			return undefined
+		})
+
+		await expect(databaseServiceManager.initialize()).rejects.toThrow(
+			"Critical error: The required database provider for 'business' is not configured."
+		)
+	})
+
+	it('should connect all enabled services', async () => {
+		await databaseServiceManager.initialize()
+
+		expect(prismaService.connect).toHaveBeenCalled()
+		expect(redisService.connect).toHaveBeenCalled()
+		expect(mongoService.connect).toHaveBeenCalled()
+
+		const dbs = databaseServiceManager.getDatabases()
+		expect(dbs.postgres).toEqual({ client: 'prisma' })
+		expect(dbs.redis).toEqual({ client: 'redis' })
+		expect(dbs.mongo).toEqual({ client: 'mongo' })
+	})
+
+	it('should skip initializing a provider by mapping it to another provider (e.g. cache -> postgres)', async () => {
+		;(config.get as jest.Mock).mockImplementation((key: string) => {
+			if (key === 'database.providers.business') return 'postgres'
+			if (key === 'database.providers.cache') return 'postgres'
+			if (key === 'database.providers.log') return 'mongo'
+			if (key === 'database.postgres') return { url: 'postgres://test' }
+			if (key === 'database.mongo')
+				return { url: 'mongodb://localhost:27017', db: 'testdb' }
+			return undefined
+		})
+
+		await databaseServiceManager.initialize()
+
+		expect(prismaService.connect).toHaveBeenCalled()
+		expect(mongoService.connect).toHaveBeenCalled()
+		expect(redisService.connect).not.toHaveBeenCalled()
+
+		const dbs = databaseServiceManager.getDatabases()
+		expect(dbs.postgres).toBeDefined()
+		expect(dbs.mongo).toBeDefined()
+		expect(dbs.redis).toBeUndefined()
+	})
+
+	it('should throw the correct error if prisma connect fails', async () => {
+		;(
+			prismaService.connect as unknown as jest.SpyInstance
+		).mockRejectedValueOnce(new Error('prisma-fail'))
+
+		await expect(databaseServiceManager.initialize()).rejects.toThrow(
+			'Failed to initialize PostgreSQL (Prisma) client: prisma-fail'
+		)
+	})
+
+	it('should throw the correct error if redis connect fails', async () => {
+		;(
+			prismaService.connect as unknown as jest.SpyInstance
+		).mockResolvedValueOnce({
+			client: 'prisma'
+		})
+		;(
+			redisService.connect as unknown as jest.SpyInstance
+		).mockRejectedValueOnce(new Error('redis-fail'))
 
 		await expect(databaseServiceManager.initialize()).rejects.toThrow(
 			'Failed to initialize Redis client: redis-fail'
 		)
 	})
 
-	it('Should throw error if MongoDB connection fails', async () => {
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(null)
-		jest.spyOn(redisService, 'connect').mockResolvedValue(null)
-		jest
-			.spyOn(mongoService, 'connect')
-			.mockRejectedValue(new Error('mongo-fail'))
+	it('should throw the correct error if mongo connect fails', async () => {
+		;(
+			prismaService.connect as unknown as jest.SpyInstance
+		).mockResolvedValueOnce({
+			client: 'prisma'
+		})
+		;(
+			redisService.connect as unknown as jest.SpyInstance
+		).mockResolvedValueOnce({
+			client: 'redis'
+		})
+		;(
+			mongoService.connect as unknown as jest.SpyInstance
+		).mockRejectedValueOnce(new Error('mongo-fail'))
 
 		await expect(databaseServiceManager.initialize()).rejects.toThrow(
 			'Failed to initialize MongoDB client: mongo-fail'
 		)
 	})
 
-	it('Should skip re-initialization if service already connected', async () => {
-		const mockPrisma = {} as any
-		const spyConnect = jest
-			.spyOn(prismaService, 'connect')
-			.mockResolvedValue(mockPrisma)
-		jest.spyOn(redisService, 'connect').mockResolvedValue(null)
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(null)
+	it('should skip re-initialization if service already connected (initialize called twice)', async () => {
+		const spyConnect = prismaService.connect as unknown as jest.SpyInstance
 
 		await databaseServiceManager.initialize()
-		await databaseServiceManager.initialize() // second call
+		await databaseServiceManager.initialize()
 
-		expect(spyConnect).toHaveBeenCalledTimes(1) // second call returns existing client
+		expect(spyConnect).toHaveBeenCalledTimes(1)
 		const dbs = databaseServiceManager.getDatabases()
-		expect(dbs.prisma).toBe(mockPrisma)
+		expect(dbs.postgres).toBeDefined()
 	})
 
-	it('Should shutdown only initialized services', async () => {
-		const mockPrisma = {} as any
-		const mockMongo = {} as any
+	it('should shutdown only initialized services', async () => {
+		;(config.get as jest.Mock).mockImplementation((key: string) => {
+			if (key === 'database.providers.business') return 'postgres'
+			if (key === 'database.providers.cache') return 'postgres'
+			if (key === 'database.providers.log') return 'mongo'
+			if (key === 'database.postgres') return { url: 'postgres://test' }
+			if (key === 'database.mongo')
+				return { url: 'mongodb://localhost:27017', db: 'testdb' }
+			return undefined
+		})
 
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(mockPrisma)
-		jest.spyOn(prismaService, 'disconnect').mockResolvedValue()
-		jest.spyOn(redisService, 'connect').mockResolvedValue(null)
-		jest.spyOn(redisService, 'disconnect').mockResolvedValue()
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(mockMongo)
-		jest.spyOn(mongoService, 'disconnect').mockResolvedValue()
+		const spyPrismaDisconnect =
+			prismaService.disconnect as unknown as jest.SpyInstance
+		const spyRedisDisconnect =
+			redisService.disconnect as unknown as jest.SpyInstance
+		const spyMongoDisconnect =
+			mongoService.disconnect as unknown as jest.SpyInstance
 
 		await databaseServiceManager.initialize()
 		await databaseServiceManager.shutdown()
 
-		expect(prismaService.disconnect).toHaveBeenCalled()
-		expect(redisService.disconnect).not.toHaveBeenCalled()
-		expect(mongoService.disconnect).toHaveBeenCalled()
+		expect(spyPrismaDisconnect).toHaveBeenCalled()
+		expect(spyMongoDisconnect).toHaveBeenCalled()
+		expect(spyRedisDisconnect).not.toHaveBeenCalled()
 
 		const dbs = databaseServiceManager.getDatabases()
-		expect(dbs.prisma).toBeUndefined()
+		expect(dbs.postgres).toBeUndefined()
 		expect(dbs.redis).toBeUndefined()
 		expect(dbs.mongo).toBeUndefined()
 	})
 
-	it('Should handle connect returning null without logging success', async () => {
-		const mockInfo = jest.spyOn(require('./logger'), 'info')
-		jest.spyOn(prismaService, 'connect').mockResolvedValue(null)
-		jest.spyOn(redisService, 'connect').mockResolvedValue(null)
-		jest.spyOn(mongoService, 'connect').mockResolvedValue(null)
-
-		await databaseServiceManager.initialize()
-
-		// Should not log success if client is null
-		expect(mockInfo).not.toHaveBeenCalledWith(
-			expect.stringContaining('connected successfully')
-		)
-	})
-
-	it('Should reset internal state for tests', async () => {
-		const spyPrismaReset = jest.spyOn(prismaService, '__resetForTests')
-		const spyRedisReset = jest.spyOn(redisService, '__resetForTests')
-		const spyMongoReset = jest.spyOn(mongoService, '__resetForTests')
+	it('should call __resetForTests on each service and clear registry', async () => {
+		const spyPrismaReset =
+			prismaService.__resetForTests as unknown as jest.SpyInstance
+		const spyRedisReset =
+			redisService.__resetForTests as unknown as jest.SpyInstance
+		const spyMongoReset =
+			mongoService.__resetForTests as unknown as jest.SpyInstance
 
 		await databaseServiceManager.initialize()
 		__resetForTests()
 
-		const dbs = databaseServiceManager.getDatabases()
-		expect(dbs.prisma).toBeUndefined()
-		expect(dbs.redis).toBeUndefined()
-		expect(dbs.mongo).toBeUndefined()
-
 		expect(spyPrismaReset).toHaveBeenCalled()
 		expect(spyRedisReset).toHaveBeenCalled()
 		expect(spyMongoReset).toHaveBeenCalled()
+
+		const dbs = databaseServiceManager.getDatabases()
+		expect(dbs.postgres).toBeUndefined()
+		expect(dbs.redis).toBeUndefined()
+		expect(dbs.mongo).toBeUndefined()
 	})
 })

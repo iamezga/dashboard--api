@@ -28,7 +28,6 @@ describe('RedisService', () => {
 		;(createClient as jest.Mock).mockReturnValue(mockClient)
 
 		service = new RedisService({
-			enabled: true,
 			host: 'localhost',
 			port: 6379,
 			db: 0
@@ -49,17 +48,8 @@ describe('RedisService', () => {
 		expect(logger.info).toHaveBeenCalledWith('Redis connected successfully.')
 	})
 
-	it('should return null if service is disabled', async () => {
-		service = new RedisService({ enabled: false } as any)
-		const client = await service.connect()
-		expect(client).toBeNull()
-		expect(logger.info).toHaveBeenCalledWith(
-			'Redis is disabled. Skipping connection.'
-		)
-	})
-
 	it('should return existing client if already connected', async () => {
-		await service.connect()
+		const mockClient = await service.connect()
 		const client2 = await service.connect()
 		expect(logger.info).toHaveBeenCalledWith('Redis client already connected.')
 		expect(client2).toBe(mockClient)

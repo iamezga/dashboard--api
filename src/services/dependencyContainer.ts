@@ -1,7 +1,7 @@
 import { RepositoryMap } from '@/modules/repositories'
 import config from '@/services/config'
 import {
-	ConnectedDatabases,
+	DatabaseClients,
 	databaseServiceManager
 } from '@/services/databaseServiceManager'
 import { loadRepositories } from '@/services/repositoryLoader'
@@ -25,7 +25,7 @@ export interface DependencyContainerInterface {
 	validator: typeof validator
 	logger: typeof logger
 	repositories: RepositoryMap
-	databaseClients: ConnectedDatabases
+	databaseClients: DatabaseClients
 	thirdParties: {
 		argon2: typeof argon2
 		jwt: typeof jwt
@@ -48,7 +48,7 @@ class DependencyContainerClass implements DependencyContainerInterface {
 	public validator: typeof validator = validator
 	public logger: typeof logger = logger
 	public repositories!: RepositoryMap // Will be assigned during repositories initialization
-	public databaseClients!: ConnectedDatabases // Will be assigned during repositories initialization
+	public databaseClients!: DatabaseClients // Will be assigned during repositories initialization
 	public auditService!: AuditService // Will be assigned during repositories initialization
 	public utils: UtilityMap = utilities
 	public thirdParties = {

@@ -25,7 +25,6 @@ describe('PrismaService', () => {
 
 	beforeEach(() => {
 		service = new PrismaService({
-			enabled: true,
 			url: 'postgres://localhost',
 			log: []
 		} as any)
@@ -33,22 +32,10 @@ describe('PrismaService', () => {
 		service.__resetForTests()
 	})
 
-	it('Should return null if service is disabled', async () => {
-		service = new PrismaService({ enabled: false } as any)
-		const client = await service.connect()
-		expect(client).toBeNull()
-		expect(logger.info).toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) is disabled in configuration. Skipping connection.'
-		)
-	})
-
 	it('Should throw error if URL is not configured', async () => {
-		service = new PrismaService({ enabled: true } as any)
+		service = new PrismaService({} as any)
 		await expect(service.connect()).rejects.toThrow(
-			'Prisma url is not configured.'
-		)
-		expect(logger.error).toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) URL is not configured.'
+			'PostgreSQL (Prisma) URL is not configured.'
 		)
 	})
 
@@ -59,7 +46,7 @@ describe('PrismaService', () => {
 		expect(mockClient!.$connect).toHaveBeenCalled()
 		expect(mockClient!.$on).toHaveBeenCalledTimes(3) // error, info, warn
 		expect(logger.info).toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) connected successfully.'
+			'PostgreSQL (Prisma) connected successfully.'
 		)
 	})
 
@@ -68,13 +55,13 @@ describe('PrismaService', () => {
 		const secondClient = await service.connect()
 		expect(secondClient).toBe(firstClient)
 		expect(logger.info).toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) already initialized.'
+			'PostgreSQL (Prisma) already initialized.'
 		)
 	})
 
 	it('getClient should throw if not connected', () => {
 		expect(() => service.getClient()).toThrow(
-			'Prisma (PostgreSQL) not connected. Call connect() first.'
+			'PostgreSQL (Prisma) not connected. Call connect() first.'
 		)
 	})
 
@@ -88,14 +75,14 @@ describe('PrismaService', () => {
 		await service.disconnect()
 		expect(service.getClient).toThrow()
 		expect(logger.info).toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) disconnected.'
+			'PostgreSQL (Prisma) disconnected.'
 		)
 	})
 
 	it('disconnect should do nothing if client is not connected', async () => {
 		await service.disconnect()
 		expect(logger.info).not.toHaveBeenCalledWith(
-			'Prisma (PostgreSQL) disconnected.'
+			'PostgreSQL (Prisma) disconnected.'
 		)
 	})
 
@@ -132,13 +119,12 @@ describe('PrismaService', () => {
 		})
 
 		const failingService = new PrismaService({
-			enabled: true,
 			url: 'postgres://localhost'
 		} as any)
 
 		await expect(failingService.connect()).rejects.toThrow('constructor-fail')
 		expect(logger.error).toHaveBeenCalledWith(
-			'Failed to connect Prisma (PostgreSQL):',
+			'Failed to connect PostgreSQL (Prisma):',
 			expect.any(Error)
 		)
 	})

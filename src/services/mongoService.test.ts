@@ -31,7 +31,6 @@ describe('MongoService', () => {
 		}))
 
 		service = new MongoService({
-			enabled: true,
 			url: 'mongodb://localhost:27017',
 			db: 'test-db'
 		} as any)
@@ -45,21 +44,12 @@ describe('MongoService', () => {
 		expect(logger.info).toHaveBeenCalledWith('MongoDB connected successfully.')
 	})
 
-	it('should return null if service is disabled', async () => {
-		service = new MongoService({ enabled: false } as any)
-		const db = await service.connect()
-		expect(db).toBeNull()
-		expect(logger.info).toHaveBeenCalledWith(
-			'MongoDB is disabled. Skipping connection.'
-		)
-	})
-
 	it('should throw error if url or db not configured', async () => {
-		service = new MongoService({ enabled: true } as any)
+		service = new MongoService({} as any)
 		await expect(service.connect()).rejects.toThrow(
 			'MongoDB URL is not configured.'
 		)
-		service = new MongoService({ enabled: true, url: 'url' } as any)
+		service = new MongoService({ url: 'url' } as any)
 		await expect(service.connect()).rejects.toThrow(
 			'MongoDB database name is not configured.'
 		)

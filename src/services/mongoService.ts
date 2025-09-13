@@ -12,15 +12,10 @@ export class MongoService {
 	/**
 	 * Connects to MongoDB and returns the db instance.
 	 */
-	public async connect(): Promise<Db | null> {
-		if (!this.config.enabled) {
-			logger.info(`${this.displayName} is disabled. Skipping connection.`)
-			return null
-		}
-
+	public async connect(): Promise<Db> {
 		if (!this.config.url) {
 			logger.error(`${this.displayName} URL is not configured.`)
-			throw new Error('MongoDB URL is not configured.')
+			throw new Error(`${this.displayName} URL is not configured.`)
 		}
 
 		if (!this.config.db) {

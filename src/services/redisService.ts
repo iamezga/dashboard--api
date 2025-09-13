@@ -11,12 +11,7 @@ export class RedisService {
 	/**
 	 * Connects to Redis and returns the client.
 	 */
-	public async connect(): Promise<RedisClientType | null> {
-		if (!this.config.enabled) {
-			logger.info(`${this.displayName} is disabled. Skipping connection.`)
-			return null
-		}
-
+	public async connect(): Promise<RedisClientType> {
 		if (this.client && this.client.isReady) {
 			logger.info(`${this.displayName} client already connected.`)
 			return this.client

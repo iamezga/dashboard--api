@@ -1,14 +1,5 @@
 import { repositories, RepositoryMap } from '@/modules/repositories'
-import { ConnectedDatabases } from './databaseServiceManager'
-
-export const DB_PREFIXES = ['Postgres', 'Mongo', 'Redis'] as const
-type DBType = Lowercase<(typeof DB_PREFIXES)[number]>
-
-export const DB_CLIENT_MAP: Record<DBType, keyof ConnectedDatabases> = {
-	postgres: 'prisma',
-	mongo: 'mongo',
-	redis: 'redis'
-} as const
+import { DatabaseClients, DB_PREFIXES, DBType } from './databaseServiceManager'
 
 /**
  * @function normalizeRepoName
@@ -44,17 +35,17 @@ export function detectDBType(className: string): DBType {
  * This loader detects the database type each repository is designed for
  * based on its class name (e.g., `PostgresUserRepository`, `MongoAuditRepository`)
  * and automatically injects the corresponding connected database client.
+ * If a repository has a prefix that does not correspond to a database enabled by configuration, it will be ignored
  *
- * @param {ConnectedDatabases} clients - Active database clients available for injection into repositories.
+ * @param {DatabaseClients} clients - Active database clients available for injection into repositories.
  * @returns {RepositoryMap} A map of normalized repository names (e.g., 'user', 'audit') to their instantiated objects.
  */
-export function loadRepositories(clients: ConnectedDatabases): RepositoryMap {
+export function loadRepositories(clients: DatabaseClients): RepositoryMap {
 	const repos = {} as RepositoryMap
 
 	Object.entries(repositories).forEach(([className, RepoClass]) => {
-		const repoDB = detectDBType(className)
-		const clientKey = DB_CLIENT_MAP[repoDB]
-		const dbClient = clients[clientKey]
+		// className e.g.: PostgresUserRepository -> detectDBType return postgres
+		const dbClient = clients[detectDBType(className)]
 
 		if (!dbClient) return // Ignore if there is no configured client/db
 

@@ -4,21 +4,16 @@ import convictConfig from './config'
 
 export class PrismaService {
 	private client: PrismaClient | null = null
-	public displayName = 'Prisma (PostgreSQL)'
+	public displayName = 'PostgreSQL (Prisma)'
 
-	constructor(private config = convictConfig.get('database.prisma')) {}
+	constructor(private config = convictConfig.get('database.postgres')) {}
 
 	/**
 	 * Connects Prisma client if not already connected.
+	 * @returns {Promise<PrismaClient>} The connected Prisma client instance.
+	 * @throws {Error} if the connection URL is not configured.
 	 */
-	public async connect(): Promise<PrismaClient | null> {
-		if (!this.config.enabled) {
-			logger.info(
-				`${this.displayName} is disabled in configuration. Skipping connection.`
-			)
-			return null
-		}
-
+	public async connect(): Promise<PrismaClient> {
 		if (this.client) {
 			logger.info(`${this.displayName} already initialized.`)
 			return this.client
@@ -26,7 +21,7 @@ export class PrismaService {
 
 		if (!this.config.url) {
 			logger.error(`${this.displayName} URL is not configured.`)
-			throw new Error('Prisma url is not configured.')
+			throw new Error(`${this.displayName} URL is not configured.`)
 		}
 
 		try {
