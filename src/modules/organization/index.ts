@@ -1,2 +1,2 @@
 export * from './entities/OrganizationRepositoryInterface'
-export * from './repository/PostgresOrganizationRepository'
+export * from './repository/OrganizationRepository'

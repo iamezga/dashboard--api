@@ -1,6 +1,9 @@
-import { DatabaseClients } from '@/services/databaseServiceManager'
-import { RepositoryInterface } from '@/types/useCase/RepositoryInterface'
-import { Permission } from './Permission'
+import { RepositoryInterface } from '@/types/repository/RepositoryInterface'
+import {
+	Permission,
+	PermissionCreateInput,
+	PermissionUpdateInput
+} from './Permission'
 
 /**
  * @interface PermissionRepositoryInterface
@@ -8,20 +11,15 @@ import { Permission } from './Permission'
  * Extends base CRUD operations.
  */
 export interface PermissionRepositoryInterface
-	extends RepositoryInterface<Permission, DatabaseClients['postgres']> {
-	readonly name?: 'PermissionRepository'
-
-	/**
-	 * Finds a permission by key.
-	 * @param {string} key - The unique key of the permission (e.g., 'user.create').
-	 * @returns {Promise<Permission | null>} The permission entity or null if not found.
-	 */
+	extends RepositoryInterface<
+		Permission,
+		PermissionCreateInput,
+		PermissionUpdateInput
+	> {
+	findById(id: string): Promise<Permission | null>
+	create(data: PermissionCreateInput): Promise<Permission>
+	update(id: string, data: PermissionUpdateInput): Promise<Permission | null>
+	delete(id: string): Promise<boolean>
 	findByKey(key: string): Promise<Permission | null>
-
-	/**
-	 * Finds multiple permissions by keys.
-	 * @param {string[]} keys - An array of permission keys.
-	 * @returns {Promise<Permission[]>} An array of permission entities found.
-	 */
 	findByKeys(keys: string[]): Promise<Permission[]>
 }

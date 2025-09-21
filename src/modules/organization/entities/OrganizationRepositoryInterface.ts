@@ -1,6 +1,9 @@
-import { DatabaseClients } from '@/services/databaseServiceManager'
-import { RepositoryInterface } from '@/types/useCase/RepositoryInterface'
-import { Organization } from './Organization'
+import { RepositoryInterface } from '@/types/repository/RepositoryInterface'
+import {
+	Organization,
+	OrganizationCreateInput,
+	OrganizationUpdateInput
+} from './Organization'
 
 /**
  * @interface OrganizationRepositoryInterface
@@ -8,8 +11,18 @@ import { Organization } from './Organization'
  * Extends base CRUD operations and adds organization-specific retrieval methods.
  */
 export interface OrganizationRepositoryInterface
-	extends RepositoryInterface<Organization, DatabaseClients['postgres']> {
-	readonly name?: 'OrganizationRepository'
+	extends RepositoryInterface<
+		Organization,
+		OrganizationCreateInput,
+		OrganizationUpdateInput
+	> {
+	create(data: OrganizationCreateInput): Promise<Organization>
+	update(
+		id: string,
+		data: OrganizationUpdateInput
+	): Promise<Organization | null>
+	delete(id: string): Promise<boolean>
+	findById(id: string): Promise<Organization | null>
 
 	/**
 	 * Finds an organization by its unique name.

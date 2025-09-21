@@ -1,20 +1,46 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
+import { RepositoryManager } from '@/core/repositoryManager'
+import { DbClientsMap } from '@/infrastructure/providerManager'
 import { randomUUID } from 'node:crypto'
+import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
 import { SessionData, SessionDataInput, SessionUser } from '../entities/Session'
 import { SessionRepositoryInterface } from '../entities/SessionRepositoryInterface'
 
+type SessionRepositoryContext = {
+	repositoryManager: RepositoryManager
+	logger: Logger
+}
+
 /**
- * @class RedisSessionRepository
+ * @class SessionRepository
  * @description Implements SessionRepositoryInterface for Redis, managing user data
  * and multiple concurrent sessions.
  */
-export class RedisSessionRepository implements SessionRepositoryInterface {
+export class SessionRepository implements SessionRepositoryInterface {
+	static name = 'session' as const
+	static provider: keyof DbClientsMap = 'redis'
+	private context!: SessionRepositoryContext
 	// Key prefixes for different data types in Redis
 	private static readonly USER_DATA_KEY_PREFIX = 'user:data:'
 	private static readonly SESSION_METADATA_KEY_PREFIX = 'session:metadata:'
 	private static readonly USER_SESSIONS_SET_KEY_PREFIX = 'user:sessions:'
 
 	constructor(readonly db: RedisClientType) {}
+
+	/**
+	 * Injects the dependency container into the repository instance.
+	 * This allows the repository to access other services or repositories from the container.
+	 * @param {DependencyContainer} container - The main dependency container.
+	 */
+	setContext(container: DependencyContainer): void {
+		const { repositoryManager, logger } = container
+		this.context = {
+			repositoryManager,
+			logger
+		}
+		this.context.logger.info(`Repository context ready.`)
+	}
 
 	/**
 	 * Serializes a data object to a JSON string for Redis storage.
@@ -35,7 +61,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 		try {
 			return JSON.parse(dataString) as T
 		} catch (error) {
-			console.error('Failed to parse data from Redis:', error)
+			this.context.logger.error('Failed to parse data from Redis:', error)
 			return null
 		}
 	}
@@ -52,7 +78,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 		data: SessionUser,
 		expiresInSeconds: number
 	): Promise<boolean> {
-		const key = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
+		const key = SessionRepository.USER_DATA_KEY_PREFIX + userId
 		const serializedData = this.serialize(data)
 		const result = await this.db.set(key, serializedData, {
 			EX: expiresInSeconds
@@ -66,7 +92,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	 * @returns The user data, or null if not found.
 	 */
 	async getUserData(userId: string): Promise<SessionUser | null> {
-		const key = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
+		const key = SessionRepository.USER_DATA_KEY_PREFIX + userId
 		const dataString = await this.db.get(key)
 		return this.deserialize<SessionUser>(dataString)
 	}
@@ -86,9 +112,9 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	): Promise<string | null> {
 		const sessionId = randomUUID()
 		const sessionMetadataKey =
-			RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+			SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 		const userSessionsKey =
-			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
 
 		const sessionData: SessionData = {
 			...data,
@@ -119,7 +145,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	 * @returns An array of session IDs.
 	 */
 	async getUserSessionIds(userId: string): Promise<string[]> {
-		const key = RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const key = SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
 		return this.db.sMembers(key)
 	}
 
@@ -129,7 +155,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	 * @returns The session metadata or null if not found.
 	 */
 	async getSessionMetadata(sessionId: string): Promise<SessionData | null> {
-		const key = RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+		const key = SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 		const dataString = await this.db.get(key)
 		return this.deserialize<SessionData>(dataString)
 	}
@@ -140,7 +166,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	 * @returns True if the user has one or more active sessions, false otherwise.
 	 */
 	async hasActiveSessions(userId: string): Promise<boolean> {
-		const key = RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const key = SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
 		const count = await this.db.sCard(key)
 		return count > 0
 	}
@@ -158,9 +184,9 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 		}
 		const { userId } = sessionMetadata
 		const userSessionsKey =
-			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
 		const sessionMetadataKey =
-			RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+			SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 
 		// Use a transaction for atomicity
 		const result = await this.db
@@ -181,8 +207,8 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 	 */
 	async deleteAllUserSessions(userId: string): Promise<void> {
 		const userSessionsKey =
-			RedisSessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
-		const userDataKey = RedisSessionRepository.USER_DATA_KEY_PREFIX + userId
+			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const userDataKey = SessionRepository.USER_DATA_KEY_PREFIX + userId
 
 		// Get all session IDs for the user
 		const sessionIds = await this.db.sMembers(userSessionsKey)
@@ -193,9 +219,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 		pipeline.del(userDataKey)
 		pipeline.del(userSessionsKey)
 		for (const sessionId of sessionIds) {
-			pipeline.del(
-				RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
-			)
+			pipeline.del(SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId)
 		}
 		await pipeline.exec()
 	}
@@ -210,7 +234,7 @@ export class RedisSessionRepository implements SessionRepositoryInterface {
 		sessionId: string,
 		expiresInSeconds: number
 	): Promise<boolean> {
-		const key = RedisSessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
+		const key = SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 		const dataString = await this.db.get(key)
 		if (!dataString) return false
 

@@ -1,14 +1,22 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
+import { RepositoryManager } from '@/core/repositoryManager'
+import { DbClientsMap } from '@/infrastructure/providerManager'
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
-import { DatabaseClients } from '@/services/databaseServiceManager'
 import { Prisma, User as PrismaUserModel } from '@prisma/client'
+import { Logger } from 'pino'
 import {
 	User,
-	UserRepoCreateInput,
+	UserCreateInput,
 	UserStatus,
 	UserUpdateInput
 } from '../entities/User'
+
+type UserRepositoryContext = {
+	repositoryManager: RepositoryManager
+	logger: Logger
+}
 
 // This type ensures that the permissions and the related permission data are loaded.
 const userAuthDetailsInclude = {
@@ -23,8 +31,26 @@ type UserAuthDetailsPayload = Prisma.UserGetPayload<{
 	include: typeof userAuthDetailsInclude
 }>
 
-export class PostgresUserRepository implements UserRepositoryInterface {
-	constructor(readonly db: DatabaseClients['postgres']) {}
+export class UserRepository implements UserRepositoryInterface {
+	static name = 'user' as const
+	static provider: keyof DbClientsMap = 'postgres'
+	private context!: UserRepositoryContext
+
+	constructor(private readonly db: DbClientsMap['postgres']) {}
+
+	/**
+	 * Injects the dependency container into the repository instance.
+	 * This allows the repository to access other services or repositories from the container.
+	 * @param {DependencyContainer} container - The main dependency container.
+	 */
+	setContext(container: DependencyContainer): void {
+		const { repositoryManager, logger } = container
+		this.context = {
+			repositoryManager,
+			logger
+		}
+		this.context.logger.info(`Repository context ready.`)
+	}
 
 	/**
 	 * Maps a full Prisma User model to the domain User entity.
@@ -69,7 +95,7 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 				permission: {
 					...up.permission,
 					scope: up.permission.scope as PermissionScope,
-					config: (up.permission || {}) as Record<string, any>
+					config: { ...(up.permission.config as Record<string, any>) }
 				}
 			}))
 
@@ -181,7 +207,7 @@ export class PostgresUserRepository implements UserRepositoryInterface {
 	 * @param data - The data for the new user.
 	 * @returns {Promise<User>} The created user entity.
 	 */
-	async create(data: UserRepoCreateInput): Promise<User> {
+	async create(data: UserCreateInput): Promise<User> {
 		const prismaUser = await this.db.user.create({
 			data: {
 				...data

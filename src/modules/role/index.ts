@@ -1,2 +1,2 @@
 export * from './entities/RoleRepositoryInterface'
-export * from './repository/PostgresRoleRepository'
+export * from './repository/RoleRepository'

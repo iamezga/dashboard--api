@@ -1,5 +1,11 @@
-import { DatabaseClients } from '@/services/databaseServiceManager'
+import { DependencyContainer } from '@/core/dependencyContainer'
+import { RepositoryManager } from '@/core/repositoryManager'
+import {
+	DbClientsMap,
+	ProviderClientsMap
+} from '@/infrastructure/providerManager'
 import { Prisma, Permission as PrismaPermissionModel } from '@prisma/client'
+import { Logger } from 'pino'
 import {
 	Permission,
 	PermissionCreateInput,
@@ -8,15 +14,36 @@ import {
 } from '../entities/Permission'
 import { PermissionRepositoryInterface } from '../entities/PermissionRepositoryInterface'
 
+export type PermissionRepositoryContext = {
+	repositoryManager: RepositoryManager
+	logger: Logger
+}
+
 /**
- * @class PostgresPermissionRepository
+ * @class PermissionRepository
  * @description Implements PermissionRepositoryInterface for PostgreSQL using PrismaClient.
  * Handles mapping between domain entities and Prisma models for permissions.
  */
-export class PostgresPermissionRepository
-	implements PermissionRepositoryInterface
-{
-	constructor(readonly db: DatabaseClients['postgres']) {}
+export class PermissionRepository implements PermissionRepositoryInterface {
+	static name = 'permission' as const
+	static provider: keyof DbClientsMap = 'postgres'
+	private context!: PermissionRepositoryContext
+
+	constructor(readonly db: ProviderClientsMap['postgres']) {}
+
+	/**
+	 * Injects the dependency container into the repository instance.
+	 * This allows the repository to access other services or repositories from the container.
+	 * @param {DependencyContainer} container - The main dependency container.
+	 */
+	setContext(container: DependencyContainer): void {
+		const { repositoryManager, logger } = container
+		this.context = {
+			repositoryManager,
+			logger
+		}
+		this.context.logger.info(`Repository context ready.`)
+	}
 
 	/**
 	 * Maps a Prisma-generated Permission object to the app domain Permission interface.

@@ -1,7 +1,12 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
+import { RepositoryManager } from '@/core/repositoryManager'
+import {
+	DbClientsMap,
+	ProviderClientsMap
+} from '@/infrastructure/providerManager'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
-import { DatabaseClients } from '@/services/databaseServiceManager'
 import { Prisma, Role as PrismaRoleModel } from '@prisma/client'
-import { PermissionRepositoryInterface } from '../../permission/entities/PermissionRepositoryInterface'
+import { Logger } from 'pino'
 import {
 	Role,
 	RoleCreateInput,
@@ -10,6 +15,11 @@ import {
 	RoleWithPermissions
 } from '../entities/Role'
 import { RoleRepositoryInterface } from '../entities/RoleRepositoryInterface'
+
+export type RoleRepositoryContext = {
+	repositoryManager: RepositoryManager
+	logger: Logger
+}
 
 const roleWithPermissionsInclude = {
 	rolePermissions: {
@@ -25,20 +35,30 @@ type RoleWithPermissionsPayload = Prisma.RoleGetPayload<{
 }>
 
 /**
- * @class PostgresRoleRepository
+ * @class RoleRepository
  * @description Implements RoleRepositoryInterface for PostgreSQL using PrismaClient.
  * Handles mapping between domain entities and Prisma models for roles,
  * and manages role-permission relationships.
  */
-export class PostgresRoleRepository implements RoleRepositoryInterface {
-	private permissionRepository: PermissionRepositoryInterface
+export class RoleRepository implements RoleRepositoryInterface {
+	static name = 'role' as const
+	static provider: keyof DbClientsMap = 'postgres'
+	private context!: RoleRepositoryContext
 
-	constructor(
-		readonly db: DatabaseClients['postgres'],
-		// Inject PermissionRepository through the constructor
-		permissionRepository: PermissionRepositoryInterface
-	) {
-		this.permissionRepository = permissionRepository
+	constructor(readonly db: ProviderClientsMap['postgres']) {}
+
+	/**
+	 * Injects the dependency container into the repository instance.
+	 * This allows the repository to access other services or repositories from the container.
+	 * @param {DependencyContainer} container - The main dependency container.
+	 */
+	setContext(container: DependencyContainer): void {
+		const { repositoryManager, logger } = container
+		this.context = {
+			repositoryManager,
+			logger
+		}
+		this.context.logger.info(`Repository context ready.`)
 	}
 
 	/**
@@ -74,17 +94,11 @@ export class PostgresRoleRepository implements RoleRepositoryInterface {
 			.filter(rp => !rp.permission.deletedAt && rp.permission.active) // Only active and non-deleted permissions
 			.map(rp => ({
 				permission: {
-					id: rp.permission.id,
-					key: rp.permission.key,
-					label: rp.permission.label,
-					description: rp.permission.description,
-					active: rp.permission.active,
-					config: (rp.permission.config ?? {}) as Record<string, any>,
-					moduleId: rp.permission.moduleId,
+					...rp.permission,
 					scope: rp.permission.scope as PermissionScope,
-					createdAt: rp.permission.createdAt,
-					updatedAt: rp.permission.updatedAt,
-					deletedAt: rp.permission.deletedAt
+					config: {
+						...(rp.permission.config as Record<string, any>)
+					} as Record<string, any>
 				},
 				config: rp.config
 			})) as RolePermissionDetail[]
@@ -167,9 +181,9 @@ export class PostgresRoleRepository implements RoleRepositoryInterface {
 
 		if (permissionKeys && permissionKeys.length > 0) {
 			// Get valid permission IDs
-			const permissions = await this.permissionRepository.findByKeys(
-				permissionKeys
-			)
+			const permissions = await this.context.repositoryManager
+				.get('permission')
+				.findByKeys(permissionKeys)
 			if (permissions.length !== permissionKeys.length) {
 				throw new Error('One or more permission keys are invalid or not found.')
 			}
@@ -204,9 +218,9 @@ export class PostgresRoleRepository implements RoleRepositoryInterface {
 		} as Prisma.RoleUpdateInput
 
 		if (permissionKeysToAdd && permissionKeysToAdd.length > 0) {
-			const permissions = await this.permissionRepository.findByKeys(
-				permissionKeysToAdd
-			)
+			const permissions = await this.context.repositoryManager
+				.get('permission')
+				.findByKeys(permissionKeysToAdd)
 			if (permissions.length !== permissionKeysToAdd.length) {
 				throw new Error(
 					'One or more permission keys to add are invalid or not found.'
@@ -223,9 +237,9 @@ export class PostgresRoleRepository implements RoleRepositoryInterface {
 		}
 
 		if (permissionKeysToRemove && permissionKeysToRemove.length > 0) {
-			const permissions = await this.permissionRepository.findByKeys(
-				permissionKeysToRemove
-			)
+			const permissions = await this.context.repositoryManager
+				.get('permission')
+				.findByKeys(permissionKeysToRemove)
 			if (permissions.length !== permissionKeysToRemove.length) {
 				throw new Error(
 					'One or more permission keys to remove are invalid or not found.'

@@ -6,8 +6,6 @@ import { SessionData, SessionDataInput, SessionUser } from './Session'
  * It provides methods to manage user-related data and individual session metadata.
  */
 export interface SessionRepositoryInterface {
-	readonly name?: 'SessionRepository'
-
 	/**
 	 * Creates or updates a user's data and permissions snapshot.
 	 * This key is separate from individual sessions and should be updated

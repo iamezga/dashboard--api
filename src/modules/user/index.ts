@@ -1,3 +1,3 @@
 export { UserRepositoryInterface } from './entities/UserRepositoryInterface'
-export { PostgresUserRepository } from './repository/PostgresUserRepository'
+export { UserRepository } from './repository/UserRepository'
 export * from './useCases'

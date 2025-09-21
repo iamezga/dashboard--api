@@ -1,5 +1,11 @@
-import { DatabaseClients } from '@/services/databaseServiceManager'
+import { DependencyContainer } from '@/core/dependencyContainer'
+import { RepositoryManager } from '@/core/repositoryManager'
+import {
+	DbClientsMap,
+	ProviderClientsMap
+} from '@/infrastructure/providerManager'
 import { Prisma, Organization as PrismaOrganizationModel } from '@prisma/client'
+import { Logger } from 'pino'
 import {
 	Organization,
 	OrganizationCreateInput,
@@ -7,15 +13,36 @@ import {
 } from '../entities/Organization'
 import { OrganizationRepositoryInterface } from '../entities/OrganizationRepositoryInterface'
 
+export type OrganizationRepositoryContext = {
+	repositoryManager: RepositoryManager
+	logger: Logger
+}
+
 /**
- * @class PostgresOrganizationRepository
+ * @class OrganizationRepository
  * @description Implements OrganizationRepositoryInterface for PostgreSQL using PrismaClient.
  * Handles mapping between domain entities and Prisma models for organizations.
  */
-export class PostgresOrganizationRepository
-	implements OrganizationRepositoryInterface
-{
-	constructor(readonly db: DatabaseClients['postgres']) {}
+export class OrganizationRepository implements OrganizationRepositoryInterface {
+	static name = 'organization' as const
+	static provider: keyof DbClientsMap = 'postgres'
+	private context!: OrganizationRepositoryContext
+
+	constructor(readonly db: ProviderClientsMap['postgres']) {}
+
+	/**
+	 * Injects the dependency container into the repository instance.
+	 * This allows the repository to access other services or repositories from the container.
+	 * @param {DependencyContainer} container - The main dependency container.
+	 */
+	setContext(container: DependencyContainer): void {
+		const { repositoryManager, logger } = container
+		this.context = {
+			repositoryManager,
+			logger
+		}
+		this.context.logger.info(`Repository context ready.`)
+	}
 
 	/**
 	 * Maps a Prisma-generated Organization object to the app domain Organization interface.

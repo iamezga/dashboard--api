@@ -1,2 +1,2 @@
 export * from './entities/SessionRepositoryInterface'
-export * from './repository/RedisSessionRepository'
+export * from './repository/SessionRepository'
