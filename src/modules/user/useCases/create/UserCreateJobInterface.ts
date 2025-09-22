@@ -1,5 +1,4 @@
 import { JobInterface } from '@/types/job/JobInterface'
-import { UserCreateInput } from '../../entities/User' // Ruta relativa
 
 /**
  * @interface UserCreateJobInterface
@@ -11,5 +10,14 @@ export interface UserCreateJobInterface extends JobInterface {
 	 * Overrides the generic getData method to return the specific input for user creation.
 	 * @returns {UserCreateInput} The user data required to create a new user.
 	 */
-	getData(): UserCreateInput
+	getData(): {
+		organizationId: string
+		name: string
+		surname?: string | null
+		email: string
+		password: string
+		active?: boolean
+		roleId: string
+		config?: Record<string, any>
+	}
 }

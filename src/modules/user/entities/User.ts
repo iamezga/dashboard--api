@@ -65,7 +65,7 @@ export interface UserCreateInput {
 	name: string
 	surname?: string | null
 	email: string
-	password: string
+	passwordHash: string
 	active?: boolean
 	roleId: string
 	config?: Record<string, any>
@@ -76,7 +76,7 @@ export interface UserCreateInput {
  * @description Defines the input structure for creating a new User entity specifically for the Repository.
  * This input includes the passwordHash which has already been processed by the UseCase.
  */
-export interface UserRepoCreateInput {
+export interface UserCreateInput {
 	organizationId: string
 	name: string
 	surname?: string | null

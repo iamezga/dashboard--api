@@ -1,6 +1,6 @@
 import convict from 'convict'
 
-const config = convict({
+export const config = convict({
 	appName: {
 		format: String,
 		env: 'APP_NAME',
@@ -48,27 +48,6 @@ const config = convict({
 		}
 	},
 	database: {
-		providers: {
-			business: {
-				doc: 'Database provider for core business data.',
-				format: ['postgres', 'mysql', 'sqlite'], // Add supported databases
-				default: 'postgres',
-				env: 'BUSINESS_DB_PROVIDER'
-			},
-			cache: {
-				doc: 'Database provider for caching and sessions.',
-				format: ['redis', 'memcached', 'none'], // Use 'none' for an optional provider
-				default: 'redis',
-				env: 'CACHE_DB_PROVIDER'
-			},
-			log: {
-				doc: 'Database provider for logs and audit events.',
-				format: ['mongo', 'elastic', 'none'], // Use 'none' for an optional provider
-				default: 'mongo',
-				env: 'LOG_DB_PROVIDER'
-			}
-		},
-		// The configurations for each database remain, but the `enabled` flag is gone.
 		mongo: {
 			url: {
 				doc: 'MongoDB connection URL.',
@@ -148,5 +127,4 @@ const config = convict({
 
 config.validate({ allowed: 'strict' })
 
-export default config
 export type Config = typeof config

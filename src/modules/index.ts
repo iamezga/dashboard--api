@@ -22,7 +22,7 @@ import * as user from './user'
  * │   │   ├── {Entity}.ts               # e.g., User.ts
  * │   │   └── {Module}DataTypes.ts      # e.g., AuthDataTypes.ts (for module-specific DTOs/types)
  * │   ├── repository/                   # Repository implementation for data persistence
- * │   │   └── {DBPrefix}{Entity}Repository.ts # e.g., PostgresUserRepository.ts
+ * │   │   └── {Entity}Repository.ts # e.g., PostgresUserRepository.ts
  * │   ├── useCases/                     # Business logic encapsulated in use cases
  * │   │   ├── {action-verb}/            # Subfolders by action verb (e.g., get, create, login)
  * │   │   │   ├── {Module}{Action}UseCase.ts      # Main Use Case class
@@ -54,12 +54,12 @@ const allModules = {
 type AllModules = typeof allModules
 
 // Dynamically extract keys ending with 'Rules' for validation schemas
-type RuleKeys = Extract<keyof AllModules, `${string}Rules`>
-type UseCaseKeys = Extract<keyof AllModules, `${string}UseCase`>
+export type RuleKeys = Extract<keyof AllModules, `${string}Rules`>
+export type UseCaseKeys = Extract<keyof AllModules, `${string}UseCase`>
 
 // Dynamically extract keys ending with 'Rules' for validation schemas
-type RulesType = { [K in RuleKeys]: AllModules[K] }
-type UseCasesType = { [K in UseCaseKeys]: AllModules[K] }
+export type RulesMap = { [K in RuleKeys]: AllModules[K] }
+export type UseCasesMap = { [K in UseCaseKeys]: AllModules[K] }
 
 /**
  * @function groupModules
@@ -87,7 +87,7 @@ function groupModules<T extends object>(
  * @description Exports a consolidated object of all validation rule schemas from across the application's modules.
  * This object is used by `validationMiddleware` to retrieve the correct rules for an incoming request.
  */
-export const rules = groupModules<RulesType>(allModules, key =>
+export const rules = groupModules<RulesMap>(allModules, key =>
 	key.endsWith('Rules')
 )
 
@@ -97,6 +97,6 @@ export const rules = groupModules<RulesType>(allModules, key =>
  * This object is used by `useCaseMiddleware` to dynamically instantiate and execute
  * the appropriate business logic for an incoming request.
  */
-export const useCases = groupModules<UseCasesType>(allModules, key =>
+export const useCases = groupModules<UseCasesMap>(allModules, key =>
 	key.endsWith('UseCase')
 )

@@ -1,4 +1,4 @@
-import config from '@/services/config'
+import { config } from '@/services/config'
 import pino from 'pino'
 
 const pinoConfig: pino.LoggerOptions = {

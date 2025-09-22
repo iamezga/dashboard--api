@@ -1,18 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-import config from './config'
+import { config } from './config'
 
 describe('Application Configuration', () => {
 	const originalEnv = process.env
 
 	beforeEach(() => {
-		// Clean the module cache to reload config
+		// Clean the module cache to reload config fresh
 		jest.resetModules()
-		// Start each test with the original variables
 		process.env = { ...originalEnv }
 	})
 
 	afterAll(() => {
-		// reset env
 		process.env = originalEnv
 	})
 
@@ -21,11 +18,11 @@ describe('Application Configuration', () => {
 	})
 
 	it('should return default values when environment variables are not set', () => {
-		// force default values
 		delete process.env.NODE_ENV
 		delete process.env.PORT
-		// force reload config after change process.env
-		const reloadedConfig = require('./config.ts').default
+
+		// reload config
+		const { config: reloadedConfig } = require('./config')
 
 		expect(reloadedConfig.get('env')).toBe('development')
 		expect(reloadedConfig.get('port')).toBe(5000)
@@ -34,7 +31,8 @@ describe('Application Configuration', () => {
 	it('should load values from environment variables', () => {
 		process.env.NODE_ENV = 'production'
 		process.env.PORT = '3000'
-		const reloadedConfig = require('./config.ts').default
+
+		const { config: reloadedConfig } = require('./config')
 
 		expect(reloadedConfig.get('env')).toBe('production')
 		expect(reloadedConfig.get('port')).toBe(3000)
@@ -44,11 +42,7 @@ describe('Application Configuration', () => {
 		process.env.PORT = 'invalid_port_string'
 
 		expect(() => {
-			require('./config.ts').default
-		}).toThrow()
-
-		expect(() => {
-			require('./config.ts').default
+			require('./config')
 		}).toThrow(/port: ports must be within range 0 - 65535/)
 	})
 })

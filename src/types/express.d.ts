@@ -2,7 +2,7 @@
 import { Request } from 'express'
 import { JobMetaInterface } from './job/JobMetaInterface'
 
-interface RequestData {
+export interface RequestData {
 	payload?: Record<string, any>
 	recaptchaResponse?: string
 	token?: string

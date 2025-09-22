@@ -44,6 +44,10 @@ export class Job implements JobInterface {
 	private onProgressCallback?: (progress: number, job: Job) => void
 	private onUpdateProgressCallback?: (progress: number, job: Job) => void
 
+	/**
+	 * Creates an instance of a Job.
+	 * @param {JobOptions} options - The initial options for the job, including data, user, and metadata.
+	 */
 	constructor(options: JobOptions) {
 		this.id = options.id
 		this.attempts = options.attempts
@@ -54,32 +58,77 @@ export class Job implements JobInterface {
 		this.logger = options.logger
 	}
 
+	/**
+	 * Returns the unique identifier of the job.
+	 * @returns {string}
+	 */
 	getId(): string {
 		return this.id
 	}
+
+	/**
+	 * Overwrites the entire metadata object for the job.
+	 * @param {JobMetaInterface} meta - The new metadata object.
+	 */
 	setMeta(meta: JobMetaInterface): void {
 		this.meta = structuredClone(meta)
 	}
+
+	/**
+	 * Merges new properties into the existing metadata object.
+	 * @param {Partial<JobMetaInterface>} meta - The metadata properties to update.
+	 */
 	updateMeta(meta: Partial<JobMetaInterface>): void {
 		this.meta = structuredClone({ ...this.meta, ...meta })
 	}
+
+	/**
+	 * Returns a deep clone of the job's metadata.
+	 * @returns {JobMetaInterface}
+	 */
 	getMeta(): JobMetaInterface {
 		return structuredClone(this.meta)
 	}
+
+	/**
+	 * Merges new data into the job's payload.
+	 * @param {Record<string, any>} data - The data to add.
+	 */
 	setData(data: Record<string, any>): void {
 		this.data = structuredClone({ ...this.data, ...data })
 	}
+
+	/**
+	 * Returns a deep clone of the job's input data.
+	 * @returns {Record<string, any>}
+	 */
 	getData(): Record<string, any> {
 		return structuredClone(this.data)
 	}
+
+	/**
+	 * Sets the authenticated user for the job.
+	 * @param {AuthenticatedUser} user - The authenticated user object.
+	 */
 	setUser(user: AuthenticatedUser): void {
 		this.user = structuredClone(user)
 	}
+
+	/**
+	 * Returns the full authenticated user object.
+	 * @throws {Error} If user data is missing in the context.
+	 * @returns {AuthenticatedUser}
+	 */
 	getUser(): AuthenticatedUser {
 		if (!this.user) throw new Error('User data is missing in Job context')
 		return structuredClone(this.user)
 	}
 
+	/**
+	 * Returns a public-safe DTO of the authenticated user, suitable for API responses.
+	 * It omits sensitive data.
+	 * @returns {UserLoginDetails | undefined}
+	 */
 	getPublicUser(): UserLoginDetails | undefined {
 		if (!this.user) return undefined
 		// Map the User to the public UserLoginDetails DTO
@@ -95,31 +144,68 @@ export class Job implements JobInterface {
 			config: this.user.config
 		}
 	}
+
+	/**
+	 * Returns the number of attempts for this job.
+	 * @returns {number}
+	 */
 	getAttempts(): number {
 		return this.attempts
 	}
+
+	/**
+	 * Sets the number of attempts for this job.
+	 * @param {number} attempts - The new attempt count.
+	 */
 	setAttempts(attempts: number): void {
 		this.attempts = attempts
 	}
+
+	/**
+	 * Returns the current progress of the job as a percentage.
+	 * @returns {number}
+	 */
 	getProgress(): number {
 		return this.progress
 	}
 
-	// Events: Register Callbacks
+	/**
+	 * Registers a callback to be executed when the job fails.
+	 * @param {(errorId: string, err: Error, job: Job) => void} cb - The callback function.
+	 */
 	onFail(cb: (errorId: string, err: Error, job: Job) => void): void {
 		this.onFailCallback = cb
 	}
+
+	/**
+	 * Registers a callback to be executed when the job completes successfully.
+	 * @param {(job: Job) => void} cb - The callback function.
+	 */
 	onComplete(cb: (job: Job) => void): void {
 		this.onCompleteCallback = cb
 	}
+
+	/**
+	 * Registers a callback to be executed when the job's progress starts.
+	 * @param {(progress: number, job: Job) => void} cb - The callback function.
+	 */
 	onProgress(cb: (progress: number, job: Job) => void): void {
 		this.onProgressCallback = cb
 	}
+
+	/**
+	 * Registers a callback to be executed when the job's progress is updated.
+	 * @param {(progress: number, job: Job) => void} cb - The callback function.
+	 */
 	onUpdateProgress(cb: (progress: number, job: Job) => void): void {
-		this.onProgressCallback = cb
+		this.onUpdateProgressCallback = cb
 	}
 
-	// Methods to call events and update status
+	/**
+	 * Marks the job as failed, updates its metadata, logs the error, and triggers the onFail callback.
+	 * @param {string} errorId - A unique identifier for the error.
+	 * @param {Error} err - The error object.
+	 */
 	markFailed(errorId: string, err: Error): void {
 		this.updateMeta({
 			status: 'failed',
@@ -134,6 +220,9 @@ export class Job implements JobInterface {
 		this.onFailCallback?.(errorId, err, this)
 	}
 
+	/**
+	 * Marks the job as completed, updates its metadata, and triggers the onComplete callback.
+	 */
 	markCompleted(): void {
 		this.updateMeta({
 			status: 'completed',
@@ -143,6 +232,10 @@ export class Job implements JobInterface {
 		this.onCompleteCallback?.(this)
 	}
 
+	/**
+	 * Marks the job as in progress, optionally updates the progress percentage, and triggers the onProgress callback.
+	 * @param {number} [progress] - The initial progress percentage.
+	 */
 	markInProgress(progress?: number): void {
 		if (progress !== undefined) {
 			this.updateProgress(progress)
@@ -157,14 +250,27 @@ export class Job implements JobInterface {
 		this.onProgressCallback?.(this.progress, this)
 	}
 
+	/**
+	 * Updates the job's progress percentage and triggers the onUpdateProgress callback.
+	 * @param {number} progress - The new progress percentage.
+	 */
 	updateProgress(progress: number): void {
 		this.progress = progress
 		this.onUpdateProgressCallback?.(progress, this)
 	}
 
+	/**
+	 * Returns the reCAPTCHA response token, if available.
+	 * @returns {string | undefined}
+	 */
 	getRecaptchaResponse(): string | undefined {
 		return this.recaptchaResponse
 	}
+
+	/**
+	 * Sets the reCAPTCHA response token for the job.
+	 * @param {string} recaptchaResponse - The reCAPTCHA token.
+	 */
 	setRecaptchaResponse(recaptchaResponse: string): void {
 		this.recaptchaResponse = recaptchaResponse
 	}

@@ -39,8 +39,8 @@ export interface PermissionCreateInput {
  * @description Defines the input structure for updating an existing Permission entity.
  */
 export interface PermissionUpdateInput {
-	key: string
-	label: string
+	key?: string
+	label?: string
 	description?: string | null
 	scope?: PermissionScope
 	config?: Record<string, any>
