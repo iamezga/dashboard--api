@@ -1,6 +1,6 @@
 import { Logger } from 'pino'
+import { DependencyContainer } from '../../../../core/dependencyContainer'
 import { BadRequestError } from '../../../../errors'
-import { DependencyContainer } from '../../../../services/dependencyContainer'
 import { UserCreateJobInterface } from './UserCreateJobInterface'
 import { UserCreateUseCase } from './UserCreateUseCase'
 
@@ -24,15 +24,8 @@ const makeJob = (
 describe('UserCreateUseCase', () => {
 	const userRepo = {
 		findByEmail: jest.fn(),
+		findById: jest.fn(),
 		create: jest.fn()
-	}
-
-	const roleRepo = {
-		findById: jest.fn()
-	}
-
-	const organizationRepo = {
-		findById: jest.fn()
 	}
 
 	const globalLogger = {
@@ -47,12 +40,13 @@ describe('UserCreateUseCase', () => {
 
 	const makeContainer = (): DependencyContainer =>
 		({
-			repositories: {
-				user: userRepo,
-				role: roleRepo,
-				organization: organizationRepo
+			repositoryManager: {
+				get: (name: string) => {
+					if (name === 'user') return userRepo
+					throw new Error(`Repo ${name} not mocked`)
+				}
 			},
-			thirdParties: { argon2 },
+			libs: { argon2 },
 			logger: globalLogger
 		} as unknown as DependencyContainer)
 
@@ -62,8 +56,11 @@ describe('UserCreateUseCase', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
 		userRepo.findByEmail.mockResolvedValue(null)
-		roleRepo.findById.mockResolvedValue(baseRole)
-		organizationRepo.findById.mockResolvedValue(baseOrganization)
+		userRepo.findById.mockImplementation((id: string) => {
+			if (id === 'role1') return Promise.resolve(baseRole)
+			if (id === 'org1') return Promise.resolve(baseOrganization)
+			return Promise.resolve(null)
+		})
 		argon2.hash.mockResolvedValue('hashed-pass')
 	})
 
@@ -113,7 +110,7 @@ describe('UserCreateUseCase', () => {
 		const container = makeContainer()
 		const useCase = new UserCreateUseCase(container)
 
-		roleRepo.findById.mockResolvedValueOnce(null)
+		userRepo.findById.mockResolvedValueOnce(null)
 
 		const job = makeJob({
 			email: 'new@mail.com',
@@ -123,14 +120,17 @@ describe('UserCreateUseCase', () => {
 		})
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(roleRepo.findById).toHaveBeenCalledWith('invalid')
+		expect(userRepo.findById).toHaveBeenCalledWith('invalid')
 	})
 
 	it('Should throw BadRequest if organization does not exist', async () => {
 		const container = makeContainer()
 		const useCase = new UserCreateUseCase(container)
 
-		organizationRepo.findById.mockResolvedValueOnce(null)
+		userRepo.findById.mockImplementationOnce((id: string) => {
+			if (id === 'invalidOrg') return Promise.resolve(null)
+			return Promise.resolve(baseRole)
+		})
 
 		const job = makeJob({
 			email: 'new@mail.com',
@@ -140,7 +140,7 @@ describe('UserCreateUseCase', () => {
 		})
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(organizationRepo.findById).toHaveBeenCalledWith('invalidOrg')
+		expect(userRepo.findById).toHaveBeenCalledWith('invalidOrg')
 	})
 
 	it('Should create user successfully', async () => {
@@ -192,7 +192,6 @@ describe('UserCreateUseCase', () => {
 			attempts: 2,
 			message: 'User created successfully.'
 		})
-		// logger del job, no el global
 		expect(job.logger.info).toHaveBeenCalledWith(
 			'User new@mail.com created successfully.'
 		)

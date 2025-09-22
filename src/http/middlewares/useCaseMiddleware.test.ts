@@ -1,85 +1,64 @@
-import { Request, Response } from 'express'
-import { useCases } from '../../modules'
+import { NextFunction, Request, Response } from 'express'
+import { useCaseFactory } from '../../core/useCaseFactory'
+import { JobInterface } from '../../types/job/JobInterface'
 import { useCaseMiddleware } from './useCaseMiddleware'
 
-jest.mock('@/modules', () => ({
-	useCases: {}
-}))
-
-jest.mock('@/services/dependencyContainer', () => ({
-	dependencyContainer: {}
-}))
+jest.mock('@/core/useCaseFactory')
 
 describe('useCaseMiddleware', () => {
-	let mockReq: Partial<Request>
-	let mockRes: Partial<Response>
-	let mockNext: jest.Mock
-	let mockJob: any
+	let req: Partial<Request>
+	let res: Partial<Response>
+	let next: NextFunction
+	let mockJob: JobInterface
+	let mockUseCaseRun: jest.Mock
+	let mockUseCase: any
 
 	beforeEach(() => {
 		jest.clearAllMocks()
-		jest.resetModules()
 
-		mockJob = { id: 'job1' }
-		mockReq = {}
-		mockRes = { locals: {} }
-		mockNext = jest.fn()
+		mockJob = { id: 'job1', data: {} } as unknown as JobInterface
+		mockUseCaseRun = jest.fn().mockResolvedValue('result')
+		mockUseCase = { run: mockUseCaseRun }
+
+		req = {}
+		res = { locals: { job: mockJob } }
+		next = jest.fn()
+		;(useCaseFactory as jest.Mock).mockReturnValue(mockUseCase)
 	})
 
-	it('should error if job is missing', async () => {
-		const middleware = useCaseMiddleware('SomeUseCase' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+	it('should execute the use case and store response in res.locals', async () => {
+		const middleware = useCaseMiddleware('TestUseCase' as any)
+		await middleware(req as Request, res as Response, next)
 
-		expect(mockNext).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: expect.stringContaining('`jobMiddleware` must be run before')
-			})
+		expect(useCaseFactory).toHaveBeenCalledWith('TestUseCase')
+		expect(mockUseCaseRun).toHaveBeenCalledWith(mockJob)
+		expect(res.locals!.useCaseResponse).toBe('result')
+		expect(next).toHaveBeenCalledWith()
+	})
+
+	it('should call next with error if no job is in res.locals', async () => {
+		const middleware = useCaseMiddleware('TestUseCase' as any)
+		res.locals!.job = undefined
+
+		await middleware(req as Request, res as Response, next)
+
+		expect(next).toHaveBeenCalled()
+		const error = (next as jest.Mock).mock.calls[0][0]
+		expect(error).toBeInstanceOf(Error)
+		expect(error.message).toBe(
+			'`jobMiddleware` must be run before `useCaseMiddleware`.'
 		)
 	})
 
-	it('should error if use case not found', async () => {
-		;(mockRes.locals as any).job = mockJob
-		const middleware = useCaseMiddleware('MissingUseCase' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
-
-		expect(mockNext).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: expect.stringContaining('Use case "MissingUseCase" not found.')
-			})
-		)
-	})
-
-	it('should execute use case and store response', async () => {
-		const mockRun = jest.fn().mockResolvedValue({ data: 'ok' })
-		class FakeUseCase {
-			constructor(_: any) {}
-			run = mockRun
-		}
-
-		;(useCases as any).TestUseCase = FakeUseCase
-		;(mockRes.locals as any).job = mockJob
-
+	it('should call next with error if useCase.run throws', async () => {
+		mockUseCaseRun.mockRejectedValueOnce(new Error('run-fail'))
 		const middleware = useCaseMiddleware('TestUseCase' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
 
-		expect(mockRun).toHaveBeenCalledWith(mockJob)
-		expect(mockRes.locals?.useCaseResponse).toEqual({ data: 'ok' })
-		expect(mockNext).toHaveBeenCalledWith()
-	})
+		await middleware(req as Request, res as Response, next)
 
-	it('should pass error from use case run to next', async () => {
-		const mockError = new Error('Boom')
-		class FakeUseCase {
-			constructor(_: any) {}
-			run = jest.fn().mockRejectedValue(mockError)
-		}
-
-		;(useCases as any).TestUseCase = FakeUseCase
-		;(mockRes.locals as any).job = mockJob
-
-		const middleware = useCaseMiddleware('TestUseCase' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
-
-		expect(mockNext).toHaveBeenCalledWith(mockError)
+		expect(next).toHaveBeenCalled()
+		const error = (next as jest.Mock).mock.calls[0][0]
+		expect(error).toBeInstanceOf(Error)
+		expect(error.message).toBe('run-fail')
 	})
 })

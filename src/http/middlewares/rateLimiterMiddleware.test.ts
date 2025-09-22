@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from 'express'
 import { TooManyRequestsError } from '../../errors'
+import { providerManager } from '../../infrastructure/providerManager'
 import { Job } from '../../lib/Job'
 import { rateLimiterMiddleware } from './rateLimiterMiddleware'
 
 let consumeMock: jest.Mock
 
+// Mock de RateLimiterRedis
 jest.mock('rate-limiter-flexible', () => {
 	return {
 		RateLimiterRedis: jest.fn().mockImplementation(() => ({
@@ -12,6 +14,13 @@ jest.mock('rate-limiter-flexible', () => {
 		}))
 	}
 })
+
+// Mock de providerManager
+jest.mock('@/infrastructure/providerManager', () => ({
+	providerManager: {
+		get: jest.fn()
+	}
+}))
 
 // Helper para crear req/res/next
 const makeReqResNext = (withJob = true, withUser = true) => {
@@ -40,19 +49,14 @@ const makeReqResNext = (withJob = true, withUser = true) => {
 }
 
 describe('rateLimiterMiddleware', () => {
-	const logger = { error: jest.fn() }
-	const container = {
-		databaseClients: { redis: {} },
-		logger
-	} as any
-
 	beforeEach(() => {
 		jest.clearAllMocks()
 		consumeMock = jest.fn()
+		;(providerManager.get as jest.Mock).mockReturnValue({}) // fake redis client
 	})
 
 	it('should allow request when under rate limit (with user)', async () => {
-		const middleware = rateLimiterMiddleware(container, 5, 10)
+		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next } = makeReqResNext(true, true)
 
 		consumeMock.mockResolvedValueOnce(true)
@@ -64,12 +68,10 @@ describe('rateLimiterMiddleware', () => {
 	})
 
 	it('should allow request when under rate limit (with IP)', async () => {
-		const middleware = rateLimiterMiddleware(container, 5, 10)
+		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next, job } = makeReqResNext(true, false)
 
-		// Forzar explícitamente que no hay usuario
 		job.getPublicUser = jest.fn(() => undefined)
-
 		consumeMock.mockResolvedValueOnce(true)
 
 		await middleware(req, res, next)
@@ -79,7 +81,7 @@ describe('rateLimiterMiddleware', () => {
 	})
 
 	it('should set Retry-After and throw TooManyRequestsError when rate limit exceeded', async () => {
-		const middleware = rateLimiterMiddleware(container, 5, 10)
+		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next } = makeReqResNext(true, true)
 
 		consumeMock.mockRejectedValueOnce({ msBeforeNext: 5000 })
@@ -91,7 +93,7 @@ describe('rateLimiterMiddleware', () => {
 	})
 
 	it('should throw TooManyRequestsError without Retry-After if error has no msBeforeNext', async () => {
-		const middleware = rateLimiterMiddleware(container, 5, 10)
+		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next } = makeReqResNext(true, true)
 
 		consumeMock.mockRejectedValueOnce(new Error('Other error'))
@@ -102,8 +104,8 @@ describe('rateLimiterMiddleware', () => {
 		expect(next).toHaveBeenCalledWith(expect.any(TooManyRequestsError))
 	})
 
-	it('should log and throw error if job is missing', async () => {
-		const middleware = rateLimiterMiddleware(container, 5, 10)
+	it('should throw error if job is missing', async () => {
+		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next } = makeReqResNext(false)
 
 		await middleware(req, res, next)

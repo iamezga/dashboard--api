@@ -7,7 +7,7 @@ import {
 } from '@/errors'
 import { TooManyRequestsError } from '@/errors/TooManyRequestsError'
 import { Job } from '@/lib/Job'
-import config from '@/services/config'
+import { config } from '@/services/config'
 import logger from '@/services/logger'
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
@@ -23,6 +23,25 @@ type HandledError =
 	| TooManyRequestsError
 	| Error
 
+/**
+ * @function errorMiddleware
+ * @description A global Express error handling middleware. It intercepts all errors thrown
+ * in the application, standardizes the response format, logs the error, and reports
+ * to external services like Sentry.
+ *
+ * Responsibilities:
+ * - Differentiates between operational errors (e.g., BadRequestError) and unexpected programming errors.
+ * - Generates a unique `errorId` for traceability.
+ * - Logs operational errors as warnings and programming errors as errors, using the job-specific logger if available.
+ * - Sends a consistent JSON error response to the client. The level of detail (e.g., stack trace) depends on the environment.
+ * - Reports 500-level errors to Sentry (if configured).
+ * - Marks the associated `Job` as failed.
+ *
+ * @param {HandledError} err - The error object. Can be a custom HTTP error or a generic Error.
+ * @param {Request} _req - The Express request object (unused).
+ * @param {Response} res - The Express response object.
+ * @param {NextFunction} _next - The Express next function (unused).
+ */
 export const errorMiddleware = async (
 	err: HandledError,
 	_req: Request,
@@ -37,7 +56,6 @@ export const errorMiddleware = async (
 	let errorName = 'Internal Server Error'
 	let errors: ValidationError[] = []
 	let stack: string | undefined
-
 	if (
 		err instanceof BadRequestError ||
 		err instanceof ForbiddenError ||

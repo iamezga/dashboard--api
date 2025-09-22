@@ -1,7 +1,7 @@
+import { getContainer } from '@/core/dependencyContainer'
 import { UnauthorizedError } from '@/errors'
 import { Job } from '@/lib/Job'
 import { useCases } from '@/modules'
-import { dependencyContainer } from '@/services/dependencyContainer'
 import { validator } from '@/services/validationService'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 
@@ -46,10 +46,10 @@ export const permissionMiddleware = (
 			// Get the validation schema and data from the use case's method.
 			const { schema, data } = await (
 				useCaseClass as any
-			).getPermissionValidationData(job, dependencyContainer)
+			).getPermissionValidationData(job, getContainer())
 
 			// The `Schema` and` Data` contain at least the information necessary to validate if the user has the necessary permission
-			// It can also include validation for specific conditions of each case of use
+			// It can also include validation for specific conditions of each use case
 			const errors = await validator.validate(data, schema, {})
 			if (errors.length > 0) {
 				throw new UnauthorizedError(

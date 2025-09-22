@@ -17,6 +17,10 @@ jest.mock('@/services/logger', () => ({
 	}
 }))
 
+jest.mock('@/core/dependencyContainer', () => ({
+	getContainer: jest.fn(() => ({ fake: 'container' }))
+}))
+
 describe('permissionMiddleware', () => {
 	const next = jest.fn()
 	const res: any = { locals: {} }
@@ -57,7 +61,7 @@ describe('permissionMiddleware', () => {
 	it('should throw UnauthorizedError if validator returns errors', async () => {
 		;(useCases as any).SecureCase = class {
 			static readonly permission = 'user.create'
-			static async getPermissionValidationData() {
+			static async getPermissionValidationData(_job: any, _container: any) {
 				return {
 					schema: { permission: { type: 'enum', values: ['user.create'] } },
 					data: { permission: 'invalid.permission' }
@@ -80,7 +84,7 @@ describe('permissionMiddleware', () => {
 	it('should call next() if validator returns no errors', async () => {
 		;(useCases as any).SecureCase = class {
 			static readonly permission = 'user.create'
-			static async getPermissionValidationData() {
+			static async getPermissionValidationData(_job: any, _container: any) {
 				return {
 					schema: { permission: { type: 'enum', values: ['user.create'] } },
 					data: { permission: 'user.create' }

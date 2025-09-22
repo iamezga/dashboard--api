@@ -1,26 +1,21 @@
-import { useCases } from '@/modules' // Objeto que contiene las clases de los casos de uso
-import {
-	dependencyContainer,
-	DependencyContainer
-} from '@/services/dependencyContainer'
+import { useCaseFactory } from '@/core/useCaseFactory'
+import { UseCaseKeys } from '@/modules' // Objeto que contiene las clases de los casos de uso
 import { JobInterface } from '@/types/job/JobInterface'
-import { UseCaseInterface } from '@/types/useCase/UseCaseInterface'
 import { NextFunction, Request, Response } from 'express'
 
-// This function is responsible for creating an instance of a use.
-// We could generate a "factory" for this if the creation logic were more complex.
-const createUseCaseInstance = (
-	useCaseClass: any,
-	container: DependencyContainer
-): UseCaseInterface => {
-	return new useCaseClass(container) as UseCaseInterface
-}
-
 /**
- * Middleware responsible for executing the use case's business logic.
- * It takes the name of the use case as an argument to create and run the correct instance.
+ * @function useCaseMiddleware
+ * @description A middleware factory that creates a handler to execute a specific use case.
+ * It dynamically instantiates the use case using `useCaseFactory`, runs it with the
+ * `Job` object from `res.locals`, and stores the result in `res.locals.useCaseResponse`.
+ *
+ * This middleware is a core part of the request processing pipeline, bridging the HTTP
+ * layer with the application's business logic.
+ *
+ * @param {UseCaseKeys} useCaseName - The name of the use case to execute (e.g., 'UserCreateUseCase').
+ * @returns {RequestHandler} An Express middleware function.
  */
-export const useCaseMiddleware = (useCaseName: keyof typeof useCases) => {
+export const useCaseMiddleware = (useCaseName: UseCaseKeys) => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
 			const job = res.locals.job as JobInterface
@@ -31,16 +26,7 @@ export const useCaseMiddleware = (useCaseName: keyof typeof useCases) => {
 				)
 			}
 
-			// Obtain the class of the use case using the name.
-			const useCaseClass = useCases[useCaseName]
-			if (!useCaseClass) {
-				return next(new Error(`Use case "${useCaseName}" not found.`))
-			}
-
-			// Create an instance of the use case by injecting the dependencies
-			const useCase = createUseCaseInstance(useCaseClass, dependencyContainer)
-
-			// Run the use case
+			const useCase = useCaseFactory(useCaseName)
 			const useCaseResponse = await useCase.run(job)
 
 			res.locals.useCaseResponse = useCaseResponse

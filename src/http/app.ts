@@ -1,5 +1,5 @@
 require('@/services/sentry')
-import config from '@/services/config'
+import { config } from '@/services/config'
 import { helmet } from '@/services/helmet'
 import * as Sentry from '@sentry/node'
 import cors from 'cors'

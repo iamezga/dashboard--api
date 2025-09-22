@@ -1,22 +1,11 @@
-import config from '@/services/config'
+import { config } from '@/services/config'
 import logger from '@/services/logger'
-import { databaseServiceManager } from './services/databaseServiceManager'
-import { dependencyContainer } from './services/dependencyContainer'
+import { app } from './http/app'
+import { providerManager } from './infrastructure/providerManager'
 ;(async () => {
 	try {
 		// connect databases
-		await databaseServiceManager.initialize()
-
-		// initialize repositories
-		await dependencyContainer.initializeRepositories()
-		logger.info('Dependency container: repositories initialized successfully.')
-
-		/**
-		 * Dynamically import and start the Express application after all asynchronous
-		 * services (e.g., database clients) are connected. This prevents a race condition
-		 * where middleware attempts to access uninitialized database clients.
-		 */
-		const { app } = await import('./http/app')
+		await providerManager.initialize()
 
 		// Run server
 		app.listen(config.get('port') || 5000, () =>
@@ -26,18 +15,18 @@ import { dependencyContainer } from './services/dependencyContainer'
 		// Process listeners to prevent opened connections
 		process.on('SIGTERM', async () => {
 			logger.info('SIGTERM signal received. Shutting down gracefully.')
-			await databaseServiceManager.shutdown() // disconnect databases
+			await providerManager.shutdown() // disconnect databases
 			process.exit(0)
 		})
 
 		process.on('SIGINT', async () => {
 			logger.info('SIGINT signal received. Shutting down gracefully.')
-			await databaseServiceManager.shutdown()
+			await providerManager.shutdown()
 			process.exit(0)
 		})
 	} catch (error: any) {
 		logger.error(`Failed to start application: ${error.message}`)
-		await databaseServiceManager.shutdown()
+		await providerManager.shutdown()
 		process.exit(1)
 	}
 })()

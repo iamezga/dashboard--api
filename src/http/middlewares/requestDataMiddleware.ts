@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { randomUUID } from 'node:crypto'
 
 interface RequestMiddlewareInputs {
@@ -9,13 +9,15 @@ interface RequestMiddlewareInputs {
 }
 
 /**
- * Middleware to Capture request data
- * @param req
- * @param _res
- * @param next
- * @returns
+ * Middleware factory that creates a handler to consolidate request data.
+ * It gathers data from params, query, body, and files into a single `req.requestData` object.
+ * It also extracts metadata like IP, URL, and headers.
+ * @param {RequestMiddlewareInputs} [inputs={}] - Configuration to specify which parts of the request to include.
+ * @returns {RequestHandler} An Express middleware function.
  */
-export const requestDataMiddleware = (inputs: RequestMiddlewareInputs = {}) => {
+export const requestDataMiddleware = (
+	inputs: RequestMiddlewareInputs = {}
+): RequestHandler => {
 	// default inputs
 	inputs = {
 		params: true,

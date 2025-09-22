@@ -1,14 +1,10 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
-import { OrganizationRepositoryInterface } from '@/modules/organization'
-import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
-import { hash } from 'argon2'
-import { RoleRepositoryInterface } from '../../../role/entities/RoleRepositoryInterface'
 import { User } from '../../entities/User'
-import { UserRepositoryInterface } from '../../entities/UserRepositoryInterface'
 import { UserCreateJobInterface } from './UserCreateJobInterface'
 
 /**
@@ -20,17 +16,9 @@ import { UserCreateJobInterface } from './UserCreateJobInterface'
  */
 export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 	static readonly permission: string = 'user.create'
-	private userRepository: UserRepositoryInterface
-	private roleRepository: RoleRepositoryInterface
-	private organizationRepository: OrganizationRepositoryInterface
-	private argon2Hash: typeof hash
 
 	constructor(container: DependencyContainer) {
 		super(container)
-		this.userRepository = container.repositories.user
-		this.roleRepository = container.repositories.role
-		this.organizationRepository = container.repositories.organization
-		this.argon2Hash = container.thirdParties.argon2.hash
 	}
 
 	/**
@@ -72,7 +60,9 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		const { email, password, roleId, organizationId, ...rest } = job.getData()
 
 		// Check if email is already in use (deleted or not)
-		const existingUser = await this.userRepository.findByEmail(email)
+		const existingUser = await this.container.repositoryManager
+			.get('user')
+			.findByEmail(email)
 		if (existingUser) {
 			throw new BadRequestError('Email already in use', [
 				{
@@ -84,7 +74,9 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		}
 
 		// Validate if the roleId exists
-		const role = await this.roleRepository.findById(roleId)
+		const role = await this.container.repositoryManager
+			.get('user')
+			.findById(roleId)
 		if (!role || !role.active) {
 			throw new BadRequestError('Invalid Role', [
 				{
@@ -95,9 +87,9 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			])
 		}
 
-		const organization = await this.organizationRepository.findById(
-			organizationId
-		)
+		const organization = await this.container.repositoryManager
+			.get('user')
+			.findById(organizationId)
 		if (!organization) {
 			throw new BadRequestError('Invalid Organization', [
 				{
@@ -109,7 +101,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		}
 
 		// Hash password
-		const passwordHash = await this.argon2Hash(password)
+		const passwordHash = await this.container.libs.argon2.hash(password)
 
 		// Prepare user data
 		const newUserData = {
@@ -123,7 +115,9 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		}
 
 		//  Create user
-		const createdUser = await this.userRepository.create(newUserData)
+		const createdUser = await this.container.repositoryManager
+			.get('user')
+			.create(newUserData)
 
 		job.logger.info(`User ${createdUser.email} created successfully.`)
 

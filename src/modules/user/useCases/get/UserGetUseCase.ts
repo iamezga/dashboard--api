@@ -1,5 +1,5 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
 import { UseCase } from '@/lib/UseCase'
-import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
@@ -44,7 +44,9 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		// ...Some business logic
 		const data = job.getData()
 		job.logger.info(data)
-		const user = await this.container.repositories.user.findById(data.id)
+		const user = await this.container.repositoryManager
+			.get('user')
+			.findById(data.id)
 
 		return {
 			data: user || {},

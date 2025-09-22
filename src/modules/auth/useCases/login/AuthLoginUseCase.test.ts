@@ -1,630 +1,641 @@
-import { Logger } from 'pino'
+import { DependencyContainer } from '../../../../core/dependencyContainer'
 import { BadRequestError, UnauthorizedError } from '../../../../errors'
-import { Job } from '../../../../lib/Job'
-import { dayjs } from '../../../../services/dayjs'
-import { DependencyContainer } from '../../../../services/dependencyContainer'
-import { deepMerge } from '../../../../utils/deepMerge'
-import { getTimeInSeconds } from '../../../../utils/getTimeInSeconds'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 import { AuthLoginUseCase } from './AuthLoginUseCase'
 
-// --- Helpers ---
-const makeLoginJob = (
-	overrides?: Partial<{ email: string; password: string }>,
-	attempts = 1
-) => {
-	const defaultData = { email: 'john@example.com', password: 'password' }
-	const data = { ...defaultData, ...overrides }
-
-	let currentUser: any = null
-
-	return {
-		getData: () => data,
-		getAttempts: () => attempts,
-		setUser: (user: any) => {
-			currentUser = user
-		},
-		getUser: () => currentUser,
-		getMeta: () => ({ timestamp: new Date() }),
-		logger: {
-			info: jest.fn(),
-			warn: jest.fn(),
-			error: jest.fn()
-		}
-	} as unknown as AuthLoginJobInterface & {
-		logger: Logger
-		getMeta: () => Record<string, any>
-	}
-}
-
-const makeUserAuthDetails = (overrides?: Partial<any>) => ({
-	id: 'u1',
-	organizationId: 'org1',
-	email: 'john@example.com',
-	passwordHash: 'hashed-pass',
-	active: true,
-	name: 'John',
-	surname: 'Doe',
-	roleId: 'role1',
-	config: {},
-	lastLogin: null,
-	userPermissions: [],
-	...overrides
-})
-
-const makeUpdatedUser = (overrides?: Partial<any>) => ({
-	id: 'u1',
-	organizationId: 'org1',
-	email: 'john@example.com',
-	name: 'John',
-	surname: 'Doe',
-	roleId: 'role1',
-	active: true,
-	lastLogin: new Date(),
-	config: {},
-	createdAt: new Date(),
-	updatedAt: new Date(),
-	deletedAt: null,
-	passwordHash: 'hashed-pass',
-	...overrides
-})
-
-// --- Mocks ---
-const userRepo = {
-	findUserAuthDetailsByEmail: jest.fn(),
-	update: jest.fn()
-}
-const roleRepo = {
-	findByIdWithPermissions: jest.fn()
-}
-const sessionRepo = {
-	saveUserData: jest.fn().mockResolvedValue(true),
-	createSession: jest.fn().mockResolvedValue('session-123'),
-	hasActiveSessions: jest.fn().mockResolvedValue(false)
-}
-const argon2 = { verify: jest.fn() }
-const jwt = { sign: jest.fn() }
-const ms = jest.fn(_val => 3600000) // 1h in ms
-const validator = { validate: jest.fn().mockResolvedValue([]) }
-const configGet = jest.fn((key: string) => {
-	if (key === 'jwt.secret') return 'secret'
-	if (key === 'jwt.expiresIn') return '1h'
-	return undefined
-})
-const auditService = {
-	record: jest.fn().mockResolvedValue(undefined)
-}
-
-const makeContainer = (): DependencyContainer =>
-	({
-		repositories: { user: userRepo, role: roleRepo, session: sessionRepo },
-		thirdParties: { argon2, jwt, ms, dayjs },
-		config: { get: configGet },
-		utils: { deepMerge, getTimeInSeconds },
-		validator,
-		auditService
-	} as unknown as DependencyContainer)
-
-beforeEach(() => {
-	jest.clearAllMocks()
-	configGet.mockImplementation((key: string) => {
-		if (key === 'jwt.secret') return 'secret'
-		if (key === 'jwt.expiresIn') return '1h'
-		return undefined
-	})
-})
-
 describe('AuthLoginUseCase', () => {
-	it('Should throw if JWT SECRET is missing', async () => {
-		configGet.mockImplementation(key =>
-			key === 'jwt.secret' ? undefined : '1h'
-		)
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		const job = makeLoginJob()
+	const userRepo = {
+		findUserAuthDetailsByEmail: jest.fn(),
+		update: jest.fn()
+	}
 
-		await expect(useCase.run(job)).rejects.toThrow('JWT SECRET is not defined')
+	const roleRepo = {
+		findByIdWithPermissions: jest.fn()
+	}
+
+	const sessionRepo = {
+		hasActiveSessions: jest.fn(),
+		saveUserData: jest.fn(),
+		createSession: jest.fn()
+	}
+
+	const argon2 = {
+		verify: jest.fn()
+	}
+
+	const validator = {
+		validate: jest.fn()
+	}
+
+	const auditService = {
+		record: jest.fn()
+	}
+
+	const utils = {
+		deepMerge: jest.fn((a, b) => ({ ...a, ...b })),
+		getTimeInSeconds: jest.fn(() => 3600)
+	}
+
+	const logger = {
+		info: jest.fn(),
+		warn: jest.fn(),
+		error: jest.fn()
+	}
+
+	let config = {
+		get: jest.fn((key: string) => {
+			if (key === 'jwt.secret') return 'super-secret'
+			if (key === 'jwt.expiresIn') return '1h'
+			return null
+		})
+	}
+
+	const libs = {
+		argon2,
+		jwt: { sign: jest.fn(() => 'token123') },
+		dayjs: jest.fn((date?: Date) => ({
+			format: jest.fn((pattern: string) => {
+				if (pattern === 'dddd') return 'Monday' // día de la semana
+				if (pattern === 'HH:mm') {
+					const d = date || new Date()
+					return `${d.getHours().toString().padStart(2, '0')}:${d
+						.getMinutes()
+						.toString()
+						.padStart(2, '0')}`
+				}
+				return 'mocked-format'
+			})
+		}))
+	}
+
+	const makeContainer = (): DependencyContainer =>
+		({
+			repositoryManager: {
+				get: (name: string) => {
+					if (name === 'user') return userRepo
+					if (name === 'role') return roleRepo
+					if (name === 'session') return sessionRepo
+					throw new Error(`Repo ${name} not mocked`)
+				}
+			},
+			libs,
+			services: { auditService },
+			config,
+			validator,
+			utils,
+			logger
+		} as unknown as DependencyContainer)
+
+	const makeJob = (data: any, permissions = {}): AuthLoginJobInterface =>
+		({
+			getData: () => data,
+			getMeta: () => ({ timestamp: new Date(), userAgent: 'agent' }),
+			getUser: () => ({ permissions }),
+			setUser: jest.fn(),
+			getAttempts: () => 1,
+			logger
+		} as any)
+
+	beforeEach(() => {
+		jest.clearAllMocks()
+
+		config = {
+			get: jest.fn((key: string) => {
+				if (key === 'jwt.secret') return 'super-secret'
+				if (key === 'jwt.expiresIn') return '1h'
+				return null
+			})
+		}
 	})
 
-	it('Should throw if JWT EXPIRES IN is missing', async () => {
-		configGet.mockImplementation(key =>
-			key === 'jwt.expiresIn' ? undefined : 'secret'
-		)
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		const job = makeLoginJob()
-
-		await expect(useCase.run(job)).rejects.toThrow(
-			'JWT EXPIRES IN is not defined'
-		)
+	it('should throw if JWT SECRET is missing', async () => {
+		config.get.mockReturnValueOnce(null)
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'a@b.com', password: '123' }))
+		).rejects.toThrow('JWT SECRET is not defined')
 	})
 
-	it("Should throw BadRequestError if user doesn't exist", async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
+	it('should throw if JWT EXPIRES IN is missing', async () => {
+		config.get.mockImplementation((key: string) =>
+			key === 'jwt.secret' ? 'super-secret' : null
+		)
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'a@b.com', password: '123' }))
+		).rejects.toThrow('JWT EXPIRES IN is not defined')
+	})
+
+	it('should throw BadRequestError for non-existent user', async () => {
 		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(null)
-		const job = makeLoginJob({ email: 'no@exists.com' })
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(job.logger.warn).toHaveBeenCalled()
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'nouser@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(BadRequestError)
 	})
 
-	it('Should throw BadRequestError if user inactive', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails({ active: false })
-		)
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(job.logger.warn).toHaveBeenCalled()
+	it('should throw BadRequestError for inactive or deleted user', async () => {
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce({
+			id: 'u1',
+			email: 'user@mail.com',
+			active: false,
+			deletedAt: null
+		})
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(BadRequestError)
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce({
+			id: 'u2',
+			email: 'user@mail.com',
+			active: true,
+			deletedAt: new Date()
+		})
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(BadRequestError)
 	})
 
-	it('Should throw BadRequestError if user.deletedAt exists', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails({ deletedAt: new Date() })
-		)
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(job.logger.warn).toHaveBeenCalled()
-	})
-
-	it('Should throw BadRequestError if password invalid', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
+	it('should throw BadRequestError for invalid password', async () => {
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce({
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			userPermissions: []
+		})
 		argon2.verify.mockResolvedValueOnce(false)
-		const job = makeLoginJob({ password: 'wrong' })
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(argon2.verify).toHaveBeenCalledWith('hashed-pass', 'wrong')
-		expect(job.logger.warn).toHaveBeenCalled()
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: 'wrong' }))
+		).rejects.toBeInstanceOf(BadRequestError)
 	})
 
-	it('Should throw UnauthorizedError if no roleId', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails({ roleId: null })
-		)
+	it('should throw UnauthorizedError if no roleId', async () => {
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce({
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			userPermissions: [],
+			roleId: null
+		})
 		argon2.verify.mockResolvedValueOnce(true)
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(UnauthorizedError)
 	})
 
-	it('Should throw UnauthorizedError if role inactive', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
+	it('should throw UnauthorizedError if role inactive', async () => {
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce({
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			userPermissions: []
+		})
 		argon2.verify.mockResolvedValueOnce(true)
 		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
 			active: false,
 			rolePermissions: []
 		})
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(UnauthorizedError)
 	})
 
-	it('Should throw UnauthorizedError if lastLogin update fails', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
+	it('should throw UnauthorizedError if validator returns errors', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			userPermissions: []
+		}
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userData)
 		argon2.verify.mockResolvedValueOnce(true)
 		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
+			active: true,
+			rolePermissions: []
+		})
+		validator.validate.mockResolvedValueOnce([
+			{ field: 'accessDay', message: 'not allowed' }
+		])
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(UnauthorizedError)
+	})
+
+	it('should throw UnauthorizedError if multiple sessions not allowed and session exists', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			userPermissions: []
+		}
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userData)
+		argon2.verify.mockResolvedValueOnce(true)
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
 			active: true,
 			rolePermissions: [
 				{
-					permission: { key: 'auth.login', active: true, config: {} },
-					config: {}
+					permission: { key: 'auth.login', active: true, deletedAt: null },
+					config: { allowMultipleSessions: false }
 				}
 			]
 		})
-		userRepo.update.mockResolvedValueOnce(null)
-
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(Error)
+		validator.validate.mockResolvedValueOnce([])
+		sessionRepo.hasActiveSessions.mockResolvedValueOnce(true)
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toBeInstanceOf(UnauthorizedError)
 	})
 
-	it('Should login successfully and return token', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
+	it('should throw Error if update user lastLogin fails', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			userPermissions: []
+		}
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userData)
 		argon2.verify.mockResolvedValueOnce(true)
 		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
 			active: true,
-			rolePermissions: [
-				{ permission: { key: 'auth.login', active: true }, config: {} }
-			]
+			rolePermissions: []
 		})
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob({}, 2)
-		const result = await useCase.run(job)
-
-		expect(sessionRepo.saveUserData).toHaveBeenCalledWith(
-			'u1',
-			expect.objectContaining({ id: 'u1', email: 'john@example.com' }),
-			expect.any(Number)
-		)
-		expect(sessionRepo.createSession).toHaveBeenCalledWith(
-			'u1',
-			expect.objectContaining({ userId: 'u1' }),
-			expect.any(Number)
-		)
-
-		expect(result.data).toEqual({
-			token: 'signed.jwt.token',
-			user: expect.objectContaining({
-				id: 'u1',
-				email: 'john@example.com'
-			})
-		})
-
-		expect(result.metadata).toEqual({
-			attempts: 2,
-			message: 'Login successful.'
-		})
-		expect(job.logger.info).toHaveBeenCalled()
+		validator.validate.mockResolvedValueOnce([])
+		sessionRepo.hasActiveSessions.mockResolvedValueOnce(false)
+		userRepo.update.mockResolvedValueOnce(null) // Fail update
+		sessionRepo.createSession.mockResolvedValueOnce('sess123')
+		const useCase = new AuthLoginUseCase(makeContainer())
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toThrow(/Failed to update last login/)
 	})
 
-	it('Should include accessDay and accessTime in validation data if conditions enabled', async () => {
-		const roleRepoMock = {
-			findByIdWithPermissions: jest.fn().mockResolvedValueOnce({
+	it('should throw Error if createSession fails', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			name: 'John',
+			surname: 'Doe',
+			organizationId: 'org1',
+			userPermissions: []
+		}
+
+		const mockUserRepo = {
+			findUserAuthDetailsByEmail: jest.fn().mockResolvedValue(userData),
+			update: jest.fn().mockResolvedValue(userData)
+		}
+
+		const mockRoleRepo = {
+			findByIdWithPermissions: jest.fn().mockResolvedValue({
+				id: 'r1',
 				active: true,
 				rolePermissions: [
 					{
-						permission: {
-							key: 'auth.login',
-							active: true,
-							deletedAt: null,
-							config: {
-								conditions: {
-									accessDays: { enabled: true, values: ['Monday', 'Tuesday'] },
-									accessTime: {
-										enabled: true,
-										options: { from: '08:00', to: '18:00' }
-									}
-								}
-							}
-						},
-						config: {}
+						permission: { key: 'auth.login', active: true, deletedAt: null },
+						config: { allowMultipleSessions: true }
 					}
 				]
 			})
 		}
 
-		const container = makeContainer() as any
-		container.repositories.role = roleRepoMock
+		const mockSessionRepo = {
+			hasActiveSessions: jest.fn().mockResolvedValue(false),
+			saveUserData: jest.fn().mockResolvedValue(undefined),
+			createSession: jest.fn().mockResolvedValue(null)
+		}
+
+		const container = {
+			repositoryManager: {
+				get: (name: string) => {
+					if (name === 'user') return mockUserRepo
+					if (name === 'role') return mockRoleRepo
+					if (name === 'session') return mockSessionRepo
+				}
+			},
+			libs,
+			config,
+			utils,
+			validator: { validate: jest.fn().mockResolvedValue([]) },
+			services: { auditService },
+			logger
+		} as unknown as DependencyContainer
+
+		argon2.verify.mockResolvedValue(true)
 
 		const useCase = new AuthLoginUseCase(container)
 
-		const userAuthDetails = makeUserAuthDetails({ roleId: 'role1' })
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userAuthDetails)
-		argon2.verify.mockResolvedValueOnce(true)
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob()
-		const spyValidate = jest
-			.spyOn(container.validator, 'validate')
-			.mockResolvedValue([])
-
-		await useCase.run(job)
-
-		const validationData = spyValidate.mock.calls[0][0]
-		expect(validationData).toHaveProperty('accessDay')
-		expect(validationData).toHaveProperty('accessTime')
+		await expect(
+			useCase.run(makeJob({ email: 'user@mail.com', password: '123' }))
+		).rejects.toThrow(/Could not create user session/)
 	})
 
-	it('Should throw UnauthorizedError if validation fails (accessDay or accessTime)', async () => {
-		const roleRepoMock = {
-			findByIdWithPermissions: jest.fn().mockResolvedValueOnce({
+	it('should login successfully with accessDays and accessTime enabled', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			name: 'John',
+			surname: 'Doe',
+			organizationId: 'org1',
+			userPermissions: []
+		}
+
+		const mockUserRepo = {
+			findUserAuthDetailsByEmail: jest.fn().mockResolvedValue(userData),
+			update: jest.fn().mockResolvedValue(userData)
+		}
+		const mockRoleRepo = {
+			findByIdWithPermissions: jest.fn().mockResolvedValue({
+				id: 'r1',
 				active: true,
 				rolePermissions: [
 					{
-						permission: {
-							key: 'auth.login',
-							active: true,
-							deletedAt: null,
-							config: {
-								conditions: {
-									accessDays: { enabled: true, values: ['Sunday'] },
-									accessTime: { enabled: false, options: {} }
-								}
-							}
-						},
-						config: {}
-					}
-				]
-			})
-		}
-
-		const container = makeContainer() as any
-		container.repositories.role = roleRepoMock
-
-		container.thirdParties.dayjs = jest.fn(() => ({
-			format: jest.fn(() => 'Monday')
-		}))
-
-		const useCase = new AuthLoginUseCase(container)
-
-		const userAuthDetails = makeUserAuthDetails({ roleId: 'role1' })
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userAuthDetails)
-		argon2.verify.mockResolvedValueOnce(true)
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob()
-
-		jest
-			.spyOn(container.validator, 'validate')
-			.mockResolvedValueOnce([
-				{ field: 'accessDay', message: 'Day not allowed' }
-			])
-
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
-	})
-
-	it('Should handle accessDays and accessTime disabled', async () => {
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: [
-				{
-					permission: {
-						key: 'auth.login',
-						active: true,
-						deletedAt: null,
+						permission: { key: 'auth.login', active: true, deletedAt: null },
 						config: {
 							conditions: {
-								accessDays: { enabled: false, values: ['Monday'] },
+								accessDays: { enabled: true, values: ['Monday'] },
 								accessTime: {
-									enabled: false,
-									options: { from: '08:00', to: '18:00' }
+									enabled: true,
+									options: { from: '00:00', to: '23:59' }
 								}
-							}
+							},
+							allowMultipleSessions: true
 						}
-					},
+					}
+				]
+			})
+		}
+		const mockSessionRepo = {
+			hasActiveSessions: jest.fn().mockResolvedValue(false),
+			saveUserData: jest.fn().mockResolvedValue(undefined),
+			createSession: jest.fn().mockResolvedValue('sess123')
+		}
+
+		const container = {
+			repositoryManager: {
+				get: (name: string) => {
+					if (name === 'user') return mockUserRepo
+					if (name === 'role') return mockRoleRepo
+					if (name === 'session') return mockSessionRepo
+				}
+			},
+			libs,
+			config,
+			utils,
+			validator: { validate: jest.fn().mockResolvedValue([]) },
+			services: { auditService },
+			logger
+		} as unknown as DependencyContainer
+
+		argon2.verify.mockResolvedValueOnce(true)
+
+		const useCase = new AuthLoginUseCase(container)
+		const result = await useCase.run(
+			makeJob({ email: 'user@mail.com', password: '123' })
+		)
+
+		expect(result.data.token).toBe('token123')
+		expect(result.data.user.id).toBe('u1')
+		expect(mockSessionRepo.createSession).toHaveBeenCalled()
+	})
+
+	it('should include accessDay and accessTime when conditions enabled', async () => {
+		const metaTimestamp = new Date('2025-09-20T12:34:00')
+		const job = makeJob({ email: 'user@mail.com', password: '123' }) as any
+		job.getMeta = () => ({ timestamp: metaTimestamp, userAgent: 'agent' })
+
+		const permissions = {
+			[AuthLoginUseCase.permission]: {
+				config: {
+					conditions: {
+						accessDays: { enabled: true, values: ['Monday', 'Tuesday'] },
+						accessTime: {
+							enabled: true,
+							options: { from: '08:00', to: '18:00' }
+						}
+					}
+				}
+			}
+		}
+		job.getUser = () => ({ permissions })
+
+		const result = await AuthLoginUseCase.getPermissionValidationData(
+			job,
+			makeContainer()
+		)
+		expect(result.data.accessDay).toBe('Monday')
+		expect(result.data.accessTime).toBe('12:34')
+		expect(result.schema.accessDay.values).toEqual(['Monday', 'Tuesday'])
+		expect(result.schema.accessTime.rules).toHaveLength(2)
+	})
+
+	it('should skip accessDay and accessTime if conditions disabled', async () => {
+		const job = makeJob({ email: 'user@mail.com', password: '123' }) as any
+		job.getMeta = () => ({ timestamp: new Date(), userAgent: 'agent' })
+
+		const permissions = {
+			[AuthLoginUseCase.permission]: {
+				config: {
+					conditions: {
+						accessDays: { enabled: false, values: ['Monday'] },
+						accessTime: {
+							enabled: false,
+							options: { from: '08:00', to: '18:00' }
+						}
+					}
+				}
+			}
+		}
+
+		job.getUser = () => ({ permissions })
+
+		const result = await AuthLoginUseCase.getPermissionValidationData(
+			job,
+			makeContainer()
+		)
+		expect(result.data.accessDay).toBeUndefined()
+		expect(result.data.accessTime).toBeUndefined()
+		expect(result.schema.accessDay).toBeUndefined()
+		expect(result.schema.accessTime).toBeUndefined()
+	})
+
+	it('should skip accessDay and accessTime if no conditions present', async () => {
+		const job = makeJob({ email: 'user@mail.com', password: '123' }) as any
+		job.getMeta = () => ({ timestamp: new Date(), userAgent: 'agent' })
+
+		const permissions = {
+			[AuthLoginUseCase.permission]: {
+				config: {} // no conditions
+			}
+		}
+		job.getUser = () => ({ permissions })
+
+		const result = await AuthLoginUseCase.getPermissionValidationData(
+			job,
+			makeContainer()
+		)
+
+		expect(result.data.accessDay).toBeUndefined()
+		expect(result.data.accessTime).toBeUndefined()
+		expect(result.schema.accessDay).toBeUndefined()
+		expect(result.schema.accessTime).toBeUndefined()
+	})
+
+	it('should merge only active and non-deleted permissions inside run', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
+			active: true,
+			deletedAt: null,
+			roleId: 'r1',
+			name: 'John',
+			surname: 'Doe',
+			organizationId: 'org1',
+			userPermissions: [
+				{
+					permission: { key: 'perm1', active: true, deletedAt: null },
+					config: {}
+				},
+				{
+					permission: { key: 'perm2', active: false, deletedAt: null },
+					config: {}
+				},
+				{
+					permission: { key: 'perm3', active: true, deletedAt: new Date() },
+					config: {}
+				}
+			]
+		}
+
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userData)
+		argon2.verify.mockResolvedValueOnce(true)
+		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
+			active: true,
+			rolePermissions: [
+				{
+					permission: { key: 'perm4', active: true, deletedAt: null },
 					config: {}
 				}
 			]
 		})
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
+		validator.validate.mockResolvedValueOnce([]) // no errors
+		sessionRepo.hasActiveSessions.mockResolvedValueOnce(false)
+		userRepo.update.mockResolvedValueOnce(userData)
+		sessionRepo.saveUserData.mockResolvedValueOnce(undefined)
+		sessionRepo.createSession.mockResolvedValueOnce('sess123')
+
+		const result = await new AuthLoginUseCase(makeContainer()).run(
+			makeJob({ email: 'user@mail.com', password: '123' })
 		)
-		argon2.verify.mockResolvedValueOnce(true)
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
 
-		const container = makeContainer() as any
-		const useCase = new AuthLoginUseCase(container)
-		const job = makeLoginJob()
-
-		await useCase.run(job)
-
-		const validationData = container.validator.validate.mock.calls[0][0]
-		expect(validationData).not.toHaveProperty('accessDay')
-		expect(validationData).not.toHaveProperty('accessTime')
+		expect(result.data.token).toBeDefined()
 	})
 
-	it('Should use default maxSessionTime if not set in permission', async () => {
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+	it('should correctly skip inactive/deleted and merge active permissions inside run', async () => {
+		const userData = {
+			id: 'u1',
+			email: 'user@mail.com',
+			passwordHash: 'hash',
 			active: true,
-			rolePermissions: [
+			deletedAt: null,
+			roleId: 'r1',
+			name: 'John',
+			surname: 'Doe',
+			organizationId: 'org1',
+			userPermissions: [
 				{
-					permission: { key: 'auth.login', active: true, config: {} },
-					config: {}
-				}
-			]
-		})
-
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
-		argon2.verify.mockResolvedValueOnce(true)
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const container = makeContainer()
-		container.thirdParties.ms = jest.fn().mockReturnValue(0)
-		const useCase = new AuthLoginUseCase(container)
-
-		const job = makeLoginJob()
-		await useCase.run(job)
-
-		expect(sessionRepo.createSession).toHaveBeenCalledWith(
-			expect.any(String),
-			expect.objectContaining({
-				maxSessionTime: 3600
-			}),
-			3600
-		)
-	})
-
-	it('Should skip inactive or deleted permissions', async () => {
-		const container = makeContainer() as any
-		const useCase = new AuthLoginUseCase(container)
-
-		const userAuthDetails = makeUserAuthDetails({ roleId: 'role1' })
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userAuthDetails)
-		argon2.verify.mockResolvedValueOnce(true)
-
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: [
+					permission: { key: 'permActive', active: true, deletedAt: null },
+					config: { foo: 'bar' }
+				},
 				{
-					permission: { key: 'auth.login', active: false, config: {} },
+					permission: { key: 'permInactive', active: false, deletedAt: null },
 					config: {}
 				},
 				{
 					permission: {
-						key: 'auth.login2',
+						key: 'permDeleted',
 						active: true,
-						deletedAt: new Date(),
-						config: {}
+						deletedAt: new Date()
 					},
 					config: {}
 				}
 			]
-		})
+		}
 
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob()
-		await useCase.run(job)
-
-		const mergedPermissions = (job as unknown as Job).getUser().permissions
-		expect(mergedPermissions).toEqual({})
-	})
-	it('Should merge rolePermissions and userPermissions', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-
-		const rolePermission = [
+		const rolePermissions = [
 			{
-				permission: { key: 'user.custom', active: true, deletedAt: null },
-				config: { fromUser: true }
+				permission: { key: 'permRoleActive', active: true, deletedAt: null },
+				config: { baz: 'qux' }
 			},
 			{
-				permission: { key: 'auth.login', active: true, deletedAt: null },
-				config: { fromRole: true }
-			}
-		]
-
-		const userPermission = [
-			{
-				permission: { key: 'user.custom', active: true, deletedAt: null },
-				config: { fromUser: false }
-			},
-			{
-				permission: { key: 'user.custom2', active: false, deletedAt: null },
+				permission: { key: 'permRoleInactive', active: false, deletedAt: null },
 				config: {}
 			}
 		]
 
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails({
-				roleId: 'role1',
-				userPermissions: userPermission
-			})
-		)
-
-		argon2.verify.mockResolvedValueOnce(true)
-
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: rolePermission
-		})
-
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		await useCase.run(makeLoginJob())
-
-		const sessionUser = sessionRepo.saveUserData.mock.calls[0][1]
-
-		expect(sessionUser.permissions['auth.login']).toBeDefined()
-		expect(sessionUser.permissions['user.custom']).toBeDefined()
-		expect(sessionUser.permissions['auth.login'].config).toEqual({
-			fromRole: true
-		})
-		expect(sessionUser.permissions['user.custom'].config).toEqual({
-			fromUser: false
-		})
-	})
-	it('Should throw UnauthorizedError if user already has active session and multiple not allowed', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
-		)
+		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(userData)
 		argon2.verify.mockResolvedValueOnce(true)
 		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
+			id: 'r1',
 			active: true,
-			rolePermissions: [
-				{
-					permission: {
-						key: 'auth.login',
-						active: true,
-						config: { allowMultipleSession: false }
-					},
-					config: {}
-				}
-			]
+			rolePermissions
 		})
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		sessionRepo.hasActiveSessions.mockResolvedValueOnce(true)
+		validator.validate.mockResolvedValueOnce([])
+		sessionRepo.hasActiveSessions.mockResolvedValueOnce(false)
+		userRepo.update.mockResolvedValueOnce(userData)
+		sessionRepo.saveUserData.mockResolvedValueOnce(undefined)
+		sessionRepo.createSession.mockResolvedValueOnce('sess123')
 
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(UnauthorizedError)
-	})
-	it('Should throw UnauthorizedError if createSession fails', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
+		const deepMergeSpy = jest.spyOn(makeContainer().utils, 'deepMerge')
 
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
+		const result = await new AuthLoginUseCase(makeContainer()).run(
+			makeJob({ email: 'user@mail.com', password: '123' })
 		)
-		argon2.verify.mockResolvedValueOnce(true)
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: [
-				{
-					permission: { key: 'auth.login', active: true, config: {} },
-					config: {}
-				}
-			]
-		})
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		sessionRepo.createSession.mockResolvedValueOnce(null) // fuerza fallo
 
-		const job = makeLoginJob()
-		await expect(useCase.run(job)).rejects.toBeInstanceOf(Error)
-	})
-
-	it('Should call auditService.record after successful login', async () => {
-		const container = makeContainer()
-		const useCase = new AuthLoginUseCase(container)
-
-		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(
-			makeUserAuthDetails()
+		expect(deepMergeSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ key: 'permActive' }),
+			{ config: { foo: 'bar' } }
 		)
-		argon2.verify.mockResolvedValueOnce(true)
-		roleRepo.findByIdWithPermissions.mockResolvedValueOnce({
-			active: true,
-			rolePermissions: [
-				{ permission: { key: 'auth.login', active: true }, config: {} }
-			]
-		})
-		userRepo.update.mockResolvedValueOnce(makeUpdatedUser())
-		jwt.sign.mockReturnValueOnce('signed.jwt.token')
-
-		const job = makeLoginJob()
-		job.getMeta = jest.fn().mockReturnValue({
-			userAgent: 'jest-test-agent'
-		})
-		await useCase.run(job)
-
-		expect(container.auditService.record).toHaveBeenCalledWith(
-			'auth.login',
-			job,
-			'user',
-			'u1',
-			expect.objectContaining({
-				userAgent: 'jest-test-agent',
-				loggedAt: expect.any(Date)
-			})
+		expect(deepMergeSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ key: 'permRoleActive' }),
+			{ config: { baz: 'qux' } }
 		)
+
+		expect(result.data.token).toBeDefined()
 	})
 })

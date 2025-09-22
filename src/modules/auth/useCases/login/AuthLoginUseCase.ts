@@ -1,3 +1,4 @@
+import { DependencyContainer } from '@/core/dependencyContainer'
 import { BadRequestError, UnauthorizedError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
 import {
@@ -9,7 +10,6 @@ import {
 	SessionDataInput,
 	SessionUser
 } from '@/modules/session/entities/Session'
-import { DependencyContainer } from '@/services/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
@@ -59,18 +59,14 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			const { config } = permissions[AuthLoginUseCase.permission]
 			if (config.conditions) {
 				if (config.conditions?.accessDays?.enabled) {
-					data.accessDay = container.thirdParties
-						.dayjs(meta.timestamp)
-						.format('dddd')
+					data.accessDay = container.libs.dayjs(meta.timestamp).format('dddd')
 					schema.accessDay = {
 						type: 'enum',
 						values: config.conditions.accessDays.values
 					}
 				}
 				if (config.conditions?.accessTime?.enabled) {
-					data.accessTime = container.thirdParties
-						.dayjs(meta.timestamp)
-						.format('HH:mm')
+					data.accessTime = container.libs.dayjs(meta.timestamp).format('HH:mm')
 					schema.accessTime = {
 						type: 'multiAll',
 						rules: [
@@ -113,9 +109,14 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 		const { email, password } = job.getData()
 
+		const userRepository = this.container.repositoryManager.get('user')
+		const roleRepository = this.container.repositoryManager.get('role')
+		const sessionRepository = this.container.repositoryManager.get('session')
+
 		// Find user authentication details
-		const userAuthDetails =
-			await this.container.repositories.user.findUserAuthDetailsByEmail(email)
+		const userAuthDetails = await userRepository.findUserAuthDetailsByEmail(
+			email
+		)
 
 		// Check if user exists and is active
 		if (
@@ -136,7 +137,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		// Verify the password
-		const passwordMatch = await this.container.thirdParties.argon2.verify(
+		const passwordMatch = await this.container.libs.argon2.verify(
 			userAuthDetails.passwordHash,
 			password
 		)
@@ -157,10 +158,9 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
-		const roleWithPermissions =
-			await this.container.repositories.role.findByIdWithPermissions(
-				userAuthDetails.roleId
-			)
+		const roleWithPermissions = await roleRepository.findByIdWithPermissions(
+			userAuthDetails.roleId
+		)
 
 		if (!roleWithPermissions || !roleWithPermissions.active) {
 			throw new UnauthorizedError('Authentication failed.')
@@ -213,9 +213,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 		if (
 			!loginPermissionConfig.allowMultipleSessions &&
-			(await this.container.repositories.session.hasActiveSessions(
-				userAuthDetails.id
-			))
+			(await sessionRepository.hasActiveSessions(userAuthDetails.id))
 		) {
 			throw new UnauthorizedError(
 				`Authentication failed: You have already logged in to another device.`
@@ -225,19 +223,16 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const currentTime = new Date()
 
 		// Update last login
-		const updatedUser = await this.container.repositories.user.update(
-			userAuthDetails.id,
-			{
-				lastLogin: currentTime
-			}
-		)
+		const updatedUser = await userRepository.update(userAuthDetails.id, {
+			lastLogin: currentTime
+		})
 		if (!updatedUser) {
 			throw new Error(
 				`Failed to update last login for user: ${userAuthDetails.email}`
 			)
 		}
 		const meta = job.getMeta()
-		await this.container.auditService.record(
+		await this.container.services.auditService.record(
 			'auth.login',
 			job,
 			'user', // resourceType
@@ -273,13 +268,13 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			maxInactiveTime:
 				(loginPermissionConfig.maxInactiveTime as number) || jwtExpiresInSeconds
 		}
-		await this.container.repositories.session.saveUserData(
+		await sessionRepository.saveUserData(
 			updatedUser.id,
 			sessionUser,
 			sessionTTL
 		)
 
-		const sessionId = await this.container.repositories.session.createSession(
+		const sessionId = await sessionRepository.createSession(
 			updatedUser.id,
 			sessionData,
 			sessionTTL
@@ -297,7 +292,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			roleId: updatedUser.roleId
 		}
 
-		const token = this.container.thirdParties.jwt.sign(
+		const token = this.container.libs.jwt.sign(
 			jwtPayload,
 			this.container.config.get('jwt.secret'),
 			{

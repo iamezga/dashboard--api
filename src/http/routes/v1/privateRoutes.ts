@@ -1,7 +1,6 @@
 import { authLoggerMiddleware } from '@/http/middlewares/authLoggerMiddleware'
 import { authMiddleware } from '@/http/middlewares/authMiddleware'
 import { rateLimiterMiddleware } from '@/http/middlewares/rateLimiterMiddleware'
-import { dependencyContainer } from '@/services/dependencyContainer'
 import { Router } from 'express'
 import { authPrivateRoutes } from './auth'
 import { userPrivateRoutes } from './user'
@@ -17,9 +16,9 @@ const router = Router()
 // Apply the authentication middleware to all subsequent private routes.
 // This middleware verifies the user's JWT and attaches their full entity to the Job context.
 router.use(
-	authMiddleware(dependencyContainer),
+	authMiddleware,
 	authLoggerMiddleware,
-	rateLimiterMiddleware(dependencyContainer, 200, 900) // 200 requests per 15 minutes
+	rateLimiterMiddleware(200, 900) // 200 requests per 15 minutes
 )
 
 router.use('/auth', authPrivateRoutes)
