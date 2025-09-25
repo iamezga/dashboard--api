@@ -1,5 +1,4 @@
-import { providerManager } from './providerManager'
-import { Bullmq } from './providers/Bullmq'
+import { databaseManager } from './databaseManager'
 import { Mongo } from './providers/Mongo'
 import { Postgres } from './providers/Postgres'
 import { Redis } from './providers/Redis'
@@ -7,14 +6,13 @@ import { Redis } from './providers/Redis'
 jest.mock('./providers/Postgres')
 jest.mock('./providers/Redis')
 jest.mock('./providers/Mongo')
-jest.mock('./providers/Bullmq')
 jest.mock('../services/logger', () => ({
 	info: jest.fn(),
 	warn: jest.fn(),
 	error: jest.fn()
 }))
 
-describe('providerManager', () => {
+describe('databaseManager', () => {
 	let connectMock: jest.Mock
 	let disconnectMock: jest.Mock
 
@@ -36,11 +34,6 @@ describe('providerManager', () => {
 			disconnect: disconnectMock,
 			displayName: 'MongoDB'
 		}))
-		;(Bullmq as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'Queue'
-		}))
 	})
 
 	afterEach(() => {
@@ -48,23 +41,15 @@ describe('providerManager', () => {
 	})
 
 	it('should initialize providers and store instances', async () => {
-		await providerManager.initialize(['postgres', 'redis'])
-		expect(providerManager.get('postgres')).toEqual({ client: 'instance' })
-		expect(providerManager.get('redis')).toEqual({ client: 'instance' })
-	})
-
-	it('should throw if provider key not found in registry', async () => {
-		jest.resetModules()
-		const { providerManager } = await import('./providerManager')
-
-		await expect(
-			providerManager.initialize(['invalidProvider' as any])
-		).rejects.toThrow(/Provider "invalidProvider" not found in registry/)
+		await databaseManager.initialize()
+		expect(databaseManager.get('postgres')).toEqual({ client: 'instance' })
+		expect(databaseManager.get('redis')).toEqual({ client: 'instance' })
+		expect(databaseManager.get('mongo')).toEqual({ client: 'instance' })
 	})
 
 	it('should throw if provider connect fails', async () => {
 		jest.resetModules()
-		const { providerManager } = await import('./providerManager')
+		const { databaseManager } = await import('./databaseManager')
 		const { Postgres } = await import('./providers/Postgres')
 
 		const connectMock = jest.fn().mockRejectedValueOnce(new Error('fail'))
@@ -74,47 +59,42 @@ describe('providerManager', () => {
 			displayName: 'PostgreSQL'
 		}))
 
-		await expect(providerManager.initialize(['postgres'])).rejects.toThrow(
+		await expect(databaseManager.initialize()).rejects.toThrow(
 			/Failed to initialize PostgreSQL/
 		)
 	})
 
 	it('should shutdown providers and clear instances', async () => {
-		await providerManager.initialize(['postgres', 'redis'])
-		await providerManager.shutdown()
-		expect(disconnectMock).toHaveBeenCalledTimes(2)
-		expect(() => providerManager.get('postgres')).toThrow(/not initialized/)
+		await databaseManager.initialize()
+		await databaseManager.shutdown()
+		expect(disconnectMock).toHaveBeenCalledTimes(3)
+		expect(() => databaseManager.get('postgres')).toThrow(/not initialized/)
 	})
 
 	it('get should throw if provider not initialized', () => {
-		expect(() => providerManager.get('postgres')).toThrow(/not initialized/)
+		expect(() => databaseManager.get('postgres')).toThrow(/not initialized/)
 	})
 
 	it('getAll should throw if any provider not initialized', async () => {
-		await providerManager.initialize(['postgres'])
-		expect(() => providerManager.getAll()).toThrow(/not initialized/)
+		// Manually reset to ensure a clean state without initialization
+		await databaseManager.shutdown()
+		expect(() => databaseManager.getAll()).toThrow(/not initialized/)
 	})
 
 	it('getAll should return all instances', async () => {
-		await providerManager.initialize(['postgres', 'redis', 'mongo', 'queue'])
-		const all = providerManager.getAll()
-		expect(Object.keys(all)).toEqual(['postgres', 'redis', 'mongo', 'queue'])
+		await databaseManager.initialize()
+		const all = databaseManager.getAll()
+		expect(Object.keys(all)).toEqual(['postgres', 'redis', 'mongo'])
 		expect(all.postgres).toEqual({ client: 'instance' })
 	})
 
 	it('getDbClients should return only DB instances', async () => {
-		await providerManager.initialize(['postgres', 'redis', 'mongo', 'queue'])
-		const dbClients = providerManager.getDbClients()
+		await databaseManager.initialize()
+		const dbClients = databaseManager.getAll()
 		expect(dbClients).toEqual({
 			postgres: { client: 'instance' },
 			redis: { client: 'instance' },
 			mongo: { client: 'instance' }
 		})
-	})
-
-	it('should initialize providers and store instances by default', async () => {
-		await providerManager.initialize()
-		expect(providerManager.get('postgres')).toEqual({ client: 'instance' })
-		expect(providerManager.get('redis')).toEqual({ client: 'instance' })
 	})
 })

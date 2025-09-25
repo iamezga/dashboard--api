@@ -1,6 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import { DbClientsMap } from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
@@ -33,10 +33,10 @@ type UserAuthDetailsPayload = Prisma.UserGetPayload<{
 
 export class UserRepository implements UserRepositoryInterface {
 	static name = 'user' as const
-	static provider: keyof DbClientsMap = 'postgres'
+	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: UserRepositoryContext
 
-	constructor(private readonly db: DbClientsMap['postgres']) {}
+	constructor(private readonly db: DatabaseClientsMap['postgres']) {}
 
 	/**
 	 * Injects the dependency container into the repository instance.

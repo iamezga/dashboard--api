@@ -1,9 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	DbClientsMap,
-	ProviderClientsMap
-} from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { Collection } from 'mongodb'
 import { Logger } from 'pino'
 import { Audit, AuditInput } from '../entities/Audit'
@@ -16,13 +13,13 @@ export type AuditRepositoryContext = {
 
 export class AuditRepository implements AuditRepositoryInterface {
 	static name = 'audit' as const
-	static provider: keyof DbClientsMap = 'mongo'
+	static provider: keyof DatabaseClientsMap = 'mongo'
 	private readonly collection: Collection<Audit>
 	private context!: AuditRepositoryContext
-	public readonly db: ProviderClientsMap['mongo']
+	public readonly db: DatabaseClientsMap['mongo']
 	public readonly name = 'AuditRepository'
 
-	constructor(db: ProviderClientsMap['mongo']) {
+	constructor(db: DatabaseClientsMap['mongo']) {
 		this.db = db
 		this.collection = db.collection<Audit>('audits')
 	}

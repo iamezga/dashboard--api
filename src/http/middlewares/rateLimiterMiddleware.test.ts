@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { TooManyRequestsError } from '../../errors'
-import { providerManager } from '../../infrastructure/providerManager'
+import { databaseManager } from '../../infrastructure/databaseManager'
 import { Job } from '../../lib/Job'
 import { rateLimiterMiddleware } from './rateLimiterMiddleware'
 
@@ -15,9 +15,9 @@ jest.mock('rate-limiter-flexible', () => {
 	}
 })
 
-// Mock de providerManager
-jest.mock('@/infrastructure/providerManager', () => ({
-	providerManager: {
+// Mock de databaseManager
+jest.mock('@/infrastructure/databaseManager', () => ({
+	databaseManager: {
 		get: jest.fn()
 	}
 }))
@@ -52,7 +52,7 @@ describe('rateLimiterMiddleware', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
 		consumeMock = jest.fn()
-		;(providerManager.get as jest.Mock).mockReturnValue({}) // fake redis client
+		;(databaseManager.get as jest.Mock).mockReturnValue({}) // fake redis client
 	})
 
 	it('should allow request when under rate limit (with user)', async () => {

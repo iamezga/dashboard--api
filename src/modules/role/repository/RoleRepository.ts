@@ -1,9 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	DbClientsMap,
-	ProviderClientsMap
-} from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { Prisma, Role as PrismaRoleModel } from '@prisma/client'
 import { Logger } from 'pino'
@@ -42,10 +39,10 @@ type RoleWithPermissionsPayload = Prisma.RoleGetPayload<{
  */
 export class RoleRepository implements RoleRepositoryInterface {
 	static name = 'role' as const
-	static provider: keyof DbClientsMap = 'postgres'
+	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: RoleRepositoryContext
 
-	constructor(readonly db: ProviderClientsMap['postgres']) {}
+	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
 	/**
 	 * Injects the dependency container into the repository instance.

@@ -1,6 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import { DbClientsMap } from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { randomUUID } from 'node:crypto'
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
@@ -19,7 +19,7 @@ type SessionRepositoryContext = {
  */
 export class SessionRepository implements SessionRepositoryInterface {
 	static name = 'session' as const
-	static provider: keyof DbClientsMap = 'redis'
+	static provider: keyof DatabaseClientsMap = 'redis'
 	private context!: SessionRepositoryContext
 	// Key prefixes for different data types in Redis
 	private static readonly USER_DATA_KEY_PREFIX = 'user:data:'

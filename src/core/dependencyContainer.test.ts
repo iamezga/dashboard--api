@@ -5,9 +5,9 @@ describe('dependencyContainer', () => {
 	})
 
 	function setupBasicMocks() {
-		// providerManager simple stub
-		jest.doMock('@/infrastructure/providerManager', () => ({
-			providerManager: { __mocked: true }
+		// databaseManager simple stub
+		jest.doMock('@/infrastructure/databaseManager', () => ({
+			databaseManager: { __mocked: true }
 		}))
 
 		// getRepositoryManager -> returns a small mock object with minimal API
@@ -62,7 +62,7 @@ describe('dependencyContainer', () => {
 
 		// shape: has the expected runtime properties
 		expect(c1).toHaveProperty('repositoryManager')
-		expect(c1).toHaveProperty('providerManager')
+		expect(c1).toHaveProperty('databaseManager')
 		expect(c1).toHaveProperty('services')
 		expect(c1).toHaveProperty('libs')
 		expect(typeof c1.config?.get).toBe('function')
@@ -81,12 +81,12 @@ describe('dependencyContainer', () => {
 		const container = getContainer()
 		const picked = getCustomContainer(c => ({
 			repoManager: c.repositoryManager,
-			pm: c.providerManager
+			pm: c.databaseManager
 		}))
 
 		// ensure the callback received the same container object (we compare the repoManager ref)
 		expect(picked.repoManager).toBe(container.repositoryManager)
-		expect(picked.pm).toBe(container.providerManager)
+		expect(picked.pm).toBe(container.databaseManager)
 	})
 
 	it('should reset the singleton with resetContainer so getContainer creates a new instance', () => {

@@ -1,5 +1,5 @@
 import { TooManyRequestsError } from '@/errors'
-import { providerManager } from '@/infrastructure/providerManager'
+import { databaseManager } from '@/infrastructure/databaseManager'
 import { Job } from '@/lib/Job'
 import { NextFunction, Request, Response } from 'express'
 import { RateLimiterRedis } from 'rate-limiter-flexible'
@@ -18,7 +18,7 @@ export const rateLimiterMiddleware = (
 ) => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		const rateLimiter = new RateLimiterRedis({
-			storeClient: providerManager.get('redis'),
+			storeClient: databaseManager.get('redis'),
 			points, // Number of points
 			duration, // Per duration in seconds
 			blockDuration, // custom block duration in seconds

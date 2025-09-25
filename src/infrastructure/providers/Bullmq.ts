@@ -1,58 +1,96 @@
 import logger from '@/services/logger'
 import { ProviderInterface } from '@/types/providers/ProviderInterface'
 import { Queue } from 'bullmq'
-import { Logger } from 'pino'
+
+/**
+ * Defines the names of all available queues in the application.
+ * Add new queue names here.
+ */
+export const QUEUE_NAMES = ['emails'] as const
+export type QueueName = (typeof QUEUE_NAMES)[number]
+
+type QueuesMap = {
+	[K in QueueName]?: Queue
+}
 
 export class Bullmq implements ProviderInterface {
-	private client: Queue | null = null
+	public displayName = 'BullMQ Queue Manager'
+	private queues: QueuesMap = {}
 
-	public displayName = 'BullMQ Queue Service (redis)'
+	private isConnected = false
 
 	constructor(
-		private config: {
+		private readonly connectionConfig: {
 			host: string
 			port: number
 			password: string
 			db: number
-		},
-		private logger: Logger
+		}
 	) {}
 
-	public async connect(): Promise<Queue> {
-		if (this.client) {
+	/**
+	 * Connects and initializes all defined queues.
+	 * @returns {Promise<void>}
+	 */
+	public async connect(): Promise<void> {
+		if (this.isConnected) {
 			logger.info(`${this.displayName} already initialized.`)
-			return this.client
+			return
 		}
+
 		try {
-			this.client = new Queue(this.displayName, {
-				connection: {
-					host: this.config.host,
-					port: this.config.port,
-					password: this.config.password || undefined,
-					db: this.config.db,
-					socketTimeout: 3000
-				},
-				defaultJobOptions: {
-					removeOnComplete: true
-				}
-			})
-			this.logger.info(`${this.displayName} connected successfully.`)
-			return this.client
+			for (const name of QUEUE_NAMES) {
+				this.queues[name] = new Queue(name, {
+					connection: {
+						host: this.connectionConfig.host,
+						port: this.connectionConfig.port,
+						password: this.connectionConfig.password || undefined,
+						db: this.connectionConfig.db,
+						socketTimeout: 3000
+					},
+					defaultJobOptions: {
+						removeOnComplete: true
+					}
+				})
+				logger.info(`Queue "${name}" initialized successfully.`)
+			}
+			this.isConnected = true
 		} catch (error) {
-			logger.error(`Failed to connect ${this.displayName}:`, error)
+			logger.error(`Failed to initialize ${this.displayName}:`, error)
 			throw error
 		}
 	}
 
-	public async disconnect(): Promise<void> {
-		if (this.client) {
-			await this.client.close()
-			this.client = null
-			logger.info(`${this.displayName} disconnected.`)
+	/**
+	 * Retrieves a specific queue instance.
+	 * @param {QueueName} name The name of the queue to retrieve.
+	 * @returns {Queue} The BullMQ Queue instance.
+	 * @throws {Error} If the queue has not been initialized.
+	 */
+	public getQueue<K extends QueueName>(name: K): Queue {
+		const queue = this.queues[name]
+		if (!queue) {
+			throw new Error(`Queue "${name}" not found or not initialized.`)
 		}
+		return queue
 	}
 
+	/**
+	 * Disconnects from all queues.
+	 * @returns {Promise<void>}
+	 */
+	public async disconnect(): Promise<void> {
+		await Promise.all(Object.values(this.queues).map(q => q?.close()))
+		this.queues = {}
+		this.isConnected = false
+		logger.info(`${this.displayName} disconnected.`)
+	}
+
+	/**
+	 * Helper for tests. Resets the internal state.
+	 */
 	public __resetForTests() {
-		this.client = null
+		this.queues = {}
+		this.isConnected = false
 	}
 }

@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq'
 import logger from '../../services/logger'
-import { Bullmq } from './Bullmq'
+import { Bullmq, QUEUE_NAMES } from './Bullmq'
 
 jest.mock('bullmq', () => ({
 	Queue: jest.fn()
@@ -13,87 +13,98 @@ jest.mock('@/services/logger', () => ({
 
 describe('Bullmq', () => {
 	let service: Bullmq
-	let mockQueue: any
+	const mockQueues: Record<string, any> = {}
 
 	beforeEach(() => {
 		jest.clearAllMocks()
-		mockQueue = {
-			close: jest.fn().mockResolvedValue(undefined)
-		}
-		;(Queue as unknown as jest.Mock).mockImplementation(() => mockQueue)
+		;(Queue as unknown as jest.Mock).mockImplementation(name => {
+			mockQueues[name] = {
+				name,
+				close: jest.fn().mockResolvedValue(undefined)
+			}
+			return mockQueues[name]
+		})
 
-		service = new Bullmq(
-			{
-				host: 'localhost',
-				port: 6379,
-				password: '',
-				db: 0
-			},
-			logger
-		)
+		service = new Bullmq({
+			host: 'localhost',
+			port: 6379,
+			password: '',
+			db: 0
+		})
 	})
 
-	it('should connect successfully and return Queue instance', async () => {
-		const client = await service.connect()
-		expect(Queue).toHaveBeenCalledWith('BullMQ Queue Service (redis)', {
-			connection: {
-				host: 'localhost',
-				port: 6379,
-				password: undefined,
-				db: 0,
-				socketTimeout: 3000
-			},
-			defaultJobOptions: { removeOnComplete: true }
-		})
-		expect(client).toBe(mockQueue)
-		expect(logger.info).toHaveBeenCalledWith(
-			'BullMQ Queue Service (redis) connected successfully.'
-		)
+	it('should connect and initialize all defined queues', async () => {
+		await service.connect()
+
+		for (const name of QUEUE_NAMES) {
+			expect(Queue).toHaveBeenCalledWith(
+				name,
+				expect.objectContaining({
+					connection: expect.any(Object)
+				})
+			)
+			expect(logger.info).toHaveBeenCalledWith(
+				`Queue "${name}" initialized successfully.`
+			)
+		}
+		expect((service as any).isConnected).toBe(true)
 	})
 
 	it('should return existing client if already connected', async () => {
 		await service.connect()
-		const client2 = await service.connect()
-		expect(client2).toBe(mockQueue)
+		await service.connect()
+		expect(Queue).toHaveBeenCalledTimes(QUEUE_NAMES.length) // Should not be called again
 		expect(logger.info).toHaveBeenCalledWith(
-			'BullMQ Queue Service (redis) already initialized.'
+			'BullMQ Queue Manager already initialized.'
 		)
 	})
 
-	it('should disconnect and reset client', async () => {
+	it('should retrieve a specific queue with getQueue', async () => {
+		await service.connect()
+		const emailQueue = service.getQueue('emails')
+		expect(emailQueue).toBeDefined()
+		expect(emailQueue.name).toBe('emails')
+	})
+
+	it('should throw an error if getQueue is called for a non-existent queue', () => {
+		expect(() => service.getQueue('emails')).toThrow(
+			'Queue "emails" not found or not initialized.'
+		)
+	})
+
+	it('should disconnect and close all queues', async () => {
 		await service.connect()
 		await service.disconnect()
-		expect(mockQueue.close).toHaveBeenCalled()
-		expect((service as any).client).toBeNull()
+		for (const name of QUEUE_NAMES) {
+			expect(mockQueues[name].close).toHaveBeenCalled()
+		}
+		expect((service as any).isConnected).toBe(false)
+		expect((service as any).queues).toEqual({})
 		expect(logger.info).toHaveBeenCalledWith(
-			'BullMQ Queue Service (redis) disconnected.'
-		)
-	})
-
-	it('should do nothing on disconnect if client is null', async () => {
-		await service.disconnect()
-		expect(logger.info).not.toHaveBeenCalledWith(
-			expect.stringContaining('disconnected')
+			'BullMQ Queue Manager disconnected.'
 		)
 	})
 
 	it('should reset internal state for tests', async () => {
 		await service.connect()
 		service.__resetForTests()
-		expect((service as any).client).toBeNull()
+		expect((service as any).queues).toEqual({})
+		expect((service as any).isConnected).toBe(false)
 	})
 
 	it('should log and throw if Queue constructor fails', async () => {
 		;(Queue as unknown as jest.Mock).mockImplementationOnce(() => {
 			throw new Error('constructor-fail')
 		})
-		const failingService = new Bullmq(
-			{ host: 'localhost', port: 6379, password: '', db: 0 },
-			logger
-		)
+		const failingService = new Bullmq({
+			host: 'localhost',
+			port: 6379,
+			password: '',
+			db: 0
+		})
 		await expect(failingService.connect()).rejects.toThrow('constructor-fail')
 		expect(logger.error).toHaveBeenCalledWith(
-			'Failed to connect BullMQ Queue Service (redis):',
+			'Failed to initialize BullMQ Queue Manager:',
 			expect.any(Error)
 		)
 	})

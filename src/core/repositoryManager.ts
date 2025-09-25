@@ -1,4 +1,7 @@
-import { DbClientsMap, providerManager } from '@/infrastructure/providerManager'
+import {
+	DatabaseClientsMap,
+	databaseManager
+} from '@/infrastructure/databaseManager'
 import { repositories, RepositoryMap } from '@/modules/repositories'
 import { DependencyContainer } from './dependencyContainer'
 
@@ -13,18 +16,18 @@ export interface RepositoryManager {
  * @function createRepositoryManager
  * @description Factory function that creates and initializes a repository manager.
  * It instantiates all registered repositories, injecting the corresponding database client.
- * @param {DbClientsMap} clients - A map of active database clients.
+ * @param {DatabaseClientsMap} clients - A map of active database clients.
  * @returns {RepositoryManager} A new instance of the repository manager.
  */
 export function createRepositoryManager(
-	clients: DbClientsMap
+	clients: DatabaseClientsMap
 ): RepositoryManager {
 	const repos: Partial<
 		Record<keyof RepositoryMap, RepositoryMap[keyof RepositoryMap]>
 	> = {}
 
 	Object.values(repositories).forEach(RepoClass => {
-		const providerKey = RepoClass.provider as keyof DbClientsMap
+		const providerKey = RepoClass.provider as keyof DatabaseClientsMap
 		const client = clients[providerKey]
 		if (!client) return
 
@@ -48,7 +51,7 @@ export function createRepositoryManager(
 			if (!RepoClass)
 				throw new Error(`Repository class "${String(name)}" not found`)
 
-			const providerKey = RepoClass.provider as keyof DbClientsMap
+			const providerKey = RepoClass.provider as keyof DatabaseClientsMap
 			const client = clients[providerKey]
 			if (!client)
 				throw new Error(`DB client for repository "${String(name)}" not found`)
@@ -75,7 +78,7 @@ let repositoryManagerInstance: RepositoryManager | null = null
 export function getRepositoryManager(): RepositoryManager {
 	if (repositoryManagerInstance) return repositoryManagerInstance
 
-	repositoryManagerInstance = createRepositoryManager(providerManager.getAll())
+	repositoryManagerInstance = createRepositoryManager(databaseManager.getAll())
 
 	return repositoryManagerInstance
 }

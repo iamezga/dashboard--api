@@ -1,32 +1,30 @@
 import { config } from '@/services/config'
 import logger from '@/services/logger'
 import { app } from './http/app'
-import { providerManager } from './infrastructure/providerManager'
+import { infrastructureManager } from './infrastructure'
+
+const shutdown = async (signal: string) => {
+	logger.info(`${signal} signal received. Shutting down gracefully.`)
+	await infrastructureManager.shutdown()
+	process.exit(0)
+}
+
 ;(async () => {
 	try {
-		// connect databases
-		await providerManager.initialize()
+		// Connect and initialize all services
+		await infrastructureManager.initialize()
 
 		// Run server
 		app.listen(config.get('port') || 5000, () =>
 			logger.info(`Running on port ${config.get('port')}`)
 		)
 
-		// Process listeners to prevent opened connections
-		process.on('SIGTERM', async () => {
-			logger.info('SIGTERM signal received. Shutting down gracefully.')
-			await providerManager.shutdown() // disconnect databases
-			process.exit(0)
-		})
-
-		process.on('SIGINT', async () => {
-			logger.info('SIGINT signal received. Shutting down gracefully.')
-			await providerManager.shutdown()
-			process.exit(0)
-		})
+		// Process listeners for graceful shutdown
+		process.on('SIGTERM', () => shutdown('SIGTERM'))
+		process.on('SIGINT', () => shutdown('SIGINT'))
 	} catch (error: any) {
 		logger.error(`Failed to start application: ${error.message}`)
-		await providerManager.shutdown()
+		await infrastructureManager.shutdown()
 		process.exit(1)
 	}
 })()

@@ -2,13 +2,13 @@ import { Role as PrismaRoleModel } from '@prisma/client'
 import { Logger } from 'pino'
 import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
-import { DbClientsMap } from '../../../infrastructure/providerManager'
+import { DatabaseClientsMap } from '../../../infrastructure/databaseManager'
 import { Role, RoleCreateInput } from '../entities/Role'
 import { RoleRepository } from '../repository/RoleRepository'
 
 describe('RoleRepository', () => {
 	let repository: RoleRepository
-	let dbMock: Partial<DbClientsMap['postgres']>
+	let dbMock: Partial<DatabaseClientsMap['postgres']>
 	let loggerMock: jest.Mocked<Logger>
 	let repositoryManagerMock: jest.Mocked<RepositoryManager>
 

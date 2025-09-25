@@ -1,9 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	DbClientsMap,
-	ProviderClientsMap
-} from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { Prisma, Permission as PrismaPermissionModel } from '@prisma/client'
 import { Logger } from 'pino'
 import {
@@ -26,10 +23,10 @@ export type PermissionRepositoryContext = {
  */
 export class PermissionRepository implements PermissionRepositoryInterface {
 	static name = 'permission' as const
-	static provider: keyof DbClientsMap = 'postgres'
+	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: PermissionRepositoryContext
 
-	constructor(readonly db: ProviderClientsMap['postgres']) {}
+	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
 	/**
 	 * Injects the dependency container into the repository instance.

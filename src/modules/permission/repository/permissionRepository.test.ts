@@ -2,7 +2,7 @@ import { Permission as PrismaPermissionModel } from '@prisma/client'
 import { Logger } from 'pino'
 import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
-import { DbClientsMap } from '../../../infrastructure/providerManager'
+import { DatabaseClientsMap } from '../../../infrastructure/databaseManager'
 import {
 	Permission,
 	PermissionCreateInput,
@@ -12,7 +12,7 @@ import { PermissionRepository } from '../repository/PermissionRepository'
 
 describe('PermissionRepository', () => {
 	let repository: PermissionRepository
-	let dbMock: Partial<DbClientsMap['postgres']>
+	let dbMock: Partial<DatabaseClientsMap['postgres']>
 	let repositoryManagerMock: jest.Mocked<RepositoryManager>
 	let loggerMock: jest.Mocked<Logger>
 	let containerMock: DependencyContainer

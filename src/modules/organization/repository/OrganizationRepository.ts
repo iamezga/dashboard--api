@@ -1,9 +1,6 @@
 import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	DbClientsMap,
-	ProviderClientsMap
-} from '@/infrastructure/providerManager'
+import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { Prisma, Organization as PrismaOrganizationModel } from '@prisma/client'
 import { Logger } from 'pino'
 import {
@@ -25,10 +22,10 @@ export type OrganizationRepositoryContext = {
  */
 export class OrganizationRepository implements OrganizationRepositoryInterface {
 	static name = 'organization' as const
-	static provider: keyof DbClientsMap = 'postgres'
+	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: OrganizationRepositoryContext
 
-	constructor(readonly db: ProviderClientsMap['postgres']) {}
+	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
 	/**
 	 * Injects the dependency container into the repository instance.

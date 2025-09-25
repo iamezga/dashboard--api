@@ -2,7 +2,7 @@ import {
 	createRepositoryManager,
 	getRepositoryManager
 } from '../core/repositoryManager'
-import { DbClientsMap } from '../infrastructure/providerManager'
+import { DatabaseClientsMap } from '../infrastructure/databaseManager'
 
 // --- MOCK of repositories ---
 jest.mock('@/modules/repositories', () => {
@@ -26,10 +26,10 @@ jest.mock('@/modules/repositories', () => {
 	}
 })
 
-// --- MOCK of providerManager ---
-jest.mock('@/infrastructure/providerManager', () => {
+// --- MOCK of databaseManager ---
+jest.mock('@/infrastructure/databaseManager', () => {
 	return {
-		providerManager: {
+		databaseManager: {
 			getAll: jest.fn().mockReturnValue({
 				postgres: { client: true }
 			})
@@ -38,7 +38,7 @@ jest.mock('@/infrastructure/providerManager', () => {
 })
 
 describe('RepositoryManager', () => {
-	let mockClients: DbClientsMap
+	let mockClients: DatabaseClientsMap
 
 	beforeEach(() => {
 		jest.clearAllMocks()
