@@ -22,11 +22,15 @@ This template is built around a set of modern engineering principles to ensure t
 
 - **Multi-Tenancy Ready**: Designed with multi-tenancy in mind. Key database models like `User` and `Role` include an `organizationId`, providing a clear path to extend the application to support multiple tenants with data isolation, though it currently operates in a single-tenant mode.
 
+- **Background Job Processing**: Offloads long-running or non-critical tasks (like sending emails) to background workers using BullMQ. This ensures the API remains fast and responsive by not blocking requests for heavy operations.
+
 - **Request Lifecycle via `Job` Object**: Each incoming request is encapsulated in a `Job` context object. This object carries the request's data, metadata, and authenticated user through a chain of middlewares, ensuring that use cases remain pure and focused on business logic.
 
-- **Pluggable Infrastructure**: The `ProviderManager` abstracts database and service connections (Postgres, Redis, Mongo, etc.). This allows for easily swapping or adding new backend services without altering the core application logic.
+- **Pluggable Infrastructure**: The `infrastructureManager` orchestrates specialized managers (`databaseManager`, `queueManager`). This separates database concerns from other services like message queues, making it easy to add or swap providers without impacting the core application.
 
 - **Graceful Shutdown**: Correctly handles `SIGTERM` and `SIGINT` signals to close database connections and other resources before exiting, which is essential for reliability in containerized environments.
+
+- **Scalable Workers**: The worker process (`src/worker.ts`) is designed to listen to a specific queue, allowing you to scale different types of background tasks independently.
 
 - **Traceable Logging (Pino)**: For enhanced observability, every request `Job` gets a dedicated child logger instance. All logs generated during that request's lifecycle are automatically tagged with a unique request ID, making it simple to trace the complete flow of an operation.
 
@@ -43,8 +47,8 @@ This template employs a polyglot persistence strategy, using different databases
 
 - **Redis**: Used for session management and caching.
 
-  - **Usage**: Stores active user session metadata, linking JWTs to user data.
-  - **Why?**: As an in-memory key-value store, Redis provides the extremely low-latency access required for validating sessions on every protected request, without impacting the primary database.
+  - **Usage**: Stores active user session metadata and serves as the message broker for the **BullMQ** job queue.
+  - **Why?**: As an in-memory key-value store, Redis provides the extremely low-latency access required for session validation and the high-speed message passing needed for an efficient background job system.
 
 - **MongoDB**: Dedicated to storing audit logs.
   - **Usage**: The `AuditRepository` writes event logs to a MongoDB collection.
@@ -76,7 +80,7 @@ The project strictly follows the principles of **Clean Architecture**, separatin
 
 5.  **Infrastructure Layer (`src/infrastructure`, `src/modules/*/repository`)**
     - **Responsibility**: The "details". Contains all the concrete implementations for external services and data access.
-    - **Components**: `ProviderManager` for managing connections to external services, and the concrete `Repository` implementations (located in `src/modules/*/repository`). The `RepositoryManager` (from the Core Layer) instantiates these repositories and injects the correct database client from the `ProviderManager`.
+    - **Components**: The `infrastructureManager` orchestrates the `databaseManager` (for DBs) and `queueManager` (for message queues). The concrete `Repository` implementations are located in `src/modules/*/repository`.
 
 ## 🚀 Getting Started
 
@@ -118,8 +122,15 @@ Get your local environment up and running in minutes.
 
 6.  **Start the API:**
     You're ready to go! The server will start in development mode with hot-reloading.
+
     ```sh
     npm run dev
+    ```
+
+7.  **Start a Worker (in a separate terminal):**
+    To process background jobs (like sending emails), start a worker process.
+    ```sh
+    npm run worker emails
     ```
 
 ## 📁 Project Structure
@@ -148,15 +159,19 @@ src/
 
 ### The Dependency Container
 
-Located in `src/core/dependencyContainer.ts`, this singleton is the core of the DI system. It instantiates and provides access to all repositories, services, and libraries. Use cases receive it in their constructor, giving them access to everything they need without being tightly coupled to concrete implementations.
+Located in `src/core/dependencyContainer.ts`, this singleton is the heart of the DI system. It instantiates and provides access to all repositories, services (`JobService`, `AuditService`), and libraries. Use cases receive it in their constructor, giving them access to everything they need without being tightly coupled to concrete implementations.
 
-### The Provider Manager
+### The Infrastructure Managers
 
-Found in `src/infrastructure/providerManager.ts`, this component is responsible for managing the lifecycle of all external service connections (Postgres, Redis, etc.). It ensures that connections are established before the server starts and are closed gracefully on shutdown.
+The infrastructure is managed by a set of specialized singletons located in `src/infrastructure/`:
+
+- **`infrastructureManager`**: The main orchestrator. Its `initialize()` and `shutdown()` methods are called from the application's entry points (`index.ts` and `worker.ts`) to manage the lifecycle of all underlying services.
+- **`databaseManager`**: Manages connections exclusively for databases (PostgreSQL, Redis, MongoDB).
+- **`queueManager`**: Manages connections for the message queue system (BullMQ).
 
 ### The Repository Manager
 
-Located in `src/core/repositoryManager.ts`, this component acts as a factory for all repositories. It is initialized by the Dependency Container and is responsible for creating repository instances and injecting them with the correct database client from the `ProviderManager`.
+Located in `src/core/repositoryManager.ts`, this component acts as a factory for all repositories. It is initialized by the Dependency Container and is responsible for creating repository instances and injecting them with the correct database client from the `DatabaseManager`.
 
 ### The Job Object
 
@@ -173,6 +188,7 @@ This pattern makes your use cases incredibly easy to test, as you can simply ins
 
 - `npm run dev`: Starts the server in development mode with `ts-node-dev`.
 - `npm run build`: Compiles the TypeScript code to JavaScript in the `dist/` folder.
+- `npm run worker <queue_name>`: Starts a worker process to listen for jobs on the specified queue (e.g., `npm run worker emails`).
 - `npm start`: Starts the compiled application from the `dist/` folder.
 - `npm test`: Runs all tests with Jest.
 - `npm run test:watch`: Runs tests in watch mode.
