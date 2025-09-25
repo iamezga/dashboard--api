@@ -12,5 +12,10 @@ export interface JobServiceInterface {
 	 * @param {JobInterface} job - The job to be added.
 	 * @returns {Promise<void>}
 	 */
-	addJob(job: JobInterface): Promise<void>
+	add<T>(
+		queueName: string,
+		useCaseName: string,
+		job: T extends JobInterface ? T : JobInterface,
+		options?: Record<string, any>
+	): Promise<void>
 }

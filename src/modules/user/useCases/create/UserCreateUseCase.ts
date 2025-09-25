@@ -75,7 +75,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 
 		// Validate if the roleId exists
 		const role = await this.container.repositoryManager
-			.get('user')
+			.get('role')
 			.findById(roleId)
 		if (!role || !role.active) {
 			throw new BadRequestError('Invalid Role', [
@@ -88,7 +88,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		}
 
 		const organization = await this.container.repositoryManager
-			.get('user')
+			.get('organization')
 			.findById(organizationId)
 		if (!organization) {
 			throw new BadRequestError('Invalid Organization', [
@@ -120,6 +120,16 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			.create(newUserData)
 
 		job.logger.info(`User ${createdUser.email} created successfully.`)
+
+		// Dispatch the background job to send the welcome email
+		await this.container.services.jobService.add(
+			'emails',
+			'UserSendWelcomeEmailUseCase',
+			job
+		)
+		job.logger.info(
+			`Dispatched UserSendWelcomeEmailUseCase for user ${createdUser.email}`
+		)
 
 		return {
 			data: createdUser,

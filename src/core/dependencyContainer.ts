@@ -3,12 +3,13 @@ import {
 	RepositoryManager
 } from '@/core/repositoryManager'
 import {
-	ProviderManager,
-	providerManager
-} from '@/infrastructure/providerManager'
+	DatabaseManager,
+	databaseManager
+} from '@/infrastructure/databaseManager'
 import { AuditService } from '@/services/auditService'
 import { config, Config } from '@/services/config'
 import { dayjs, Dayjs } from '@/services/dayjs'
+import { JobService } from '@/services/jobService'
 import logger from '@/services/logger'
 import { ValidationService, validator } from '@/services/validationService'
 import { UtilityMap, utils } from '@/utils'
@@ -16,15 +17,17 @@ import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
 import { Logger } from 'pino'
+import { queueManager } from '../infrastructure/queueManager'
 
 export interface DependencyContainer {
 	config: Config
 	validator: ValidationService
 	logger: Logger
-	providerManager: ProviderManager
+	databaseManager: DatabaseManager
 	repositoryManager: RepositoryManager
 	services: {
 		auditService: AuditService
+		jobService: JobService
 	}
 	libs: {
 		dayjs: Dayjs
@@ -51,14 +54,15 @@ export const getContainer = (): DependencyContainer => {
 
 	const services = {
 		dayjs,
-		auditService: new AuditService(repositoryManager.get('audit'))
+		auditService: new AuditService(repositoryManager.get('audit')),
+		jobService: new JobService(queueManager)
 	}
 
 	dependencyContainer = {
 		config,
 		validator,
 		logger,
-		providerManager,
+		databaseManager: databaseManager,
 		repositoryManager,
 		utils,
 		services,

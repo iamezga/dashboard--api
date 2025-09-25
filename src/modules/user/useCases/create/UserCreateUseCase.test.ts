@@ -28,10 +28,23 @@ describe('UserCreateUseCase', () => {
 		create: jest.fn()
 	}
 
+	const roleRepo = {
+		findById: jest.fn()
+	}
+
+	const organizationRepo = {
+		findById: jest.fn()
+	}
+
+	const jobService = {
+		add: jest.fn()
+	}
+
 	const globalLogger = {
 		info: jest.fn(),
 		warn: jest.fn(),
-		error: jest.fn()
+		error: jest.fn(),
+		child: jest.fn().mockReturnThis()
 	}
 
 	const argon2 = {
@@ -43,11 +56,14 @@ describe('UserCreateUseCase', () => {
 			repositoryManager: {
 				get: (name: string) => {
 					if (name === 'user') return userRepo
+					if (name === 'role') return roleRepo
+					if (name === 'organization') return organizationRepo
 					throw new Error(`Repo ${name} not mocked`)
 				}
 			},
 			libs: { argon2 },
-			logger: globalLogger
+			logger: globalLogger,
+			services: { jobService }
 		} as unknown as DependencyContainer)
 
 	const baseRole = { id: 'role1', active: true }
@@ -55,13 +71,14 @@ describe('UserCreateUseCase', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks()
-		userRepo.findByEmail.mockResolvedValue(null)
-		userRepo.findById.mockImplementation((id: string) => {
-			if (id === 'role1') return Promise.resolve(baseRole)
-			if (id === 'org1') return Promise.resolve(baseOrganization)
-			return Promise.resolve(null)
-		})
-		argon2.hash.mockResolvedValue('hashed-pass')
+		;(userRepo.findByEmail as jest.Mock).mockResolvedValue(null)
+		;(roleRepo.findById as jest.Mock).mockImplementation(id =>
+			id === 'role1' ? Promise.resolve(baseRole) : Promise.resolve(null)
+		)
+		;(organizationRepo.findById as jest.Mock).mockImplementation(id =>
+			id === 'org1' ? Promise.resolve(baseOrganization) : Promise.resolve(null)
+		)
+		;(argon2.hash as jest.Mock).mockResolvedValue('hashed-pass')
 	})
 
 	it('should have a static permission defined', () => {
@@ -110,27 +127,26 @@ describe('UserCreateUseCase', () => {
 		const container = makeContainer()
 		const useCase = new UserCreateUseCase(container)
 
-		userRepo.findById.mockResolvedValueOnce(null)
+		roleRepo.findById.mockResolvedValueOnce(null)
 
 		const job = makeJob({
 			email: 'new@mail.com',
 			password: 'secret',
 			roleId: 'invalid',
-			organizationId: 'org1'
+			organizationId: 'org1',
+			name: 'John',
+			surname: 'Doe'
 		})
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(userRepo.findById).toHaveBeenCalledWith('invalid')
+		expect(roleRepo.findById).toHaveBeenCalledWith('invalid')
 	})
 
 	it('Should throw BadRequest if organization does not exist', async () => {
 		const container = makeContainer()
 		const useCase = new UserCreateUseCase(container)
 
-		userRepo.findById.mockImplementationOnce((id: string) => {
-			if (id === 'invalidOrg') return Promise.resolve(null)
-			return Promise.resolve(baseRole)
-		})
+		organizationRepo.findById.mockResolvedValueOnce(null)
 
 		const job = makeJob({
 			email: 'new@mail.com',
@@ -140,7 +156,7 @@ describe('UserCreateUseCase', () => {
 		})
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(userRepo.findById).toHaveBeenCalledWith('invalidOrg')
+		expect(organizationRepo.findById).toHaveBeenCalledWith('invalidOrg')
 	})
 
 	it('Should create user successfully', async () => {
@@ -152,6 +168,8 @@ describe('UserCreateUseCase', () => {
 			email: 'new@mail.com',
 			roleId: 'role1',
 			organizationId: 'org1',
+			name: 'John',
+			surname: 'Doe',
 			active: true,
 			config: {},
 			passwordHash: 'hashed-pass',
@@ -194,6 +212,11 @@ describe('UserCreateUseCase', () => {
 		})
 		expect(job.logger.info).toHaveBeenCalledWith(
 			'User new@mail.com created successfully.'
+		)
+		expect(jobService.add).toHaveBeenCalledWith(
+			'emails',
+			'UserSendWelcomeEmailUseCase',
+			job
 		)
 	})
 })
