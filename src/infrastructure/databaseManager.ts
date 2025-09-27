@@ -24,17 +24,15 @@ export type ProviderClassesMap = {
 
 type Registry = {
 	[P in Provider]: {
-		getProvider: () => ProviderClassesMap[P]
+		provider: ProviderClassesMap[P]
 		instance?: DatabaseClientsMap[P]
 	}
 }
 
 const registry: Registry = {
-	postgres: {
-		getProvider: () => new Postgres(config.get('database.postgres'), logger)
-	},
-	redis: { getProvider: () => new Redis(config.get('database.redis'), logger) },
-	mongo: { getProvider: () => new Mongo(config.get('database.mongo'), logger) }
+	postgres: { provider: new Postgres(config.get('database.postgres'), logger) },
+	redis: { provider: new Redis(config.get('database.redis'), logger) },
+	mongo: { provider: new Mongo(config.get('database.mongo'), logger) }
 }
 
 export interface DatabaseManager {
@@ -59,11 +57,10 @@ export const databaseManager: DatabaseManager = {
 		for (const key of PROVIDERS) {
 			const entry = registry[key]
 			if (!entry.instance) {
-				const provider = entry.getProvider()
 				try {
-					entry.instance = await provider.connect()
+					entry.instance = await entry.provider.connect()
 				} catch (error: any) {
-					const errorMessage = `DatabaseManager: Failed to initialize ${provider.displayName}: ${error.message}`
+					const errorMessage = `DatabaseManager: Failed to initialize ${entry.provider.displayName}: ${error.message}`
 					logger.error(errorMessage)
 					throw new Error(errorMessage)
 				}
@@ -79,7 +76,7 @@ export const databaseManager: DatabaseManager = {
 		for (const key of Object.keys(registry) as Provider[]) {
 			const entry = registry[key]
 			if (entry.instance) {
-				await entry.getProvider().disconnect()
+				await entry.provider.disconnect()
 				entry.instance = undefined
 			}
 		}
