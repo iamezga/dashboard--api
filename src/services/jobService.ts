@@ -1,46 +1,27 @@
 import { QueueName } from '@/infrastructure/providers/Bullmq'
 import { QueueManager } from '@/infrastructure/queueManager'
-import { UseCaseKeys } from '@/modules'
-import { AuthenticatedUser } from '@/modules/user/entities/User'
-import { JobInterface as AppJob } from '@/types/job/JobInterface'
-import { JobMetaInterface } from '@/types/job/JobMetaInterface'
+import { AnyJobPayload } from '@/types/jobScript/JobPayload'
 import { JobServiceInterface } from '@/types/jobService/JobServiceInterface'
-
-export interface JobPayload {
-	useCaseName: UseCaseKeys
-	jobData: {
-		payload: Record<string, any>
-		meta: JobMetaInterface
-		user?: AuthenticatedUser
-	}
-}
 
 export class JobService implements JobServiceInterface {
 	constructor(private queueManager: QueueManager) {}
 
 	/**
-	 * Adds a job to a specific queue to be processed by a worker in the background.
+	 * Dispatches a job to a specific queue to be processed by a worker.
 	 * @param {QueueName} queueName The name of the queue to add the job to.
-	 * @param {UseCaseKeys} useCaseName The name of the use case to execute.
-	 * @param {AppJob} appJob The application's Job object, which contains the payload and metadata.
+	 * @param {string} jobName The name of the job, used by the worker to identify the task.
+	 * @param {AnyJobPayload} payload The data required for the job to be executed.
 	 * @param {Record<string, any>} [options] Optional BullMQ job options (e.g., delay, priority).
 	 */
-	public async add<T>(
+	public async dispatch(
 		queueName: QueueName,
-		useCaseName: UseCaseKeys,
-		appJob: T extends AppJob ? T : AppJob,
+		jobName: string,
+		payload: AnyJobPayload,
 		options?: Record<string, any>
 	): Promise<void> {
 		const queue = this.queueManager.get(queueName)
-
-		const jobPayload: JobPayload = {
-			useCaseName,
-			jobData: {
-				payload: appJob.getData(),
-				meta: appJob.getMeta(),
-				user: appJob.getPublicUser() ? appJob.getUser() : undefined
-			}
-		}
-		await queue.add(useCaseName, jobPayload, options)
+		// The service's only responsibility is to add a job to the queue.
+		// It does not know or care about the payload's structure.
+		await queue.add(jobName, payload, options)
 	}
 }

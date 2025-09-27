@@ -1,6 +1,5 @@
 import { QueueManager } from '../infrastructure/queueManager'
-import { JobInterface as AppJob } from '../types/job/JobInterface'
-import { JobPayload, JobService } from './jobService'
+import { JobService } from './jobService'
 
 // Mock the queue object that would be returned by the queueManager
 const mockQueue = {
@@ -15,14 +14,6 @@ const mockQueueManager: jest.Mocked<QueueManager> = {
 	shutdown: jest.fn()
 }
 
-// Mock the application's Job object
-const mockAppJob = {
-	getData: jest.fn().mockReturnValue({ some: 'data' }),
-	getMeta: jest.fn().mockReturnValue({ ip: '127.0.0.1' }),
-	getUser: jest.fn().mockReturnValue({ id: 'user-1', email: 'test@test.com' }),
-	getPublicUser: jest.fn().mockReturnValue(true) // Default to including user
-} as unknown as jest.Mocked<AppJob>
-
 describe('JobService', () => {
 	let jobService: JobService
 
@@ -31,50 +22,24 @@ describe('JobService', () => {
 		jobService = new JobService(mockQueueManager)
 	})
 
-	it('should add a job with user data when getPublicUser is true', async () => {
+	it('should dispatch a job to the correct queue with the given payload and options', async () => {
 		const queueName = 'emails'
-		const useCaseName = 'UserSendWelcomeEmailUseCase'
+		const jobName = 'UserSendWelcomeEmailUseCase'
+		const payload = { jobType: 'simpleTask', jobData: { some: 'data' } } as any
 		const options = { delay: 1000 }
 
-		mockAppJob.getPublicUser.mockReturnValue(true as any)
-
-		await jobService.add(queueName, useCaseName, mockAppJob, options)
+		await jobService.dispatch(queueName, jobName, payload, options)
 
 		// Verify that the correct queue was requested
 		expect(mockQueueManager.get).toHaveBeenCalledWith(queueName)
 
 		// Verify that the job was added to the queue with the correct payload
 		expect(mockQueue.add).toHaveBeenCalledTimes(1)
-		const [addedUseCase, addedPayload, addedOptions] =
+		const [addedJobName, addedPayload, addedOptions] =
 			mockQueue.add.mock.calls[0]
 
-		expect(addedUseCase).toBe(useCaseName)
-		expect(addedPayload.useCaseName).toBe(useCaseName)
-		expect(addedPayload.jobData.payload).toEqual({ some: 'data' })
-		expect(addedPayload.jobData.meta).toEqual({ ip: '127.0.0.1' })
-		expect(addedPayload.jobData.user).toEqual({
-			id: 'user-1',
-			email: 'test@test.com'
-		})
+		expect(addedJobName).toBe(jobName)
+		expect(addedPayload).toEqual(payload)
 		expect(addedOptions).toEqual(options)
-	})
-
-	it('should add a job without user data when getPublicUser is false', async () => {
-		const queueName = 'emails'
-		const useCaseName = 'SomeOtherUseCase' as any
-
-		// Simulate a job where the user should not be passed to the worker
-		mockAppJob.getPublicUser.mockReturnValue(false as any)
-
-		await jobService.add(queueName, useCaseName, mockAppJob)
-
-		expect(mockQueueManager.get).toHaveBeenCalledWith(queueName)
-		expect(mockQueue.add).toHaveBeenCalledTimes(1)
-
-		const addedPayload: JobPayload = mockQueue.add.mock.calls[0][1]
-
-		// The key assertion: the user field should be undefined
-		expect(addedPayload.jobData.user).toBeUndefined()
-		expect(addedPayload.jobData.payload).toEqual({ some: 'data' })
 	})
 })

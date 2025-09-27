@@ -22,7 +22,7 @@ This template is built around a set of modern engineering principles to ensure t
 
 - **Multi-Tenancy Ready**: Designed with multi-tenancy in mind. Key database models like `User` and `Role` include an `organizationId`, providing a clear path to extend the application to support multiple tenants with data isolation, though it currently operates in a single-tenant mode.
 
-- **Background Job Processing**: Offloads long-running or non-critical tasks (like sending emails) to background workers using BullMQ. This ensures the API remains fast and responsive by not blocking requests for heavy operations.
+- **Flexible Background Job System**: Features a powerful background job system powered by BullMQ. The worker acts as a generic job router, processing different types of tasks (e.g., `useCase` executions, custom `jobScripts`) based on a `jobType` property in the job payload. This decouples the job dispatching logic from the execution logic, making the system highly extensible.
 
 - **Request Lifecycle via `Job` Object**: Each incoming request is encapsulated in a `Job` context object. This object carries the request's data, metadata, and authenticated user through a chain of middlewares, ensuring that use cases remain pure and focused on business logic.
 
@@ -30,7 +30,7 @@ This template is built around a set of modern engineering principles to ensure t
 
 - **Graceful Shutdown**: Correctly handles `SIGTERM` and `SIGINT` signals to close database connections and other resources before exiting, which is essential for reliability in containerized environments.
 
-- **Scalable Workers**: The worker process (`src/worker.ts`) is designed to listen to a specific queue, allowing you to scale different types of background tasks independently.
+- **Scalable Workers**: The worker process (`src/worker.ts`) is highly scalable. A single worker process can efficiently listen to multiple queues, which is ideal for managing various low-to-medium traffic tasks. For high-load queues, you can still launch dedicated worker processes, allowing you to scale different types of background tasks independently.
 
 - **Traceable Logging (Pino)**: For enhanced observability, every request `Job` gets a dedicated child logger instance. All logs generated during that request's lifecycle are automatically tagged with a unique request ID, making it simple to trace the complete flow of an operation.
 
@@ -130,7 +130,7 @@ Get your local environment up and running in minutes.
 7.  **Start a Worker (in a separate terminal):**
     To process background jobs (like sending emails), start a worker process.
     ```sh
-    npm run worker emails
+    npm run worker emails notifications
     ```
 
 ## 📁 Project Structure
@@ -143,6 +143,7 @@ src/
 ├── errors/              # Custom error classes.
 ├── http/                # Express server, routes, and middlewares.
 ├── infrastructure/      # Manages connections to external services (DBs, queues).
+├── jobScripts/          # Self-contained background job scripts (e.g., for cleanup tasks).
 ├── lib/                 # Core libraries, like the powerful Job class.
 ├── modules/             # Business logic, divided by domain.
 │   ├── user/
@@ -159,7 +160,11 @@ src/
 
 ### The Dependency Container
 
-Located in `src/core/dependencyContainer.ts`, this singleton is the heart of the DI system. It instantiates and provides access to all repositories, services (`JobService`, `AuditService`), and libraries. Use cases receive it in their constructor, giving them access to everything they need without being tightly coupled to concrete implementations.
+Located in `src/core/dependencyContainer.ts`, this singleton is the heart of the DI system. It instantiates and provides access to all repositories, services, and libraries.
+
+- **Services**: The container provides access to application-wide services like the `JobService`.
+- **Repositories**: It uses the `RepositoryManager` to provide use cases with the data access layer they need.
+- **Libraries**: It centralizes external libraries like `argon2` or `dayjs`.
 
 ### The Infrastructure Managers
 
@@ -172,6 +177,13 @@ The infrastructure is managed by a set of specialized singletons located in `src
 ### The Repository Manager
 
 Located in `src/core/repositoryManager.ts`, this component acts as a factory for all repositories. It is initialized by the Dependency Container and is responsible for creating repository instances and injecting them with the correct database client from the `DatabaseManager`.
+
+### The Job Service and Worker
+
+The background job system is designed for flexibility and separation of concerns:
+
+- **`JobService`**: A simple, decoupled service whose only responsibility is to dispatch a job payload to a specific queue. It has no knowledge of what the job does or how it will be processed.
+- **`worker.ts`**: The processor for background jobs. It inspects a `jobType` field in the payload to route the task to the correct handler. This allows it to process anything from a full-blown `UseCase` to a simple, self-contained `JobScript` (e.g., for database cleanup tasks).
 
 ### The Job Object
 
@@ -188,7 +200,7 @@ This pattern makes your use cases incredibly easy to test, as you can simply ins
 
 - `npm run dev`: Starts the server in development mode with `ts-node-dev`.
 - `npm run build`: Compiles the TypeScript code to JavaScript in the `dist/` folder.
-- `npm run worker <queue_name>`: Starts a worker process to listen for jobs on the specified queue (e.g., `npm run worker emails`).
+- `npm run worker <queue_1> [queue_2] ...`: Starts a worker process to listen for jobs on one or more specified queues (e.g., `npm run worker emails notifications`).
 - `npm start`: Starts the compiled application from the `dist/` folder.
 - `npm test`: Runs all tests with Jest.
 - `npm run test:watch`: Runs tests in watch mode.

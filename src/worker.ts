@@ -1,12 +1,14 @@
 import { getContainer } from '@/core/dependencyContainer'
+import { jobScriptFactory } from '@/core/jobScriptFactory'
 import { useCaseFactory } from '@/core/useCaseFactory'
 import { infrastructureManager } from '@/infrastructure'
 import { QUEUE_NAMES, QueueName } from '@/infrastructure/providers/Bullmq'
 import { Job as AppJob } from '@/lib/Job'
-import { UseCaseKeys } from '@/modules'
 import logger from '@/services/logger'
 import { Job, Worker } from 'bullmq'
 import { config } from './services/config'
+import { JobMetaInterface } from './types/job/JobMetaInterface'
+import { AnyJobPayload } from './types/jobScript/JobPayload'
 
 async function main() {
 	const queueNames = process.argv.slice(2) as QueueName[]
@@ -53,42 +55,84 @@ async function main() {
 		const worker = new Worker(
 			queueName,
 			async (job: Job) => {
-				const { useCaseName, jobData } = job.data as {
-					useCaseName: UseCaseKeys
-					jobData: any
-				}
+				// The payload should define what type of job this is.
+				// This allows the worker to be a generic "job router".
+				const jobPayload = job.data as AnyJobPayload
+				const { jobType } = jobPayload
+
 				logger.info(
-					{ useCaseName, jobId: job.id },
-					`Processing job: ${useCaseName}`
+					{ jobType, jobId: job.id, queue: worker.name },
+					`Processing job: ${job.name}`
 				)
 
-				try {
-					const appJob = new AppJob({
-						id: job.id || 'unknown-job-id',
-						attempts: job.attemptsMade,
-						data: jobData.payload,
-						meta: jobData.meta,
-						user: jobData.user,
-						logger: logger.child({ jobId: job.id, useCase: useCaseName })
-					})
-					const useCase = useCaseFactory(useCaseName, { container })
-					const result = await useCase.run(appJob)
-					logger.info(
-						{ useCaseName, jobId: job.id },
-						`Job completed successfully.`
-					)
-					return result
-				} catch (error: any) {
-					logger.error(
-						{
-							useCaseName,
-							jobId: job.id,
-							error: error.message,
-							stack: error.stack
-						},
-						`Job failed: ${useCaseName}`
-					)
-					throw error // Re-throw to let BullMQ handle the job failure (e.g., retry).
+				switch (jobType) {
+					case 'useCase': {
+						// Type safety: jobPayload is now correctly inferred as UseCaseJobPayload
+						const { useCaseName, jobData } = jobPayload
+						try {
+							const appJob = new AppJob({
+								id: job.id || 'unknown-job-id',
+								attempts: job.attemptsMade,
+								data: jobData.payload,
+								meta: jobData.meta as JobMetaInterface,
+								user: jobData.user,
+								logger: logger.child({ jobId: job.id, useCase: useCaseName })
+							})
+							const useCase = useCaseFactory(useCaseName, { container })
+							const result = await useCase.run(appJob)
+							logger.info(
+								{ useCaseName, jobId: job.id },
+								`Job completed successfully.`
+							)
+							return result
+						} catch (error: any) {
+							logger.error(
+								{
+									useCaseName,
+									jobId: job.id,
+									error: error.message,
+									stack: error.stack
+								},
+								`Job failed: ${useCaseName}`
+							)
+							throw error // Re-throw to let BullMQ handle the job failure.
+						}
+					}
+
+					case 'jobScript': {
+						// Type safety: jobPayload is now correctly inferred as JobScriptJobPayload
+						const { scriptName, jobData } = jobPayload
+						try {
+							const script = jobScriptFactory(scriptName)
+							return await script.run(jobData, {
+								container,
+								logger: logger.child({ jobId: job.id, script: scriptName }),
+								jobId: job.id
+							})
+						} catch (error: any) {
+							logger.error(
+								{
+									scriptName,
+									jobId: job.id,
+									error: error.message
+								},
+								`Job script failed: ${scriptName}`
+							)
+							throw error
+						}
+					}
+
+					case 'simpleTask': {
+						// Example of a simple task that doesn't need the full UseCase context.
+						// Type safety: jobPayload is now correctly inferred as SimpleTaskJobPayload
+						const { jobData } = jobPayload
+						logger.info({ jobData }, 'Executing a simple background task.')
+						await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate work
+						return { success: true, message: 'Simple task finished.' }
+					}
+
+					default:
+						throw new Error(`Unknown job type: ${jobType}`)
 				}
 			},
 			{

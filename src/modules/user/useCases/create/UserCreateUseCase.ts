@@ -2,6 +2,7 @@ import { DependencyContainer } from '@/core/dependencyContainer'
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
 import { JobInterface } from '@/types/job/JobInterface'
+import { UseCaseJobPayload } from '@/types/jobScript/JobPayload'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { User } from '../../entities/User'
@@ -121,11 +122,23 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 
 		job.logger.info(`User ${createdUser.email} created successfully.`)
 
+		// The use case is now responsible for building the correct payload
+		// for the background job.
+		const jobPayload: UseCaseJobPayload = {
+			jobType: 'useCase',
+			useCaseName: 'UserSendWelcomeEmailUseCase',
+			jobData: {
+				payload: job.getData(),
+				meta: job.getMeta(),
+				user: job.getPublicUser() ? job.getUser() : undefined
+			}
+		}
+
 		// Dispatch the background job to send the welcome email
-		await this.container.services.jobService.add(
+		await this.container.services.jobService.dispatch(
 			'emails',
 			'UserSendWelcomeEmailUseCase',
-			job
+			jobPayload
 		)
 		job.logger.info(
 			`Dispatched UserSendWelcomeEmailUseCase for user ${createdUser.email}`

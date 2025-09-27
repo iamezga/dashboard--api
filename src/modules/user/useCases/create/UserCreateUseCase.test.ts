@@ -1,6 +1,7 @@
 import { Logger } from 'pino'
 import { DependencyContainer } from '../../../../core/dependencyContainer'
 import { BadRequestError } from '../../../../errors'
+import { JobInterface } from '../../../../types/job/JobInterface'
 import { UserCreateJobInterface } from './UserCreateJobInterface'
 import { UserCreateUseCase } from './UserCreateUseCase'
 
@@ -11,15 +12,17 @@ const makeJob = (
 ) =>
 	({
 		getData: () => data,
+		getMeta: () => ({ ip: '127.0.0.1' }),
 		getAttempts: () => attempts,
-		getUser: () => ({ permissions }),
+		getUser: () => ({ id: 'user-id', permissions }),
+		getPublicUser: () => true, // By default, assume user context should be passed
 		logger: {
 			info: jest.fn(),
 			warn: jest.fn(),
 			error: jest.fn(),
 			child: jest.fn().mockReturnThis()
 		} as unknown as Logger
-	} as unknown as UserCreateJobInterface & { logger: Logger })
+	} as unknown as UserCreateJobInterface & JobInterface & { logger: Logger })
 
 describe('UserCreateUseCase', () => {
 	const userRepo = {
@@ -37,7 +40,7 @@ describe('UserCreateUseCase', () => {
 	}
 
 	const jobService = {
-		add: jest.fn()
+		dispatch: jest.fn()
 	}
 
 	const globalLogger = {
@@ -213,10 +216,20 @@ describe('UserCreateUseCase', () => {
 		expect(job.logger.info).toHaveBeenCalledWith(
 			'User new@mail.com created successfully.'
 		)
-		expect(jobService.add).toHaveBeenCalledWith(
+
+		const expectedPayload = {
+			jobType: 'useCase',
+			useCaseName: 'UserSendWelcomeEmailUseCase',
+			jobData: {
+				payload: job.getData(),
+				meta: job.getMeta(),
+				user: { id: 'user-id', permissions: {} }
+			}
+		}
+		expect(jobService.dispatch).toHaveBeenCalledWith(
 			'emails',
 			'UserSendWelcomeEmailUseCase',
-			job
+			expectedPayload
 		)
 	})
 })
