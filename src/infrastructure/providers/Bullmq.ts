@@ -1,4 +1,3 @@
-import logger from '@/services/logger'
 import { ProviderInterface } from '@/types/providers/ProviderInterface'
 import { Queue } from 'bullmq'
 
@@ -15,6 +14,7 @@ type QueuesMap = {
 
 export class Bullmq implements ProviderInterface {
 	public displayName = 'BullMQ Queue Manager'
+	private logger: any
 	private queues: QueuesMap = {}
 
 	private isConnected = false
@@ -25,8 +25,11 @@ export class Bullmq implements ProviderInterface {
 			port: number
 			password: string
 			db: number
-		}
-	) {}
+		},
+		logger: any
+	) {
+		this.logger = logger
+	}
 
 	/**
 	 * Connects and initializes all defined queues.
@@ -34,7 +37,7 @@ export class Bullmq implements ProviderInterface {
 	 */
 	public async connect(): Promise<void> {
 		if (this.isConnected) {
-			logger.info(`${this.displayName} already initialized.`)
+			this.logger.info(`${this.displayName} already initialized.`)
 			return
 		}
 
@@ -52,11 +55,11 @@ export class Bullmq implements ProviderInterface {
 						removeOnComplete: true
 					}
 				})
-				logger.info(`Queue "${name}" initialized successfully.`)
+				this.logger.info(`Queue "${name}" initialized successfully.`)
 			}
 			this.isConnected = true
 		} catch (error) {
-			logger.error(`Failed to initialize ${this.displayName}:`, error)
+			this.logger.error(`Failed to initialize ${this.displayName}:`, error)
 			throw error
 		}
 	}
@@ -83,7 +86,7 @@ export class Bullmq implements ProviderInterface {
 		await Promise.all(Object.values(this.queues).map(q => q?.close()))
 		this.queues = {}
 		this.isConnected = false
-		logger.info(`${this.displayName} disconnected.`)
+		this.logger.info(`${this.displayName} disconnected.`)
 	}
 
 	/**

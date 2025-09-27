@@ -1,4 +1,5 @@
 import { config } from '@/services/config'
+import logger from '@/services/logger'
 import { Queue } from 'bullmq'
 import { Bullmq, QUEUE_NAMES, QueueName } from './providers/Bullmq'
 
@@ -13,7 +14,7 @@ export interface QueueManager {
 	shutdown(): Promise<void>
 }
 
-const bullmqProvider = new Bullmq(config.get('database.redis'))
+const bullmqProvider = new Bullmq(config.get('database.redis'), logger)
 
 const initializedQueues: Partial<QueueMap> = {}
 

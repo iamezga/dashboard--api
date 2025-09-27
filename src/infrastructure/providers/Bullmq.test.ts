@@ -1,5 +1,4 @@
 import { Queue } from 'bullmq'
-import logger from '../../services/logger'
 import { Bullmq, QUEUE_NAMES } from './Bullmq'
 
 jest.mock('bullmq', () => ({
@@ -13,6 +12,7 @@ jest.mock('@/services/logger', () => ({
 
 describe('Bullmq', () => {
 	let service: Bullmq
+	const mockLogger = require('@/services/logger')
 	const mockQueues: Record<string, any> = {}
 
 	beforeEach(() => {
@@ -25,12 +25,15 @@ describe('Bullmq', () => {
 			return mockQueues[name]
 		})
 
-		service = new Bullmq({
-			host: 'localhost',
-			port: 6379,
-			password: '',
-			db: 0
-		})
+		service = new Bullmq(
+			{
+				host: 'localhost',
+				port: 6379,
+				password: '',
+				db: 0
+			},
+			mockLogger
+		)
 	})
 
 	it('should connect and initialize all defined queues', async () => {
@@ -43,7 +46,7 @@ describe('Bullmq', () => {
 					connection: expect.any(Object)
 				})
 			)
-			expect(logger.info).toHaveBeenCalledWith(
+			expect(mockLogger.info).toHaveBeenCalledWith(
 				`Queue "${name}" initialized successfully.`
 			)
 		}
@@ -54,7 +57,7 @@ describe('Bullmq', () => {
 		await service.connect()
 		await service.connect()
 		expect(Queue).toHaveBeenCalledTimes(QUEUE_NAMES.length) // Should not be called again
-		expect(logger.info).toHaveBeenCalledWith(
+		expect(mockLogger.info).toHaveBeenCalledWith(
 			'BullMQ Queue Manager already initialized.'
 		)
 	})
@@ -80,7 +83,7 @@ describe('Bullmq', () => {
 		}
 		expect((service as any).isConnected).toBe(false)
 		expect((service as any).queues).toEqual({})
-		expect(logger.info).toHaveBeenCalledWith(
+		expect(mockLogger.info).toHaveBeenCalledWith(
 			'BullMQ Queue Manager disconnected.'
 		)
 	})
@@ -96,14 +99,17 @@ describe('Bullmq', () => {
 		;(Queue as unknown as jest.Mock).mockImplementationOnce(() => {
 			throw new Error('constructor-fail')
 		})
-		const failingService = new Bullmq({
-			host: 'localhost',
-			port: 6379,
-			password: '',
-			db: 0
-		})
+		const failingService = new Bullmq(
+			{
+				host: 'localhost',
+				port: 6379,
+				password: '',
+				db: 0
+			},
+			mockLogger
+		)
 		await expect(failingService.connect()).rejects.toThrow('constructor-fail')
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			'Failed to initialize BullMQ Queue Manager:',
 			expect.any(Error)
 		)
