@@ -25,7 +25,7 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		job: JobInterface,
 		_container: DependencyContainer
 	): Promise<UseCasePermissionValidationData> {
-		const permissions = job.getUser().permissions
+		const permissions = job.getUser()
 
 		const data = {
 			permission: UserGetUseCase.permission
@@ -43,10 +43,11 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 	async run(job: UserGetJobInterface): Promise<UseCaseResponseInterface> {
 		// ...Some business logic
 		const data = job.getData()
+		const requestingUser = job.getUser()
 		job.logger.info(data)
 		const user = await this.container.repositoryManager
 			.get('user')
-			.findById(data.id)
+			.findById(data.id, requestingUser.organizationId)
 
 		return {
 			data: user || {},

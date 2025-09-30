@@ -59,15 +59,41 @@ describe('RoleRepository', () => {
 			config: {},
 			createdAt: new Date(),
 			updatedAt: new Date(),
-			deletedAt: null
+			deletedAt: null,
+			scope: 'TENANT'
 		}
 
-		;(dbMock.role!.findUnique as jest.Mock).mockResolvedValue(prismaRole)
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(prismaRole)
 
 		const result: Role | null = await repository.findById('r1')
 
-		expect(dbMock.role!.findUnique).toHaveBeenCalledWith({
+		expect(dbMock.role!.findFirst).toHaveBeenCalledWith({
 			where: { id: 'r1', deletedAt: null }
+		})
+		expect(result?.id).toBe('r1')
+	})
+
+	it('should return role by id and organizationId', async () => {
+		const prismaRole: PrismaRoleModel = {
+			id: 'r1',
+			organizationId: 'org1',
+			name: 'Admin',
+			label: 'Administrator',
+			description: 'desc',
+			active: true,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			scope: 'TENANT'
+		}
+
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(prismaRole)
+
+		const result: Role | null = await repository.findById('r1', 'org1')
+
+		expect(dbMock.role!.findFirst).toHaveBeenCalledWith({
+			where: { id: 'r1', deletedAt: null, organizationId: 'org1' }
 		})
 		expect(result?.id).toBe('r1')
 	})
@@ -91,6 +117,7 @@ describe('RoleRepository', () => {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null,
+			scope: 'TENANT',
 			rolePermissions: [
 				{
 					permission: {
@@ -109,16 +136,60 @@ describe('RoleRepository', () => {
 				}
 			]
 		}
-		;(dbMock.role!.findUnique as jest.Mock).mockResolvedValue(prismaRole)
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(prismaRole)
 
 		const result = await repository.findByIdWithPermissions('r2')
 
+		expect(dbMock.role!.findFirst).toHaveBeenCalledWith({
+			where: { id: 'r2', deletedAt: null },
+			include: expect.any(Object)
+		})
 		expect(result?.id).toBe('r2')
 		expect(result?.rolePermissions).toHaveLength(1)
 	})
 
+	it('should return role with permissions by id and organizationId', async () => {
+		const prismaRole: any = {
+			id: 'r2',
+			organizationId: 'org1',
+			name: 'Manager',
+			label: 'Manager',
+			description: 'desc',
+			active: true,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			scope: 'TENANT',
+			rolePermissions: [
+				{
+					permission: {
+						id: 'p1',
+						key: 'CAN_EDIT',
+						label: 'Edit',
+						description: '',
+						active: true,
+						config: {},
+						scope: 'GLOBAL',
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						deletedAt: null
+					},
+					config: {}
+				}
+			]
+		}
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(prismaRole)
+		const result = await repository.findByIdWithPermissions('r2', 'org1')
+		expect(dbMock.role!.findFirst).toHaveBeenCalledWith({
+			where: { id: 'r2', deletedAt: null, organizationId: 'org1' },
+			include: expect.any(Object)
+		})
+		expect(result?.id).toBe('r2')
+	})
+
 	it('should return null if role with permissions not found', async () => {
-		;(dbMock.role!.findUnique as jest.Mock).mockResolvedValue(null)
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(null)
 
 		const result = await repository.findByIdWithPermissions('missing')
 		expect(result).toBeNull()
@@ -135,7 +206,8 @@ describe('RoleRepository', () => {
 			config: {},
 			createdAt: new Date(),
 			updatedAt: new Date(),
-			deletedAt: null
+			deletedAt: null,
+			scope: 'TENANT'
 		}
 		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(prismaRole)
 
@@ -241,6 +313,28 @@ describe('RoleRepository', () => {
 		expect(result?.name).toBe('Updated')
 	})
 
+	it('should update a role with organizationId', async () => {
+		const prismaRole: any = {
+			id: 'r6',
+			name: 'Updated',
+			organizationId: 'org1',
+			label: 'lbl',
+			description: '',
+			active: true,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null
+		}
+		;(dbMock.role!.update as jest.Mock).mockResolvedValue(prismaRole)
+
+		const result = await repository.update('r6', { name: 'Updated' }, 'org1')
+		expect(dbMock.role!.update).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: 'r6', organizationId: 'org1' } })
+		)
+		expect(result?.name).toBe('Updated')
+	})
+
 	it('should throw error if invalid permissionKeysToAdd', async () => {
 		repositoryManagerMock.get.mockReturnValue({
 			findByKeys: jest.fn().mockResolvedValue([])
@@ -283,6 +377,15 @@ describe('RoleRepository', () => {
 		expect(result).toBe(true)
 	})
 
+	it('should delete a role with organizationId', async () => {
+		const result = await repository.delete('r9', 'org1')
+
+		expect(dbMock.$transaction).toHaveBeenCalled()
+		// We can't easily check the internal call to update inside the transaction mock,
+		// but we confirm the transaction was initiated.
+		expect(result).toBe(true)
+	})
+
 	it('should find all roles', async () => {
 		const prismaRoles: PrismaRoleModel[] = [
 			{
@@ -295,7 +398,8 @@ describe('RoleRepository', () => {
 				config: {},
 				createdAt: new Date(),
 				updatedAt: new Date(),
-				deletedAt: null
+				deletedAt: null,
+				scope: 'TENANT'
 			}
 		]
 		;(dbMock.role!.findMany as jest.Mock).mockResolvedValue(prismaRoles)
@@ -305,17 +409,63 @@ describe('RoleRepository', () => {
 		expect(result[0].id).toBe('r10')
 	})
 
+	it('should find all roles for a specific organizationId', async () => {
+		const prismaRoles: PrismaRoleModel[] = [
+			{
+				id: 'r10',
+				organizationId: 'org1',
+				name: 'AllRoles',
+				label: 'Label',
+				description: '',
+				active: true,
+				config: {},
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				scope: 'TENANT'
+			}
+		]
+		;(dbMock.role!.findMany as jest.Mock).mockResolvedValue(prismaRoles)
+
+		const result = await repository.findAll('org1')
+		expect(dbMock.role!.findMany).toHaveBeenCalledWith({
+			where: { active: true, deletedAt: null, organizationId: 'org1' }
+		})
+		expect(result).toHaveLength(1)
+	})
+
 	it('should assign permissions to role', async () => {
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue({ id: 'r11' })
 		await repository.assignPermissionsToRole('r11', ['p1'])
 
-		expect(dbMock.rolePermission!.createMany).toHaveBeenCalled()
-		expect(dbMock.rolePermission!.updateMany).toHaveBeenCalled()
+		expect(dbMock.$transaction).toHaveBeenCalled()
+	})
+
+	it('should throw when assigning permissions to a role in the wrong org', async () => {
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(null)
+
+		await expect(
+			repository.assignPermissionsToRole('r11', ['p1'], 'wrong-org')
+		).rejects.toThrow(
+			'Role not found or does not belong to the specified organization.'
+		)
 	})
 
 	it('should remove permissions from role', async () => {
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue({ id: 'r12' })
 		await repository.removePermissionsFromRole('r12', ['p1'])
 
-		expect(dbMock.rolePermission!.updateMany).toHaveBeenCalled()
+		expect(dbMock.$transaction).toHaveBeenCalled()
+	})
+
+	it('should throw when removing permissions from a role in the wrong org', async () => {
+		;(dbMock.role!.findFirst as jest.Mock).mockResolvedValue(null)
+
+		await expect(
+			repository.removePermissionsFromRole('r12', ['p1'], 'wrong-org')
+		).rejects.toThrow(
+			'Role not found or does not belong to the specified organization.'
+		)
 	})
 
 	it('should update role with permissionKeysToAdd using upsert', async () => {

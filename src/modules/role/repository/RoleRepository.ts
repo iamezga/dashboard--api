@@ -109,54 +109,21 @@ export class RoleRepository implements RoleRepositoryInterface {
 	/**
 	 * Finds a role by its unique identifier.
 	 * @param {string} id - The ID of the role.
+	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the search.
 	 * @returns {Promise<Role | null>} The role entity or null if not found.
 	 */
-	async findById(id: string): Promise<Role | null> {
-		const prismaRole = await this.db.role.findUnique({
-			where: {
-				id,
-				deletedAt: null
-			}
-		})
-		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
-	}
+	async findById(id: string, organizationId?: string): Promise<Role | null> {
+		const whereClause: Prisma.RoleWhereInput = {
+			id,
+			deletedAt: null
+		}
 
-	/**
-	 * Finds a role by its ID and includes its associated permissions.
-	 * @param {string} id - The ID of the role.
-	 * @returns {Promise<RoleWithPermissions | null>} The role entity with permissions or null.
-	 */
-	async findByIdWithPermissions(
-		id: string
-	): Promise<RoleWithPermissions | null> {
-		const prismaRole = await this.db.role.findUnique({
-			where: {
-				id,
-				deletedAt: null
-			},
-			include: roleWithPermissionsInclude
-		})
-		return prismaRole
-			? this.mapPrismaRoleWithPermissionsToDomain(prismaRole)
-			: null
-	}
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
 
-	/**
-	 * Finds a role by its name within a specific organization (or globally if organizationId is null).
-	 * @param {string} name - The unique name of the role.
-	 * @param {string | null} organizationId - The ID of the organization or null for global roles.
-	 * @returns {Promise<Role | null>} The role entity or null if not found.
-	 */
-	async findByName(
-		name: string,
-		organizationId: string | null
-	): Promise<Role | null> {
 		const prismaRole = await this.db.role.findFirst({
-			where: {
-				name,
-				organizationId,
-				deletedAt: null
-			}
+			where: whereClause
 		})
 		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
 	}
@@ -202,9 +169,18 @@ export class RoleRepository implements RoleRepositoryInterface {
 	 * Updates an existing role and manages its permissions.
 	 * @param {string} id - The ID of the role to update.
 	 * @param {RoleUpdateInput} data - The partial data to update, including optional permissionKeysToAdd/ToRemove.
+	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the update.
 	 * @returns {Promise<Role | null>} The updated role entity or null if not found.
 	 */
-	async update(id: string, data: RoleUpdateInput): Promise<Role | null> {
+	async update(
+		id: string,
+		data: RoleUpdateInput,
+		organizationId?: string
+	): Promise<Role | null> {
+		const whereClause: Prisma.RoleWhereUniqueInput = { id }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
 		const { permissionKeysToAdd, permissionKeysToRemove, ...roleData } = data
 
 		const updateData: Prisma.RoleUpdateInput = {
@@ -253,7 +229,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		}
 
 		const prismaRole = await this.db.role.update({
-			where: { id },
+			where: whereClause,
 			data: updateData
 		})
 		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
@@ -263,13 +239,19 @@ export class RoleRepository implements RoleRepositoryInterface {
 	 * Deletes a role by its ID (logical deletion by setting 'deletedAt').
 	 * Also logically deletes all associated role-permission relations.
 	 * @param {string} id - The ID of the role to delete.
+	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the deletion.
 	 * @returns {Promise<boolean>} True if the role was marked as deleted, false otherwise.
 	 */
-	async delete(id: string): Promise<boolean> {
+	async delete(id: string, organizationId?: string): Promise<boolean> {
+		const whereClause: Prisma.RoleWhereUniqueInput = { id }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+
 		await this.db.$transaction(async prismaTransaction => {
 			// Mark the role as deleted
 			await prismaTransaction.role.update({
-				where: { id },
+				where: whereClause,
 				data: { deletedAt: new Date() }
 			})
 
@@ -285,16 +267,64 @@ export class RoleRepository implements RoleRepositoryInterface {
 
 	/**
 	 * Retrieves all active and non-deleted roles.
+	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the search.
 	 * @returns {Promise<Role[]>} An array of role entities.
 	 */
-	async findAll(): Promise<Role[]> {
+	async findAll(organizationId?: string): Promise<Role[]> {
+		const whereClause: Prisma.RoleWhereInput = {
+			active: true,
+			deletedAt: null
+		}
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
 		const prismaRoles = await this.db.role.findMany({
+			where: whereClause
+		})
+		return prismaRoles.map(this.mapPrismaRoleToDomain)
+	}
+
+	/**
+	 * Finds a role by its ID and includes its associated permissions.
+	 * @param {string} id - The ID of the role.
+	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the search.
+	 * @returns {Promise<RoleWithPermissions | null>} The role entity with permissions or null.
+	 */
+	async findByIdWithPermissions(
+		id: string,
+		organizationId?: string
+	): Promise<RoleWithPermissions | null> {
+		const whereClause: Prisma.RoleWhereInput = {
+			id,
+			deletedAt: null
+		}
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+		const prismaRole = await this.db.role.findFirst({
+			where: whereClause,
+			include: roleWithPermissionsInclude
+		})
+		return prismaRole
+			? this.mapPrismaRoleWithPermissionsToDomain(prismaRole)
+			: null
+	}
+
+	/**
+	 * Finds a role by its name within a specific organization (or globally if organizationId is null).
+	 * @param {string} name - The unique name of the role.
+	 * @param {string | null} organizationId - The ID of the organization or null for global roles.
+	 * @returns {Promise<Role | null>} The role entity or null if not found.
+	 */
+	async findByName(name: string, organizationId: string): Promise<Role | null> {
+		const prismaRole = await this.db.role.findFirst({
 			where: {
-				active: true,
+				name,
+				organizationId,
 				deletedAt: null
 			}
 		})
-		return prismaRoles.map(this.mapPrismaRoleToDomain)
+		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
 	}
 
 	/**
@@ -305,26 +335,42 @@ export class RoleRepository implements RoleRepositoryInterface {
 	 */
 	async assignPermissionsToRole(
 		roleId: string,
-		permissionIds: string[]
+		permissionIds: string[],
+		organizationId?: string
 	): Promise<void> {
-		// Create or reactivate RolePermission relationships.
-		await this.db.rolePermission.createMany({
-			data: permissionIds.map(pid => ({
-				roleId: roleId,
-				permissionId: pid,
-				config: {}
-			})),
-			skipDuplicates: true // Does not fail if the relationship already exists
-		})
+		const whereClause: Prisma.RoleWhereUniqueInput = { id: roleId }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
 
-		// Ensure that relationships that might have been logically deleted are reactivated
-		await this.db.rolePermission.updateMany({
-			where: {
-				roleId: roleId,
-				permissionId: { in: permissionIds },
-				deletedAt: { not: null }
-			},
-			data: { deletedAt: null }
+		// Create or reactivate RolePermission relationships.
+		await this.db.$transaction(async tx => {
+			// First, ensure the role exists in the given organization context
+			const role = await tx.role.findFirst({ where: whereClause })
+			if (!role) {
+				throw new Error(
+					'Role not found or does not belong to the specified organization.'
+				)
+			}
+
+			await tx.rolePermission.createMany({
+				data: permissionIds.map(pid => ({
+					roleId: roleId,
+					permissionId: pid,
+					config: {}
+				})),
+				skipDuplicates: true // Does not fail if the relationship already exists
+			})
+
+			// Ensure that relationships that might have been logically deleted are reactivated
+			await tx.rolePermission.updateMany({
+				where: {
+					roleId: roleId,
+					permissionId: { in: permissionIds },
+					deletedAt: { not: null }
+				},
+				data: { deletedAt: null }
+			})
 		})
 	}
 
@@ -336,15 +382,29 @@ export class RoleRepository implements RoleRepositoryInterface {
 	 */
 	async removePermissionsFromRole(
 		roleId: string,
-		permissionIds: string[]
+		permissionIds: string[],
+		organizationId?: string
 	): Promise<void> {
-		await this.db.rolePermission.updateMany({
-			where: {
-				roleId: roleId,
-				permissionId: { in: permissionIds },
-				deletedAt: null // Only if not already logically deleted
-			},
-			data: { deletedAt: new Date() }
+		const whereClause: Prisma.RoleWhereUniqueInput = { id: roleId }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+
+		await this.db.$transaction(async tx => {
+			const role = await tx.role.findFirst({ where: whereClause })
+			if (!role) {
+				throw new Error(
+					'Role not found or does not belong to the specified organization.'
+				)
+			}
+			await tx.rolePermission.updateMany({
+				where: {
+					roleId: roleId,
+					permissionId: { in: permissionIds },
+					deletedAt: null // Only if not already logically deleted
+				},
+				data: { deletedAt: new Date() }
+			})
 		})
 	}
 }

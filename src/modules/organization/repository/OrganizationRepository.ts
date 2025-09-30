@@ -79,23 +79,6 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 	}
 
 	/**
-	 * Finds an organization by name.
-	 * @param {string} name - The unique name of the organization.
-	 * @returns {Promise<Organization | null>} The organization entity or null if not found.
-	 */
-	async findByName(name: string): Promise<Organization | null> {
-		const prismaOrganization = await this.db.organization.findFirst({
-			where: {
-				name,
-				deletedAt: null
-			}
-		})
-		return prismaOrganization
-			? this.mapPrismaOrganizationToDomain(prismaOrganization)
-			: null
-	}
-
-	/**
 	 * Creates a new organization.
 	 * @param {OrganizationCreateInput} data - The data for the new organization.
 	 * @returns {Promise<Organization>} The created organization entity.
@@ -153,5 +136,22 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 			}
 		})
 		return prismaOrganizations.map(this.mapPrismaOrganizationToDomain)
+	}
+
+	/**
+	 * Finds an organization by name.
+	 * @param {string} name - The unique name of the organization.
+	 * @returns {Promise<Organization | null>} The organization entity or null if not found.
+	 */
+	async findByName(name: string): Promise<Organization | null> {
+		const prismaOrganization = await this.db.organization.findFirst({
+			where: {
+				name,
+				deletedAt: null
+			}
+		})
+		return prismaOrganization
+			? this.mapPrismaOrganizationToDomain(prismaOrganization)
+			: null
 	}
 }

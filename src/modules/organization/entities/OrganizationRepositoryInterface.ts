@@ -16,18 +16,5 @@ export interface OrganizationRepositoryInterface
 		OrganizationCreateInput,
 		OrganizationUpdateInput
 	> {
-	create(data: OrganizationCreateInput): Promise<Organization>
-	update(
-		id: string,
-		data: OrganizationUpdateInput
-	): Promise<Organization | null>
-	delete(id: string): Promise<boolean>
-	findById(id: string): Promise<Organization | null>
-
-	/**
-	 * Finds an organization by its unique name.
-	 * @param {string} name - The unique name of the organization.
-	 * @returns {Promise<Organization | null>} The organization entity or null if not found.
-	 */
 	findByName(name: string): Promise<Organization | null>
 }

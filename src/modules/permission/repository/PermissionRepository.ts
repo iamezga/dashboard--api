@@ -80,38 +80,6 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 	}
 
 	/**
-	 * Finds a permission by key.
-	 * @param {string} key - The unique key of the permission.
-	 * @returns {Promise<Permission | null>} The permission entity or null if not found.
-	 */
-	async findByKey(key: string): Promise<Permission | null> {
-		const prismaPermission = await this.db.permission.findUnique({
-			where: { key, deletedAt: null }
-		})
-		return prismaPermission
-			? this.mapPrismaPermissionToDomain(prismaPermission)
-			: null
-	}
-
-	/**
-	 * Finds multiple permissions by keys.
-	 * @param {string[]} keys - An array of permission keys.
-	 * @returns {Promise<Permission[]>} An array of permission entities found.
-	 */
-	async findByKeys(keys: string[]): Promise<Permission[]> {
-		const prismaPermissions = await this.db.permission.findMany({
-			where: {
-				key: {
-					in: keys
-				},
-				active: true,
-				deletedAt: null // Only retrieve non-deleted permissions
-			}
-		})
-		return prismaPermissions.map(this.mapPrismaPermissionToDomain)
-	}
-
-	/**
 	 * Creates a new permission.
 	 * @param {PermissionCreateInput} data - The data for the new permission.
 	 * @returns {Promise<Permission>} The created permission entity.
@@ -162,11 +130,44 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 	 * Find all active permissions.
 	 * @returns {Promise<Permission[]>} An array of permission entities.
 	 */
-	async findAll(): Promise<Permission[]> {
+	async findAll(): // organizationId is ignored
+	Promise<Permission[]> {
 		const prismaPermissions = await this.db.permission.findMany({
 			where: {
 				active: true,
 				deletedAt: null // Only fetch non-deleted permissions
+			}
+		})
+		return prismaPermissions.map(this.mapPrismaPermissionToDomain)
+	}
+
+	/**
+	 * Finds a permission by key.
+	 * @param {string} key - The unique key of the permission.
+	 * @returns {Promise<Permission | null>} The permission entity or null if not found.
+	 */
+	async findByKey(key: string): Promise<Permission | null> {
+		const prismaPermission = await this.db.permission.findUnique({
+			where: { key, deletedAt: null }
+		})
+		return prismaPermission
+			? this.mapPrismaPermissionToDomain(prismaPermission)
+			: null
+	}
+
+	/**
+	 * Finds multiple permissions by keys.
+	 * @param {string[]} keys - An array of permission keys.
+	 * @returns {Promise<Permission[]>} An array of permission entities found.
+	 */
+	async findByKeys(keys: string[]): Promise<Permission[]> {
+		const prismaPermissions = await this.db.permission.findMany({
+			where: {
+				key: {
+					in: keys
+				},
+				active: true,
+				deletedAt: null // Only retrieve non-deleted permissions
 			}
 		})
 		return prismaPermissions.map(this.mapPrismaPermissionToDomain)

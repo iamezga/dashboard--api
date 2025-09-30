@@ -159,7 +159,8 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		}
 
 		const roleWithPermissions = await roleRepository.findByIdWithPermissions(
-			userAuthDetails.roleId
+			userAuthDetails.roleId,
+			userAuthDetails.organizationId
 		)
 
 		if (!roleWithPermissions || !roleWithPermissions.active) {

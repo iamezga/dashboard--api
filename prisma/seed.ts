@@ -1,12 +1,13 @@
 import {
 	Module,
 	Organization,
+	OrganizationScope,
 	Permission,
 	PermissionScope,
 	Prisma,
 	PrismaClient,
 	Role,
-	User
+	RoleScope
 } from '@prisma/client'
 import { hash } from 'argon2' // Use argon2 for password hashing
 
@@ -23,7 +24,7 @@ interface IPermissionSeedData {
 	description: string
 	scope: PermissionScope
 	moduleId?: string // Optional for GLOBAL scope permissions
-	config?: Record<string, unknown> // Changed to Prisma.JsonObject for better type compatibility
+	config?: Record<string, unknown>
 	active: boolean
 }
 
@@ -33,20 +34,36 @@ const prisma = new PrismaClient()
 async function main(): Promise<void> {
 	console.log('Starting database seeding...')
 
-	// Create/Upsert Default Organization (single-tenant setup, tenant-ready)
-	const organization: Organization = await prisma.organization.upsert({
-		where: { id: '00000000-0000-0000-0000-000000000001' },
-		update: { name: 'Default Organization' },
+	// --- CREATE ORGANIZATIONS ---
+	console.log('\n--- Creating Organizations ---')
+	const systemOrganization: Organization = await prisma.organization.upsert({
+		where: { id: '00000000-0000-0000-0000-000000000001' }, // A unique, identifiable name
+		update: {},
 		create: {
-			id: '00000000-0000-0000-0000-000000000001',
-			name: 'Default Organization'
+			name: 'System Administration',
+			scope: OrganizationScope.SYSTEM
 		}
 	})
 	console.log(
-		`Organization created/updated: ${organization.name} (ID: ${organization.id})`
+		`System Organization created/updated: ${systemOrganization.name} (ID: ${systemOrganization.id})`
 	)
 
-	// Create Modules
+	const tenantOrg1: Organization = await prisma.organization.upsert({
+		where: { id: '00000000-0000-0000-0000-000000000002' },
+		update: { name: 'Quantum Dynamics' },
+		create: { name: 'Innovatech Solutions', scope: OrganizationScope.TENANT }
+	})
+	const tenantOrg2: Organization = await prisma.organization.upsert({
+		where: { id: '00000000-0000-0000-0000-000000000003' },
+		update: {},
+		create: { name: 'Quantum Dynamics', scope: OrganizationScope.TENANT }
+	})
+	console.log(
+		`Tenant organizations created/updated: ${tenantOrg1.name}, ${tenantOrg2.name}`
+	)
+
+	// --- CREATE MODULES ---
+	console.log('\n--- Creating Modules ---')
 	const modulesData: IModuleSeedData[] = [
 		{ key: 'users', label: 'User Management' },
 		{ key: 'roles', label: 'Role Management' },
@@ -71,15 +88,9 @@ async function main(): Promise<void> {
 	const rolesModule: Module | undefined = createdModules.find(
 		m => m.key === 'roles'
 	)
-	const permissionsModule: Module | undefined = createdModules.find(
-		m => m.key === 'permissions'
-	)
-	const organizationsModule: Module | undefined = createdModules.find(
-		m => m.key === 'organizations'
-	)
 
-	// Create Permissions
-	// Permission keys follow the [module].[action] convention.
+	// --- CREATE PERMISSIONS ---
+	console.log('\n--- Creating Permissions ---')
 	const permissionsData: IPermissionSeedData[] = [
 		// Global Permissions
 		{
@@ -96,7 +107,15 @@ async function main(): Promise<void> {
 					},
 					accessDays: {
 						enabled: true,
-						values: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+						values: [
+							'Monday',
+							'Tuesday',
+							'Wednesday',
+							'Thursday',
+							'Friday',
+							'Saturday',
+							'Sunday'
+						]
 					},
 					accessTime: {
 						enabled: true,
@@ -112,13 +131,6 @@ async function main(): Promise<void> {
 			}
 		},
 		{
-			key: 'admin.full_access',
-			label: 'Full System Access',
-			description: 'Grants total control over all system functionalities.',
-			scope: PermissionScope.GLOBAL,
-			active: true
-		},
-		{
 			key: 'dashboard.view',
 			label: 'View Dashboard',
 			description: 'Allows viewing the main application dashboard.',
@@ -126,7 +138,31 @@ async function main(): Promise<void> {
 			active: true
 		},
 
-		// Permissions for the 'users' module
+		// System-level Permissions
+		{
+			key: 'system.organization.create',
+			label: 'Create New Organizations',
+			description: 'Allows creating new tenant organizations in the system.',
+			scope: PermissionScope.SYSTEM,
+			active: true
+		},
+		{
+			key: 'system.analytics.view',
+			label: 'View Platform Analytics',
+			description: 'Allows viewing aggregated, non-sensitive system analytics.',
+			scope: PermissionScope.SYSTEM,
+			active: true
+		},
+		{
+			key: 'system.user.impersonate',
+			label: 'Impersonate User',
+			description:
+				'Allows logging in as another user for support purposes. HIGHLY SENSITIVE.',
+			scope: PermissionScope.SYSTEM,
+			active: true
+		},
+
+		// Module Permissions
 		{
 			key: 'user.create',
 			label: 'Create Users',
@@ -152,32 +188,6 @@ async function main(): Promise<void> {
 			active: true
 		},
 		{
-			key: 'user.delete',
-			label: 'Delete Users',
-			description: 'Allows deleting users from the system.',
-			scope: PermissionScope.MODULE,
-			moduleId: usersModule?.id,
-			active: true
-		},
-		{
-			key: 'user.manage_roles',
-			label: 'Manage User Roles',
-			description: 'Allows assigning and revoking roles to users.',
-			scope: PermissionScope.MODULE,
-			moduleId: usersModule?.id,
-			active: true
-		},
-		{
-			key: 'user.manage_permissions',
-			label: 'Manage User Permissions',
-			description: 'Allows managing user-level permission overrides.',
-			scope: PermissionScope.MODULE,
-			moduleId: usersModule?.id,
-			active: true
-		},
-
-		// Permissions for the 'roles' module
-		{
 			key: 'role.create',
 			label: 'Create Roles',
 			description: 'Allows creating new roles.',
@@ -200,59 +210,6 @@ async function main(): Promise<void> {
 			scope: PermissionScope.MODULE,
 			moduleId: rolesModule?.id,
 			active: true
-		},
-		{
-			key: 'role.delete',
-			label: 'Delete Roles',
-			description: 'Allows deleting roles from the system.',
-			scope: PermissionScope.MODULE,
-			moduleId: rolesModule?.id,
-			active: true
-		},
-		{
-			key: 'role.manage_permissions',
-			label: 'Manage Role Permissions',
-			description: 'Allows assigning and revoking permissions to roles.',
-			scope: PermissionScope.MODULE,
-			moduleId: rolesModule?.id,
-			active: true
-		},
-
-		// Permissions for the 'permissions' module
-		{
-			key: 'permission.read',
-			label: 'View Permissions',
-			description: 'Allows viewing the list and details of permissions.',
-			scope: PermissionScope.MODULE,
-			moduleId: permissionsModule?.id,
-			active: true
-		},
-		{
-			key: 'permission.update',
-			label: 'Update Permissions',
-			description:
-				'Allows modifying the configuration of existing permissions (e.g., config).',
-			scope: PermissionScope.MODULE,
-			moduleId: permissionsModule?.id,
-			active: true
-		},
-
-		// Permissions for the 'organizations' module
-		{
-			key: 'organization.read',
-			label: 'View Organizations',
-			description: 'Allows viewing the list and details of organizations.',
-			scope: PermissionScope.MODULE,
-			moduleId: organizationsModule?.id,
-			active: true
-		},
-		{
-			key: 'organization.update',
-			label: 'Update Organizations',
-			description: 'Allows modifying information of existing organizations.',
-			scope: PermissionScope.MODULE,
-			moduleId: organizationsModule?.id,
-			active: true
 		}
 	]
 
@@ -266,20 +223,12 @@ async function main(): Promise<void> {
 				scope: permissionData.scope,
 				moduleId: permissionData.moduleId,
 				active: permissionData.active,
-				// Cast config to Prisma.InputJsonValue to resolve type incompatibility
-				config: permissionData.config as Prisma.InputJsonValue | undefined
+				config: (permissionData.config as Prisma.InputJsonValue) || {}
 			},
 			create: {
 				...permissionData,
-				// Ensure moduleId is correctly handled as optional in create if it's undefined
-				moduleId:
-					permissionData.moduleId === undefined
-						? null
-						: permissionData.moduleId,
-				config:
-					permissionData.config === undefined
-						? {}
-						: (permissionData.config as Prisma.InputJsonValue)
+				moduleId: permissionData.moduleId || null,
+				config: (permissionData.config as Prisma.InputJsonValue) || {}
 			}
 		})
 		createdPermissions.push(permission)
@@ -288,135 +237,208 @@ async function main(): Promise<void> {
 		)
 	}
 
-	// Helper function to find a permission by its key, asserting it will be found
+	// Helper function to find a permission by its key
 	const byKey = (k: string): Permission => {
 		const perm = createdPermissions.find(p => p.key === k)
 		if (!perm) {
-			throw new Error(
-				`Permission with key '${k}' not found. This indicates a seeding error.`
-			)
+			throw new Error(`Seeding Error: Permission with key '${k}' not found.`)
 		}
 		return perm
 	}
 
-	// Create Roles
-	const superAdminRole: Role = await prisma.role.upsert({
+	// --- CREATE ROLES ---
+	console.log('\n--- Creating Roles ---')
+
+	// System Role
+	const superAdminRole = await prisma.role.upsert({
 		where: {
 			organizationId_name: {
-				organizationId: organization.id,
+				organizationId: systemOrganization.id,
 				name: 'superAdmin'
 			}
 		},
-		update: {
-			label: 'Super Administrator',
-			description: 'Role with full access and control over the system.'
-		},
+		update: {},
 		create: {
-			organizationId: organization.id,
+			organizationId: systemOrganization.id,
 			name: 'superAdmin',
 			label: 'Super Administrator',
-			description: 'Role with full access and control over the system.'
+			description: 'Has full control over the entire platform.',
+			scope: RoleScope.SYSTEM
 		}
 	})
-	console.log(
-		`Role created/updated: ${superAdminRole.label} (ID: ${superAdminRole.id})`
-	)
+	console.log(`System Role created: ${superAdminRole.name}`)
 
-	const viewerRole: Role = await prisma.role.upsert({
-		where: {
-			organizationId_name: { organizationId: organization.id, name: 'viewer' }
-		},
-		update: { label: 'Viewer', description: 'Basic read-only access.' },
-		create: {
-			organizationId: organization.id,
-			name: 'viewer',
-			label: 'Viewer',
-			description: 'Basic read-only access.',
-			active: true
-		}
-	})
-	console.log(
-		`Role created/updated: ${viewerRole.label} (ID: ${viewerRole.id})`
-	)
-
-	// Assign all created permissions to the "Super Administrator" role
-	for (const permission of createdPermissions) {
-		await prisma.rolePermission.upsert({
+	// Tenant Roles (provisioned for each tenant)
+	const tenantRoles: Record<
+		string,
+		{ admin: Role; editor: Role; viewer: Role }
+	> = {}
+	for (const org of [tenantOrg1, tenantOrg2]) {
+		const adminRole = await prisma.role.upsert({
 			where: {
-				roleId_permissionId: {
-					roleId: superAdminRole.id,
-					permissionId: permission.id
-				}
+				organizationId_name: { organizationId: org.id, name: 'admin' }
 			},
 			update: {},
 			create: {
-				roleId: superAdminRole.id,
-				permissionId: permission.id,
-				config: {}
+				organizationId: org.id,
+				name: 'admin',
+				label: 'Administrator',
+				description: 'Manages the organization, users, and roles.',
+				scope: RoleScope.TENANT
 			}
 		})
-		console.log(
-			`Permission '${permission.key}' assigned to role '${superAdminRole.name}'`
-		)
-	}
 
-	// Assign specific permissions to the "Viewer" role
-	const viewerPermissionKeys: string[] = [
-		'auth.login',
-		'user.read',
-		'dashboard.view'
-	]
-	for (const key of viewerPermissionKeys) {
-		const permission: Permission = byKey(key) // Using the helper for safer access
-		await prisma.rolePermission.upsert({
+		const editorRole = await prisma.role.upsert({
 			where: {
-				roleId_permissionId: {
-					roleId: viewerRole.id,
-					permissionId: permission.id
-				}
+				organizationId_name: { organizationId: org.id, name: 'editor' }
 			},
 			update: {},
-			create: { roleId: viewerRole.id, permissionId: permission.id, config: {} }
+			create: {
+				organizationId: org.id,
+				name: 'editor',
+				label: 'Editor',
+				description: 'Can create and manage content.',
+				scope: RoleScope.TENANT
+			}
 		})
-		console.log(
-			`Permission '${permission.key}' assigned to role '${viewerRole.name}'`
-		)
+
+		const viewerRole = await prisma.role.upsert({
+			where: {
+				organizationId_name: { organizationId: org.id, name: 'viewer' }
+			},
+			update: {},
+			create: {
+				organizationId: org.id,
+				name: 'viewer',
+				label: 'Viewer',
+				description: 'Has read-only access to content.',
+				scope: RoleScope.TENANT
+			}
+		})
+
+		tenantRoles[org.id] = {
+			admin: adminRole,
+			editor: editorRole,
+			viewer: viewerRole
+		}
+		console.log(`Roles created for organization: ${org.name}`)
 	}
 
-	// Create an initial admin user
-	const adminPasswordHash: string = await hash('password')
-	const adminUser: User = await prisma.user.upsert({
-		where: { email: 'admin@example.com' },
+	// --- ASSIGN PERMISSIONS TO ROLES ---
+	console.log('\n--- Assigning Permissions to Roles ---')
+
+	// Super Admin gets all permissions
+	await prisma.rolePermission.createMany({
+		data: createdPermissions.map(p => ({
+			roleId: superAdminRole.id,
+			permissionId: p.id
+		})),
+		skipDuplicates: true
+	})
+	console.log(`All permissions assigned to role: ${superAdminRole.name}`)
+
+	// Assign permissions for tenant roles (example setup)
+	const adminPermissions = ['user.create', 'user.read', 'user.update']
+	const editorPermissions = ['user.read']
+	const viewerPermissions = ['dashboard.view']
+
+	for (const org of [tenantOrg1, tenantOrg2]) {
+		const roles = tenantRoles[org.id]
+
+		await prisma.rolePermission.createMany({
+			data: adminPermissions.map(key => ({
+				roleId: roles.admin.id,
+				permissionId: byKey(key).id
+			})),
+			skipDuplicates: true
+		})
+		await prisma.rolePermission.createMany({
+			data: editorPermissions.map(key => ({
+				roleId: roles.editor.id,
+				permissionId: byKey(key).id
+			})),
+			skipDuplicates: true
+		})
+		await prisma.rolePermission.createMany({
+			data: viewerPermissions.map(key => ({
+				roleId: roles.viewer.id,
+				permissionId: byKey(key).id
+			})),
+			skipDuplicates: true
+		})
+		console.log(`Permissions assigned for roles in: ${org.name}`)
+	}
+
+	// --- CREATE USERS ---
+	console.log('\n--- Creating Users ---')
+	const password = await hash('password')
+
+	// System User
+	await prisma.user.upsert({
+		where: { email: 'superadmin@system.io' },
 		update: {
-			passwordHash: adminPasswordHash,
-			name: 'Admin',
-			surname: 'Default',
-			organizationId: organization.id,
-			roleId: superAdminRole.id
+			passwordHash: password
 		},
 		create: {
-			name: 'Admin',
-			surname: 'Default',
-			email: 'admin@example.com',
-			passwordHash: adminPasswordHash,
-			organizationId: organization.id,
-			roleId: superAdminRole.id,
-			active: true,
-			config: { defaultLanguage: 'en' }
+			name: 'Super',
+			surname: 'Admin',
+			email: 'superadmin@system.io',
+			passwordHash: password,
+			organizationId: systemOrganization.id,
+			roleId: superAdminRole.id
 		}
 	})
 	console.log(
-		`Initial admin user created/updated: ${adminUser.email} (ID: ${adminUser.id})`
+		`System user created: superadmin@system.io (Role: ${superAdminRole.name})`
 	)
 
-	// Enable modules for the admin user
-	for (const module of createdModules) {
-		await prisma.userModule.upsert({
-			where: { userId_moduleId: { userId: adminUser.id, moduleId: module.id } },
-			update: { enabled: true },
-			create: { userId: adminUser.id, moduleId: module.id, enabled: true }
+	// Tenant Users
+	for (const org of [tenantOrg1, tenantOrg2]) {
+		const roles = tenantRoles[org.id]
+		const orgSuffix = org.name.split(' ')[0].toLowerCase()
+
+		await prisma.user.upsert({
+			where: { email: `admin@${orgSuffix}.com` },
+			update: {},
+			create: {
+				name: 'Org Admin',
+				email: `admin@${orgSuffix}.com`,
+				passwordHash: password,
+				organizationId: org.id,
+				roleId: roles.admin.id
+			}
 		})
-		console.log(`Module '${module.key}' enabled for user '${adminUser.email}'`)
+		console.log(
+			`Admin user created for ${org.name}: admin@${orgSuffix}.com (Role: ${roles.admin.name})`
+		)
+		await prisma.user.upsert({
+			where: { email: `editor@${orgSuffix}.com` },
+			update: {},
+			create: {
+				name: 'Org Editor',
+				email: `editor@${orgSuffix}.com`,
+				passwordHash: password,
+				organizationId: org.id,
+				roleId: roles.editor.id
+			}
+		})
+		console.log(
+			`Editor user created for ${org.name}: editor@${orgSuffix}.com (Role: ${roles.editor.name})`
+		)
+		await prisma.user.upsert({
+			where: { email: `viewer@${orgSuffix}.com` },
+			update: {},
+			create: {
+				name: 'Org Viewer',
+				email: `viewer@${orgSuffix}.com`,
+				passwordHash: password,
+				organizationId: org.id,
+				roleId: roles.viewer.id
+			}
+		})
+		console.log(
+			`Viewer user created for ${org.name}: viewer@${orgSuffix}.com (Role: ${roles.viewer.name})`
+		)
 	}
 
 	console.log('Database seeding completed. ✅')

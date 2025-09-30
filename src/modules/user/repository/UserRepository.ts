@@ -146,13 +146,98 @@ export class UserRepository implements UserRepositoryInterface {
 	/**
 	 * Finds a user by id.
 	 * @param id - The ID of the user.
+	 * @param organizationId - The ID of the organization to scope the search.
 	 * @returns {Promise<User | null>}
 	 */
-	async findById(id: string): Promise<User | null> {
+	async findById(id: string, organizationId?: string): Promise<User | null> {
 		const prismaUser = await this.db.user.findUnique({
-			where: { id }
+			where: {
+				id,
+				deletedAt: null, // Only retrieve active users
+				organizationId: organizationId || undefined
+			}
 		})
 		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
+	}
+
+	/**
+	 * Creates a new user.
+	 * @param data - The data for the new user.
+	 * @returns {Promise<User>} The created user entity.
+	 */
+	async create(data: UserCreateInput): Promise<User> {
+		const { organizationId, roleId, ...restData } = data
+
+		const prismaUser = await this.db.user.create({
+			data: {
+				...restData,
+				organization: {
+					connect: { id: organizationId }
+				},
+				role: {
+					connect: { id: roleId }
+				}
+			}
+		})
+		return this.mapPrismaUserToDomain(prismaUser)
+	}
+
+	/**
+	 * Updates an existing user.
+	 * @param id - The ID of the user to update.
+	 * @param data - The partial data to update.
+	 * @returns {Promise<User | null>} The updated user entity or null if not found.
+	 */
+	async update(
+		id: string,
+		data: UserUpdateInput,
+		organizationId?: string
+	): Promise<User | null> {
+		const whereClause: Prisma.UserWhereUniqueInput = { id }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+
+		const prismaUser = await this.db.user.update({
+			where: whereClause,
+			data: data as Prisma.UserUpdateInput
+		})
+		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
+	}
+
+	/**
+	 * Deletes a user by ID. (soft delete)
+	 * @param id - The ID of the user to delete.
+	 * @returns {Promise<boolean>} True if the user was marked as deleted.
+	 */
+	async delete(id: string, organizationId?: string): Promise<boolean> {
+		const whereClause: Prisma.UserWhereUniqueInput = { id }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+
+		const user = await this.db.user.update({
+			where: whereClause,
+			data: { deletedAt: new Date() },
+			select: { id: true }
+		})
+		return !!user
+	}
+
+	/**
+	 * Retrieves all active users (where `deletedAt` is null).
+	 * @returns {Promise<User[]>} An array of user entities.
+	 */
+	async findAll(organizationId?: string): Promise<User[]> {
+		const whereClause: Prisma.UserWhereInput = { deletedAt: null }
+		if (organizationId) {
+			whereClause.organizationId = organizationId
+		}
+
+		const prismaUsers = await this.db.user.findMany({
+			where: whereClause
+		})
+		return prismaUsers.map(this.mapPrismaUserToDomain)
 	}
 
 	/**
@@ -200,60 +285,5 @@ export class UserRepository implements UserRepositoryInterface {
 			}
 		})
 		return user ? { ...this.mapPrismaUserStatusToDomain(user) } : null
-	}
-
-	/**
-	 * Creates a new user.
-	 * @param data - The data for the new user.
-	 * @returns {Promise<User>} The created user entity.
-	 */
-	async create(data: UserCreateInput): Promise<User> {
-		const prismaUser = await this.db.user.create({
-			data: {
-				...data
-			} as Prisma.UserCreateInput
-		})
-		return this.mapPrismaUserToDomain(prismaUser)
-	}
-
-	/**
-	 * Updates an existing user.
-	 * @param id - The ID of the user to update.
-	 * @param data - The partial data to update.
-	 * @returns {Promise<User | null>} The updated user entity or null if not found.
-	 */
-	async update(id: string, data: UserUpdateInput): Promise<User | null> {
-		const prismaUser = await this.db.user.update({
-			where: { id },
-			data: data as Prisma.UserUpdateInput
-		})
-		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
-	}
-
-	/**
-	 * Deletes a user by ID. (soft delete)
-	 * @param id - The ID of the user to delete.
-	 * @returns {Promise<boolean>} True if the user was marked as deleted.
-	 */
-	async delete(id: string): Promise<boolean> {
-		const user = await this.db.user.update({
-			where: { id },
-			data: { deletedAt: new Date() },
-			select: { id: true }
-		})
-		return !!user
-	}
-
-	/**
-	 * Retrieves all active users (where `deletedAt` is null).
-	 * @returns {Promise<User[]>} An array of user entities.
-	 */
-	async findAll(): Promise<User[]> {
-		const prismaUsers = await this.db.user.findMany({
-			where: {
-				deletedAt: null
-			}
-		})
-		return prismaUsers.map(this.mapPrismaUserToDomain)
 	}
 }

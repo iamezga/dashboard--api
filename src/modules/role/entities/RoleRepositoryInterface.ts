@@ -13,18 +13,19 @@ import {
  */
 export interface RoleRepositoryInterface
 	extends RepositoryInterface<Role, RoleCreateInput, RoleUpdateInput> {
-	create(data: RoleCreateInput): Promise<Role>
-	update(id: string, data: RoleUpdateInput): Promise<Role | null>
-	delete(id: string): Promise<boolean>
-	findByName(name: string, organizationId: string | null): Promise<Role | null>
-	findById(id: string): Promise<Role | null>
-	findByIdWithPermissions(id: string): Promise<RoleWithPermissions | null>
+	findByIdWithPermissions(
+		id: string,
+		organizationId?: string
+	): Promise<RoleWithPermissions | null>
+	findByName(name: string, organizationId: string): Promise<Role | null>
 	assignPermissionsToRole(
 		roleId: string,
-		permissionIds: string[]
+		permissionIds: string[],
+		organizationId?: string
 	): Promise<void>
 	removePermissionsFromRole(
 		roleId: string,
-		permissionIds: string[]
+		permissionIds: string[],
+		organizationId?: string
 	): Promise<void>
 }

@@ -8,9 +8,13 @@ import { DependencyContainer } from '@/core/dependencyContainer'
  */
 export interface RepositoryInterface<T, CreateInput, UpdateInput> {
 	setContext(container: DependencyContainer): void
-	findById(id: string | number): Promise<T | null>
+	findById(id: string, organizationId?: string): Promise<T | null>
 	create(data: CreateInput): Promise<T>
-	update(id: string | number, data: UpdateInput): Promise<T | null>
-	delete(id: string | number): Promise<boolean>
-	findAll(): Promise<T[]>
+	update(
+		id: string,
+		data: UpdateInput,
+		organizationId?: string
+	): Promise<T | null>
+	delete(id: string, organizationId?: string): Promise<boolean>
+	findAll(organizationId?: string): Promise<T[]>
 }

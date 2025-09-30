@@ -8,18 +8,30 @@ datasource db {
 }
 
 enum PermissionScope {
+  SYSTEM
   GLOBAL
   ORGANIZATION
   MODULE
   USER
 }
 
+enum OrganizationScope {
+  TENANT
+  SYSTEM
+}
+
+enum RoleScope {
+  TENANT
+  SYSTEM
+}
+
 model Organization {
-  id      String  @id @default(uuid()) @db.Uuid
+  id      String            @id @default(uuid()) @db.Uuid
   name    String
   email   String?
   phone   String?
   address String?
+  scope   OrganizationScope @default(TENANT)
 
   users User[]
   roles Role[]
@@ -27,6 +39,8 @@ model Organization {
   createdAt DateTime  @default(now()) @db.Timestamptz
   updatedAt DateTime  @updatedAt @db.Timestamptz
   deletedAt DateTime? @db.Timestamptz
+
+  @@index([scope])
 }
 
 model Module {
@@ -63,15 +77,16 @@ model Permission {
 }
 
 model Role {
-  id             String        @id @default(uuid()) @db.Uuid
-  organizationId String?       @db.Uuid
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
   name           String
   label          String
   description    String?
-  config         Json          @default("{}")
-  active         Boolean       @default(true)
+  scope          RoleScope @default(TENANT)
+  config         Json      @default("{}")
+  active         Boolean   @default(true)
 
+  organization    Organization     @relation(fields: [organizationId], references: [id])
   rolePermissions RolePermission[]
   users           User[]
 
@@ -80,6 +95,7 @@ model Role {
   deletedAt DateTime? @db.Timestamptz
 
   @@unique([organizationId, name])
+  @@index([scope])
 }
 
 model RolePermission {
@@ -111,8 +127,8 @@ model User {
   roleId         String    @db.Uuid
   config         Json      @default("{}")
 
-  organization    Organization?    @relation(fields: [organizationId], references: [id])
-  role            Role?            @relation(fields: [roleId], references: [id])
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  role            Role             @relation(fields: [roleId], references: [id])
   userPermissions UserPermission[]
   modules         UserModule[]
 

@@ -74,10 +74,14 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			])
 		}
 
+		// The context for validation is the organization of the user being created,
+		// or the organization of the user making the request if not specified.
+		const validationOrgId = organizationId || job.getUser().organizationId
+
 		// Validate if the roleId exists
 		const role = await this.container.repositoryManager
 			.get('role')
-			.findById(roleId)
+			.findById(roleId, validationOrgId)
 		if (!role || !role.active) {
 			throw new BadRequestError('Invalid Role', [
 				{
@@ -90,7 +94,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 
 		const organization = await this.container.repositoryManager
 			.get('organization')
-			.findById(organizationId)
+			.findById(validationOrgId)
 		if (!organization) {
 			throw new BadRequestError('Invalid Organization', [
 				{
@@ -110,7 +114,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			email,
 			passwordHash,
 			roleId,
-			organizationId,
+			organizationId: validationOrgId,
 			active: rest.active ?? true, // Default to active if not provided
 			config: rest.config ?? {} // Default to empty object if not provided
 		}

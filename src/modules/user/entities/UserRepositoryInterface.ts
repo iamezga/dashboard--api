@@ -4,10 +4,6 @@ import { User, UserCreateInput, UserStatus, UserUpdateInput } from './User'
 
 export interface UserRepositoryInterface
 	extends RepositoryInterface<User, UserCreateInput, UserUpdateInput> {
-	findById(id: string): Promise<User | null>
-	create(data: UserCreateInput): Promise<User>
-	update(id: string, data: UserUpdateInput): Promise<User | null>
-	delete(id: string): Promise<boolean>
 	findByEmail(email: string): Promise<User | null>
 	findUserAuthDetailsByEmail(email: string): Promise<UserAuthDetails | null>
 	findStatusById(id: string): Promise<UserStatus | null>

@@ -20,7 +20,11 @@ This template is built around a set of modern engineering principles to ensure t
 
 - **Role-Based Access Control (RBAC)**: Features a built-in RBAC system. Permissions are defined and assigned to roles. Users are then assigned a role, granting them a specific set of capabilities. The `permissionMiddleware` automatically enforces these rules for protected routes.
 
-- **Multi-Tenancy Ready**: Designed with multi-tenancy in mind. Key database models like `User` and `Role` include an `organizationId`, providing a clear path to extend the application to support multiple tenants with data isolation, though it currently operates in a single-tenant mode.
+- **True Multi-Tenancy Architecture**: The system is built from the ground up as a multi-tenant application with a strict, closed data isolation model.
+
+  - **Data Scoping**: Every tenant-specific resource, such as `Users` and `Roles`, is mandatorily tied to an `organizationId`, ensuring structural data isolation at the database level.
+  - **System-Level Entities**: A special `System Organization` exists to house platform-level users (like `superAdmin`) and system-wide roles. This is managed through a `scope` field (`SYSTEM` vs. `TENANT`) on `Organization` and `Role` models, allowing for clear separation between platform administration and tenant data.
+  - **Secure Repositories**: The data access layer (Repositories) enforces tenancy by automatically filtering queries by `organizationId`. This prevents any possibility of data leakage between tenants.
 
 - **Flexible Background Job System**: Features a powerful background job system powered by BullMQ. The worker acts as a generic job router, processing different types of tasks (e.g., `useCase` executions, custom `jobScripts`) based on a `jobType` property in the job payload. This decouples the job dispatching logic from the execution logic, making the system highly extensible.
 
@@ -115,6 +119,7 @@ Get your local environment up and running in minutes.
 
 5.  **Seed the database (Optional):**
     If you have seed scripts, run them to populate your database with initial data.
+    This template includes a comprehensive seed script that sets up the system organization, a superAdmin, and example tenants.
 
     ```sh
     npx ts-node <path_to_your_seed_script.ts>

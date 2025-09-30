@@ -68,7 +68,13 @@ describe('UserRepository', () => {
 
 		const result = await repository.findById('1')
 
-		expect(dbMock.user.findUnique).toHaveBeenCalledWith({ where: { id: '1' } })
+		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
+			where: {
+				id: '1',
+				deletedAt: null,
+				organizationId: undefined
+			}
+		})
 		expect(result).toMatchObject({
 			id: '1',
 			email: 'john@example.com',
@@ -195,7 +201,18 @@ describe('UserRepository', () => {
 
 		const result = await repository.create(input)
 
-		expect(dbMock.user.create).toHaveBeenCalledWith({ data: input })
+		expect(dbMock.user.create).toHaveBeenCalledWith({
+			data: {
+				name: 'Alice',
+				surname: 'Smith',
+				email: 'alice@example.com',
+				active: true,
+				config: {},
+				passwordHash: 'pass',
+				organization: { connect: { id: 'org1' } },
+				role: { connect: { id: 'role2' } }
+			}
+		})
 		expect(result.id).toBe('2')
 	})
 
@@ -214,6 +231,21 @@ describe('UserRepository', () => {
 		expect(result?.name).toBe('Alice Updated')
 	})
 
+	it('should update a user with organizationId', async () => {
+		const updateData: UserUpdateInput = { name: 'Alice Updated' }
+		const prismaUser = { id: '2', ...updateData, organizationId: 'org-test' }
+
+		dbMock.user.update.mockResolvedValue(prismaUser)
+
+		const result = await repository.update('2', updateData, 'org-test')
+
+		expect(dbMock.user.update).toHaveBeenCalledWith({
+			where: { id: '2', organizationId: 'org-test' },
+			data: updateData
+		})
+		expect(result?.name).toBe('Alice Updated')
+	})
+
 	it('should return null when update does not find a user', async () => {
 		dbMock.user.update.mockResolvedValue(null)
 		const result = await repository.update('missing', { name: 'X' })
@@ -225,6 +257,17 @@ describe('UserRepository', () => {
 		const result = await repository.delete('2')
 		expect(dbMock.user.update).toHaveBeenCalledWith({
 			where: { id: '2' },
+			data: { deletedAt: expect.any(Date) },
+			select: { id: true }
+		})
+		expect(result).toBe(true)
+	})
+
+	it('should delete a user with organizationId', async () => {
+		dbMock.user.update.mockResolvedValue({ id: '2' })
+		const result = await repository.delete('2', 'org-test')
+		expect(dbMock.user.update).toHaveBeenCalledWith({
+			where: { id: '2', organizationId: 'org-test' },
 			data: { deletedAt: expect.any(Date) },
 			select: { id: true }
 		})
@@ -262,6 +305,36 @@ describe('UserRepository', () => {
 
 		expect(dbMock.user.findMany).toHaveBeenCalledWith({
 			where: { deletedAt: null }
+		})
+		expect(result).toHaveLength(1)
+		expect(result[0].id).toBe('1')
+	})
+
+	it('should find all active users for a specific organization', async () => {
+		const prismaUsers: PrismaUserModel[] = [
+			{
+				id: '1',
+				organizationId: 'org-test',
+				name: 'John',
+				surname: 'Doe',
+				email: 'john@example.com',
+				roleId: 'role1',
+				active: true,
+				lastLogin: new Date(),
+				config: {},
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				passwordHash: 'hash'
+			} as any
+		]
+
+		dbMock.user.findMany.mockResolvedValue(prismaUsers)
+
+		const result = await repository.findAll('org-test')
+
+		expect(dbMock.user.findMany).toHaveBeenCalledWith({
+			where: { deletedAt: null, organizationId: 'org-test' }
 		})
 		expect(result).toHaveLength(1)
 		expect(result[0].id).toBe('1')

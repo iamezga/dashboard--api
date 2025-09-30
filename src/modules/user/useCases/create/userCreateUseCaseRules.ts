@@ -29,7 +29,8 @@ export const userCreateUseCaseRules: UseCaseRules = {
 			min: 8 // TODO define rules
 		},
 		organizationId: {
-			type: 'string'
+			type: 'string',
+			optional: true
 		},
 		roleId: {
 			type: 'uuid'

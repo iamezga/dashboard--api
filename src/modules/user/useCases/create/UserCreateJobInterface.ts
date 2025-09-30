@@ -11,7 +11,7 @@ export interface UserCreateJobInterface extends JobInterface {
 	 * @returns {UserCreateInput} The user data required to create a new user.
 	 */
 	getData(): {
-		organizationId: string
+		organizationId?: string
 		name: string
 		surname?: string | null
 		email: string
