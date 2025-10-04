@@ -1,6 +1,6 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCaseJobPayload } from '@/types/jobScript/JobPayload'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
@@ -132,6 +132,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			jobType: 'useCase',
 			useCaseName: 'UserSendWelcomeEmailUseCase',
 			jobData: {
+				id: job.getId(),
 				payload: job.getData(),
 				meta: job.getMeta(),
 				user: job.getPublicUser() ? job.getUser() : undefined

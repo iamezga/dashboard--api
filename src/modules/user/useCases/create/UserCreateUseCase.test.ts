@@ -1,6 +1,6 @@
 import { Logger } from 'pino'
-import { DependencyContainer } from '../../../../core/dependencyContainer'
 import { BadRequestError } from '../../../../errors'
+import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { JobInterface } from '../../../../types/job/JobInterface'
 import { Permission } from '../../../permission/entities/Permission'
 import { AuthenticatedUser } from '../../../user/entities/User'

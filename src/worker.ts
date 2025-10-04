@@ -71,7 +71,8 @@ async function main() {
 						const { useCaseName, jobData } = jobPayload
 						try {
 							const appJob = new AppJob({
-								id: job.id || 'unknown-job-id',
+								// Use the propagated correlation ID
+								id: jobData.id || job.id || 'unknown-job-id',
 								attempts: job.attemptsMade,
 								data: jobData.payload,
 								meta: jobData.meta as JobMetaInterface,

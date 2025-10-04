@@ -9,6 +9,7 @@ export interface UseCaseJobPayload {
 	jobType: 'useCase'
 	useCaseName: UseCaseKeys
 	jobData: {
+		id: string
 		payload: Record<string, any>
 		meta: Record<string, any>
 		user?: AuthenticatedUser

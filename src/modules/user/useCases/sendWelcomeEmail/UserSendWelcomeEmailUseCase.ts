@@ -1,22 +1,25 @@
 import { UseCase } from '@/lib/UseCase'
-import { JobInterface } from '@/types/job/JobInterface'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
+import { UserSendWelcomeEmailJobInterface } from './UserSendWelcomeEmailJobInterface'
 
-export class UserSendWelcomeEmailUseCase extends UseCase<JobInterface> {
+export class UserSendWelcomeEmailUseCase extends UseCase<UserSendWelcomeEmailJobInterface> {
 	// This is an internal use case and does not require external permissions.
-	async run(job: JobInterface): Promise<UseCaseResponseInterface> {
+	async run(
+		job: UserSendWelcomeEmailJobInterface
+	): Promise<UseCaseResponseInterface> {
 		const { email, name } = job.getData()
-		job.logger.info(`Simulating sending welcome email to ${email} (${name})`)
 
-		// TODO: Implement actual email sending logic using an email service.
-		// Simulating a 2-second task.
-		await new Promise(resolve => setTimeout(resolve, 2000))
-
-		job.logger.info(`Welcome email sent to ${email}`)
+		job.logger.info(`Sending welcome email to ${email}`)
+		await this.container.services.emailService.send({
+			to: email,
+			subject: 'Welcome to Our Platform!',
+			templateId: 'user-welcome',
+			data: { name }
+		})
 
 		return {
 			data: { sent: true },
-			metadata: { message: 'Welcome email sent.' }
+			metadata: { message: `Welcome email dispatched to ${email}.` }
 		}
 	}
 }
