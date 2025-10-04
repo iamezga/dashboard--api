@@ -1,6 +1,6 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { Collection } from 'mongodb'
 import { Logger } from 'pino'
 import { Audit, AuditInput } from '../entities/Audit'

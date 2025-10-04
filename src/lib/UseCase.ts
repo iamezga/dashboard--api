@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCaseInterface } from '@/types/useCase/UseCaseInterface'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'

@@ -1,6 +1,6 @@
 import { Logger } from 'pino'
-import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
+import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import {
 	Organization,
 	OrganizationCreateInput,

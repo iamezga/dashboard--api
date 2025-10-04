@@ -3,7 +3,7 @@ import {
 	databaseManager
 } from '@/infrastructure/databaseManager'
 import { repositories, RepositoryMap } from '@/modules/repositories'
-import { DependencyContainer } from './dependencyContainer'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 
 export interface RepositoryManager {
 	get<K extends keyof RepositoryMap>(name: K): RepositoryMap[K]

@@ -1,6 +1,6 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { randomUUID } from 'node:crypto'
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'

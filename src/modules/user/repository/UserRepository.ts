@@ -1,9 +1,9 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
 import { RepositoryManager } from '@/core/repositoryManager'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { Prisma, User as PrismaUserModel } from '@prisma/client'
 import { Logger } from 'pino'
 import {

@@ -1,5 +1,6 @@
-import { DependencyContainer, getContainer } from '@/core/dependencyContainer'
+import { getContainer } from '@/core/dependencyContainer'
 import { UseCaseKeys, useCases } from '@/modules'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { UseCaseInterface } from '@/types/useCase/UseCaseInterface'
 
 type UseCaseClass = new (

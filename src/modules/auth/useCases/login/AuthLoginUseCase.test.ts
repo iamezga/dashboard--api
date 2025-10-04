@@ -1,5 +1,5 @@
-import { DependencyContainer } from '../../../../core/dependencyContainer'
 import { BadRequestError, UnauthorizedError } from '../../../../errors'
+import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 import { AuthLoginUseCase } from './AuthLoginUseCase'
 

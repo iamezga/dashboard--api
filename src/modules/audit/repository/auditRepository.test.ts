@@ -1,7 +1,7 @@
 import { Collection } from 'mongodb'
 import { Logger } from 'pino'
-import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
+import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { Audit, AuditInput } from '../entities/Audit'
 import { AuditRepository } from '../repository/AuditRepository'
 

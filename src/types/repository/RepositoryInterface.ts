@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 
 /**
  * Base interface for all repositories.

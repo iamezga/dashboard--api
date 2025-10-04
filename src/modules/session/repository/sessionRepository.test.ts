@@ -1,7 +1,7 @@
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
-import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
+import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { SessionUser } from '../entities/Session'
 import { SessionRepository } from '../repository/SessionRepository'
 

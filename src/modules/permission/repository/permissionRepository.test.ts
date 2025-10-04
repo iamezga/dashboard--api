@@ -1,8 +1,8 @@
 import { Permission as PrismaPermissionModel } from '@prisma/client'
 import { Logger } from 'pino'
-import { DependencyContainer } from '../../../core/dependencyContainer'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { DatabaseClientsMap } from '../../../infrastructure/databaseManager'
+import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import {
 	Permission,
 	PermissionCreateInput,

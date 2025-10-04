@@ -1,5 +1,6 @@
-import { DependencyContainer, getContainer } from '../core/dependencyContainer'
+import { getContainer } from '../core/dependencyContainer'
 import { useCaseFactory } from '../core/useCaseFactory'
+import { DependencyContainer } from '../types/core/dependencyContainer'
 import { JobInterface } from '../types/job/JobInterface'
 import { UseCaseInterface } from '../types/useCase/UseCaseInterface'
 

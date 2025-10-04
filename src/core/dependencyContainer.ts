@@ -2,41 +2,20 @@ import {
 	getRepositoryManager,
 	RepositoryManager
 } from '@/core/repositoryManager'
-import {
-	DatabaseManager,
-	databaseManager
-} from '@/infrastructure/databaseManager'
+import { databaseManager } from '@/infrastructure/databaseManager'
 import { AuditService } from '@/services/auditService'
-import { config, Config } from '@/services/config'
-import { dayjs, Dayjs } from '@/services/dayjs'
+import { config } from '@/services/config'
+import { dayjs } from '@/services/dayjs'
 import { JobService } from '@/services/jobService'
+import { LogEmailService } from '@/services/LogEmailService'
 import logger from '@/services/logger'
-import { ValidationService, validator } from '@/services/validationService'
-import { UtilityMap, utils } from '@/utils'
+import { validator } from '@/services/validationService'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
+import { utils } from '@/utils'
 import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
-import { Logger } from 'pino'
 import { queueManager } from '../infrastructure/queueManager'
-
-export interface DependencyContainer {
-	config: Config
-	validator: ValidationService
-	logger: Logger
-	databaseManager: DatabaseManager
-	repositoryManager: RepositoryManager
-	services: {
-		auditService: AuditService
-		jobService: JobService
-	}
-	libs: {
-		dayjs: Dayjs
-		argon2: typeof argon2
-		jwt: typeof jwt
-		ms: typeof ms
-	}
-	utils: UtilityMap
-}
 
 let dependencyContainer: DependencyContainer | null = null
 let repositoryManager: RepositoryManager | null = null
@@ -55,7 +34,14 @@ export const getContainer = (): DependencyContainer => {
 	const services = {
 		dayjs,
 		auditService: new AuditService(repositoryManager.get('audit')),
-		jobService: new JobService(queueManager)
+		jobService: new JobService(queueManager),
+		emailService: new LogEmailService()
+	}
+
+	if (config.get('env') === 'production') {
+		// services.emailService = new [Some]EmailService() // TODO: Implement [Some]EmailService for production
+	} else {
+		services.emailService = new LogEmailService()
 	}
 
 	dependencyContainer = {
@@ -70,6 +56,7 @@ export const getContainer = (): DependencyContainer => {
 	}
 
 	repositoryManager.setContext(dependencyContainer)
+	services.emailService.setContext(dependencyContainer)
 
 	return dependencyContainer
 }

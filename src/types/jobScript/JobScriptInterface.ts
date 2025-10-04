@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/core/dependencyContainer'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { Logger } from 'pino'
 
 export type JobScriptPayload = Record<string, any>
