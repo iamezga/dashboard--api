@@ -1,6 +1,5 @@
 import { TooManyRequestsError } from '@/errors'
 import { databaseManager } from '@/infrastructure/databaseManager'
-import { Job } from '@/lib/Job'
 import { NextFunction, Request, Response } from 'express'
 import { RateLimiterRedis } from 'rate-limiter-flexible'
 
@@ -26,7 +25,7 @@ export const rateLimiterMiddleware = (
 			useRedisPackage: true
 		})
 		try {
-			const job = res.locals.job as Job
+			const { job } = res.locals
 
 			if (!job) {
 				throw new Error(

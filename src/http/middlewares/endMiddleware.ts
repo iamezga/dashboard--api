@@ -1,4 +1,3 @@
-import { Job } from '@/lib/Job'
 import { NextFunction, Request, Response } from 'express'
 import { Logger } from 'pino'
 
@@ -12,7 +11,7 @@ export const endMiddleware = (
 	next: NextFunction
 ) => {
 	try {
-		const job = res.locals.job as Job
+		const { job } = res.locals
 		if (!job) {
 			// If the job is missing, we can't log anything meaningful.
 			return next()

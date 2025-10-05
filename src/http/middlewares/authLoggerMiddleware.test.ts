@@ -29,11 +29,11 @@ describe('authLoggerMiddleware', () => {
 
 		res = {
 			locals: { job }
-		}
+		} as Partial<Response>
 	})
 
 	it('should throw UnauthorizedError if job is missing', () => {
-		res = { locals: {} }
+		res = { locals: {} } as Partial<Response>
 
 		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
 

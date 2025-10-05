@@ -49,7 +49,7 @@ describe('authMiddleware', () => {
 
 	it('should call next with error when requestData or job is missing', async () => {
 		req.requestData = undefined
-		res.locals = {}
+		res.locals = {} as any
 
 		await authMiddleware(req as Request, res as Response, next)
 

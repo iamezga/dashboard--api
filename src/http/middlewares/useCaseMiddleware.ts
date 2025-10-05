@@ -1,7 +1,6 @@
 import { useCaseFactory } from '@/core/useCaseFactory'
 import { UseCaseKeys } from '@/modules' // Objeto que contiene las clases de los casos de uso
-import { JobInterface } from '@/types/job/JobInterface'
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, RequestHandler, Response } from 'express'
 
 /**
  * @function useCaseMiddleware
@@ -15,10 +14,10 @@ import { NextFunction, Request, Response } from 'express'
  * @param {UseCaseKeys} useCaseName - The name of the use case to execute (e.g., 'UserCreateUseCase').
  * @returns {RequestHandler} An Express middleware function.
  */
-export const useCaseMiddleware = (useCaseName: UseCaseKeys) => {
+export const useCaseMiddleware = (useCaseName: UseCaseKeys): RequestHandler => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
-			const job = res.locals.job as JobInterface
+			const { job } = res.locals
 
 			if (!job) {
 				return next(

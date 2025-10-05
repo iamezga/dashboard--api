@@ -6,7 +6,6 @@ import {
 	UnauthorizedError
 } from '@/errors'
 import { TooManyRequestsError } from '@/errors/TooManyRequestsError'
-import { Job } from '@/lib/Job'
 import { config } from '@/services/config'
 import logger from '@/services/logger'
 import * as Sentry from '@sentry/node'
@@ -48,7 +47,7 @@ export const errorMiddleware = async (
 	res: Response,
 	_next: NextFunction
 ) => {
-	const job = res.locals.job as Job | undefined
+	const { job } = res.locals
 	const errorId = randomUUID()
 
 	let statusCode: HttpStatusCode = HttpStatusCode.INTERNAL_SERVER_ERROR

@@ -27,7 +27,7 @@ describe('endMiddleware', () => {
 			locals: { job },
 			statusCode: 200,
 			statusMessage: 'OK'
-		}
+		} as Partial<Response>
 	})
 
 	it('should call next() if job is missing', () => {

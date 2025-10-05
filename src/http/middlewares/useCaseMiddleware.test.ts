@@ -38,7 +38,7 @@ describe('useCaseMiddleware', () => {
 
 	it('should call next with error if no job is in res.locals', async () => {
 		const middleware = useCaseMiddleware('TestUseCase' as any)
-		res.locals!.job = undefined
+		res.locals!.job = undefined as any
 
 		await middleware(req as Request, res as Response, next)
 

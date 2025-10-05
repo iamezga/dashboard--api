@@ -1,6 +1,5 @@
 import { getContainer } from '@/core/dependencyContainer'
 import { UnauthorizedError } from '@/errors'
-import { Job } from '@/lib/Job'
 import { DecodedUserToken } from '@/modules/auth/entities/AuthDataTypes'
 import { SessionRepositoryInterface } from '@/modules/session'
 import { SessionData, SessionUser } from '@/modules/session/entities/Session'
@@ -24,9 +23,9 @@ export const authMiddleware = async (
 	next: NextFunction
 ): Promise<void> => {
 	try {
-		const job = res.locals.job as Job
+		const { job } = res.locals
 
-		if (!req.requestData || !res.locals.job) {
+		if (!req.requestData || !job) {
 			throw new Error(
 				'`requestDataMiddleware` and `jobMiddleware` must run before `authMiddleware`'
 			)

@@ -1,6 +1,5 @@
 import { getContainer } from '@/core/dependencyContainer'
 import { UnauthorizedError } from '@/errors'
-import { Job } from '@/lib/Job'
 import { useCases } from '@/modules'
 import { validator } from '@/services/validationService'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
@@ -19,7 +18,7 @@ export const permissionMiddleware = (
 ): RequestHandler => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
-			const job = res.locals.job as Job
+			const { job } = res.locals
 			const useCaseClass = useCases[useCaseName]
 
 			if (!job) {

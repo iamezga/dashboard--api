@@ -1,5 +1,4 @@
 import { UnauthorizedError } from '@/errors'
-import { Job } from '@/lib/Job'
 import { NextFunction, Request, Response } from 'express'
 import { Logger } from 'pino'
 
@@ -13,7 +12,7 @@ export const authLoggerMiddleware = (
 	next: NextFunction
 ) => {
 	try {
-		const job = res.locals.job as Job
+		const { job } = res.locals
 		if (!job) {
 			throw new UnauthorizedError('Authentication failed: missing job object.')
 		}

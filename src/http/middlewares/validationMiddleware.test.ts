@@ -39,7 +39,7 @@ describe('validationMiddleware', () => {
 		}
 
 		mockReq = {}
-		mockRes = { locals: {} }
+		mockRes = { locals: {} } as Partial<Response>
 		mockNext = jest.fn()
 	})
 

@@ -1,5 +1,4 @@
 import { BadRequestError, UnauthorizedError } from '@/errors'
-import { Job } from '@/lib/Job'
 import { rules } from '@/modules'
 import { validator } from '@/services/validationService'
 import { NextFunction, Request, Response } from 'express'
@@ -11,7 +10,7 @@ import { NextFunction, Request, Response } from 'express'
 export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 	return async (_req: Request, res: Response, next: NextFunction) => {
 		try {
-			const job = res.locals.job as Job
+			const { job } = res.locals
 			if (!job) {
 				throw new Error(
 					'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'

@@ -16,6 +16,7 @@ const makeJob = (
 	} = {}
 ) =>
 	({
+		getId: () => 'job-id',
 		getData: () => data,
 		getMeta: () => ({ ip: '127.0.0.1' }),
 		getAttempts: () => options.attempts ?? 1,
@@ -245,6 +246,7 @@ describe('UserCreateUseCase', () => {
 			jobType: 'useCase',
 			useCaseName: 'UserSendWelcomeEmailUseCase',
 			jobData: {
+				id: 'job-id',
 				payload: job.getData(),
 				meta: expect.any(Object),
 				user: expect.objectContaining({ id: 'user-id' })
@@ -326,6 +328,7 @@ describe('UserCreateUseCase', () => {
 			jobType: 'useCase',
 			useCaseName: 'UserSendWelcomeEmailUseCase',
 			jobData: {
+				id: 'job-id',
 				payload: job.getData(),
 				meta: expect.any(Object),
 				user: undefined // The user context should be undefined
@@ -335,6 +338,37 @@ describe('UserCreateUseCase', () => {
 			expect.any(String),
 			expect.any(String),
 			expectedPayload
+		)
+	})
+
+	it('should apply default values for active and config when not provided', async () => {
+		const container = makeContainer()
+		const useCase = new UserCreateUseCase(container)
+
+		const createdUser = {
+			id: 'u4',
+			email: 'defaults@mail.com'
+		}
+		userRepo.create.mockResolvedValueOnce(createdUser)
+
+		const job = makeJob({
+			email: 'defaults@mail.com',
+			password: 'secret',
+			roleId: 'role1',
+			organizationId: 'org1',
+			name: 'Default',
+			surname: 'User'
+			// `active` and `config` are intentionally omitted
+		})
+
+		await useCase.run(job)
+
+		expect(userRepo.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				email: 'defaults@mail.com',
+				active: true, // Verify default value
+				config: {} // Verify default value
+			})
 		)
 	})
 })
