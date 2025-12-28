@@ -36,10 +36,12 @@ const registry: Registry = {
 }
 
 export interface DatabaseManager {
-	initialize(keys?: Provider[]): Promise<void>
+	initialize(): Promise<void>
 	shutdown(): Promise<void>
 	get<P extends Provider>(key: P): DatabaseClientsMap[P]
 	getAll(): DatabaseClientsMap
+	getInitialized(): Partial<DatabaseClientsMap>
+	getStatus(): Record<Provider, { initialized: boolean; message?: string }>
 }
 
 /**
@@ -49,22 +51,43 @@ export interface DatabaseManager {
  */
 export const databaseManager: DatabaseManager = {
 	/**
-	 * Initializes and connects to the specified providers. If no keys are provided,
-	 * it initializes all registered providers.
+	 * Initialize and connect the providers.
 	 * @returns {Promise<void>}
 	 */
 	async initialize(): Promise<void> {
-		for (const key of PROVIDERS) {
-			const entry = registry[key]
-			if (!entry.instance) {
-				try {
-					entry.instance = await entry.provider.connect()
-				} catch (error: any) {
-					const errorMessage = `DatabaseManager: Failed to initialize ${entry.provider.displayName}: ${error.message}`
-					logger.error(errorMessage)
-					throw new Error(errorMessage)
-				}
-			}
+		const configured =
+			(config.get('database.providers') as Provider[] | undefined) ??
+			(PROVIDERS as unknown as Provider[])
+		const targets = configured
+		const started: Provider[] = []
+
+		try {
+			await Promise.all(
+				targets.map(async key => {
+					const entry = registry[key]
+					if (!entry.instance) {
+						entry.instance = await entry.provider.connect()
+						started.push(key)
+					}
+				})
+			)
+		} catch (error: any) {
+			logger.error(`DatabaseManager: initialization failed: ${error.message}`)
+			// attempt to cleanup started providers
+			await Promise.all(
+				started.map(async k => {
+					try {
+						await registry[k].provider.disconnect()
+						// eslint-disable-next-line @typescript-eslint/no-unused-vars
+					} catch (_e: any) {
+						// ignore
+					}
+					registry[k].instance = undefined
+				})
+			)
+			throw new Error(
+				`DatabaseManager: Failed to initialize providers: ${error.message}`
+			)
 		}
 	},
 
@@ -76,7 +99,15 @@ export const databaseManager: DatabaseManager = {
 		for (const key of Object.keys(registry) as Provider[]) {
 			const entry = registry[key]
 			if (entry.instance) {
-				await entry.provider.disconnect()
+				try {
+					await entry.provider.disconnect()
+				} catch (e) {
+					logger.warn(
+						`DatabaseManager: error disconnecting ${key}: ${
+							(e as Error).message
+						}`
+					)
+				}
 				entry.instance = undefined
 			}
 		}
@@ -104,12 +135,36 @@ export const databaseManager: DatabaseManager = {
 	 * @throws {Error} If any provider in the registry has not been initialized.
 	 */
 	getAll(): DatabaseClientsMap {
+		const configured =
+			(config.get('database.providers') as Provider[] | undefined) ??
+			(PROVIDERS as unknown as Provider[])
 		return Object.fromEntries(
-			Object.entries(registry).map(([key, entry]) => {
+			configured.map(key => {
+				const entry = registry[key]
 				if (!entry?.instance)
 					throw new Error(`Provider "${key}" not initialized.`)
 				return [key, entry.instance]
 			})
 		) as DatabaseClientsMap
+	},
+
+	getInitialized(): Partial<DatabaseClientsMap> {
+		return Object.fromEntries(
+			Object.entries(registry)
+				.filter(([, entry]) => Boolean(entry.instance))
+				.map(([k, entry]) => [k, entry.instance])
+		) as Partial<DatabaseClientsMap>
+	},
+
+	getStatus(): Record<Provider, { initialized: boolean; message?: string }> {
+		const status = {} as Record<
+			Provider,
+			{ initialized: boolean; message?: string }
+		>
+		for (const key of PROVIDERS) {
+			const entry = registry[key]
+			status[key] = { initialized: Boolean(entry.instance) }
+		}
+		return status
 	}
 }

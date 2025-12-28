@@ -104,4 +104,59 @@ describe('dependencyContainer', () => {
 
 		expect(c1).not.toBe(c2)
 	})
+
+	it('should fallback to NoOpAuditService when audit repo is unavailable', () => {
+		jest.resetModules()
+
+		// databaseManager simple stub
+		jest.doMock('@/infrastructure/databaseManager', () => ({
+			databaseManager: { __mocked: true }
+		}))
+
+		// repositoryManager.get('audit') will throw to simulate disabled provider
+		jest.doMock('@/core/repositoryManager', () => ({
+			getRepositoryManager: () => ({
+				get: jest.fn(() => {
+					throw new Error('no audit')
+				}),
+				create: jest.fn(),
+				getAll: jest.fn(),
+				setContext: jest.fn()
+			})
+		}))
+
+		// Ensure logger.warn is present and spyable
+		const warnMock = jest.fn()
+		jest.doMock('@/services/logger', () => ({
+			default: { info: jest.fn(), warn: warnMock, error: jest.fn() },
+			info: jest.fn(),
+			warn: warnMock,
+			error: jest.fn()
+		}))
+
+		// minimal other deps
+		jest.doMock('@/services/config', () => ({
+			config: { get: jest.fn().mockReturnValue('secret') }
+		}))
+		jest.doMock('@/services/dayjs', () => ({ dayjs: {}, Dayjs: {} }))
+		jest.doMock('@/services/validationService', () => ({
+			validator: {},
+			ValidationService: class {}
+		}))
+		jest.doMock('@/utils', () => ({ utils: {} }))
+		jest.doMock('argon2', () => ({}))
+		jest.doMock('jsonwebtoken', () => ({}))
+		jest.doMock('ms', () => () => '1ms')
+
+		const { getContainer } = require('@/core/dependencyContainer') as {
+			getContainer: () => any
+		}
+
+		const container = getContainer()
+
+		expect(container.services.auditService).toBeDefined()
+		expect(container.services.auditService.name).toBe('NoOpAuditService')
+		const logger = require('@/services/logger').default
+		expect(logger.warn).toHaveBeenCalled()
+	})
 })

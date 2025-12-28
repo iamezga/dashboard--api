@@ -9,6 +9,7 @@ import { dayjs } from '@/services/dayjs'
 import { JobService } from '@/services/jobService'
 import { LogEmailService } from '@/services/LogEmailService'
 import logger from '@/services/logger'
+import NoOpAuditService from '@/services/NoOpAuditService'
 import { validator } from '@/services/validationService'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { utils } from '@/utils'
@@ -31,9 +32,20 @@ export const getContainer = (): DependencyContainer => {
 
 	repositoryManager = getRepositoryManager()
 
+	let auditServiceInstance: any
+	try {
+		const auditRepo = repositoryManager.get('audit')
+		auditServiceInstance = new AuditService(auditRepo)
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	} catch (_e: unknown) {
+		// audit repository not available (provider disabled). Use NoOp implementation.
+		logger.warn('Audit repository not available; using NoOpAuditService')
+		auditServiceInstance = new NoOpAuditService()
+	}
+
 	const services = {
 		dayjs,
-		auditService: new AuditService(repositoryManager.get('audit')),
+		auditService: auditServiceInstance,
 		jobService: new JobService(queueManager),
 		emailService: new LogEmailService()
 	}

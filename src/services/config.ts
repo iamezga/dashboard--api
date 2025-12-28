@@ -48,6 +48,12 @@ export const config = convict({
 		}
 	},
 	database: {
+		/** List of active database providers for this project. Order is not relevant. */
+		providers: {
+			format: Array,
+			default: ['postgres', 'redis', 'mongo'],
+			env: 'DATABASE_PROVIDERS'
+		},
 		mongo: {
 			url: {
 				doc: 'MongoDB connection URL.',
