@@ -12,6 +12,7 @@ const config: Config = {
 	coverageReporters: ['json', 'lcov', 'text', 'clover'],
 	collectCoverageFrom: [
 		'src/**/*.ts',
+		'!src/generated/prisma/**/*.ts', // Exclude prisma code
 		'!src/**/*.d.ts', // Exclude type definition
 		'!src/app.ts', // Exclude the main file of the app without testable logic (for now...)
 		'!src/server.ts'

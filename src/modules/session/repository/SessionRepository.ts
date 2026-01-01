@@ -60,7 +60,7 @@ export class SessionRepository implements SessionRepositoryInterface {
 		if (!dataString) return null
 		try {
 			return JSON.parse(dataString) as T
-		} catch (error) {
+		} catch (error: any) {
 			this.context.logger.error('Failed to parse data from Redis:', error)
 			return null
 		}

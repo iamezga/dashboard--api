@@ -1,4 +1,4 @@
-import { AuditRepository } from './audit'
+import { MongoAuditRepository, PostgresAuditRepository } from './audit'
 import { OrganizationRepository } from './organization'
 import { PermissionRepository } from './permission'
 import { RoleRepository } from './role'
@@ -11,19 +11,27 @@ export const repositories = {
 	UserRepository,
 	PermissionRepository,
 	RoleRepository,
-	AuditRepository
+	MongoAuditRepository,
+	PostgresAuditRepository
 }
 
 /**
- * @type RepositoryMap
- * @description Defines the shape of the `repositories` object within the Dependency Container,
- * mapping normalized repository names (e.g., 'user', 'audit') to their corresponding interfaces.
+ * @type RepositoryMap (derived)
+ * @description Programmatically derives a map from the exported `repositories` object.
+ * Keys are taken from each class' static `name` and values are the instance types.
  */
+type RepositoriesType = typeof repositories
+
 export type RepositoryMap = {
-	[SessionRepository.name]: InstanceType<typeof SessionRepository>
-	[OrganizationRepository.name]: InstanceType<typeof OrganizationRepository>
-	[UserRepository.name]: InstanceType<typeof UserRepository>
-	[PermissionRepository.name]: InstanceType<typeof PermissionRepository>
-	[RoleRepository.name]: InstanceType<typeof RoleRepository>
-	[AuditRepository.name]: InstanceType<typeof AuditRepository>
+	[Key in keyof RepositoriesType as RepositoriesType[Key] extends {
+		name: infer N
+	}
+		? N extends string
+			? N
+			: never
+		: never]: RepositoriesType[Key] extends new (
+		...args: any[]
+	) => infer Instance
+		? Instance
+		: never
 }

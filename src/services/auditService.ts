@@ -4,8 +4,6 @@ import { JobInterface } from '@/types/job/JobInterface'
 import * as Sentry from '@sentry/node'
 
 export class AuditService {
-	public readonly name = 'AuditService'
-
 	/**
 	 * @param {AuditRepositoryInterface} auditRepository - The repository for audit logs.
 	 */
@@ -53,7 +51,7 @@ export class AuditService {
 			}
 
 			await this.auditRepository.insert(auditData)
-		} catch (error) {
+		} catch (error: any) {
 			// Log the error but do not throw, as audit logs should not block a user action.
 			job.logger.error({ error }, 'Failed to record audit event.')
 			Sentry.captureException(error, {

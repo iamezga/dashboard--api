@@ -58,7 +58,7 @@ export class Bullmq implements ProviderInterface {
 				this.logger.info(`Queue "${name}" initialized successfully.`)
 			}
 			this.isConnected = true
-		} catch (error) {
+		} catch (error: any) {
 			this.logger.error(`Failed to initialize ${this.displayName}:`, error)
 			throw error
 		}

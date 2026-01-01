@@ -37,7 +37,7 @@ export const authLoggerMiddleware = (
 		job.logger = jobLoggerWithAuth
 
 		next()
-	} catch (error) {
+	} catch (error: any) {
 		next(error)
 	}
 }

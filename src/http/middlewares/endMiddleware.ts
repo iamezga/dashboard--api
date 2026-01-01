@@ -34,7 +34,7 @@ export const endMiddleware = (
 		)
 
 		next()
-	} catch (error) {
+	} catch (error: any) {
 		// If an error occurs here, just pass it on.
 		next(error)
 	}

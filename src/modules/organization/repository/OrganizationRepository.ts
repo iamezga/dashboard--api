@@ -1,7 +1,10 @@
 import { RepositoryManager } from '@/core/repositoryManager'
+import {
+	Prisma,
+	Organization as PrismaOrganizationModel
+} from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
-import { Prisma, Organization as PrismaOrganizationModel } from '@prisma/client'
 import { Logger } from 'pino'
 import {
 	Organization,

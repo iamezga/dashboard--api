@@ -1,6 +1,7 @@
 import { config } from '@/services/config'
 import logger from '@/services/logger'
-import { PrismaClient } from '@prisma/client'
+
+import { PrismaClient } from '@/generated/prisma/client'
 import { Db } from 'mongodb'
 import { RedisClientType } from 'redis'
 import { Mongo } from './providers/Mongo'

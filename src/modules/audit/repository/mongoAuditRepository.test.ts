@@ -3,10 +3,10 @@ import { Logger } from 'pino'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { Audit, AuditInput } from '../entities/Audit'
-import { AuditRepository } from '../repository/AuditRepository'
+import { MongoAuditRepository } from '../repository/MongoAuditRepository'
 
-describe('AuditRepository', () => {
-	let repository: AuditRepository
+describe('MongoAuditRepository', () => {
+	let repository: MongoAuditRepository
 	let dbMock: any
 	let collectionMock: jest.Mocked<Collection<Audit>>
 	let repositoryManagerMock: jest.Mocked<RepositoryManager>
@@ -41,7 +41,7 @@ describe('AuditRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new AuditRepository(dbMock)
+		repository = new MongoAuditRepository(dbMock)
 		repository.setContext(containerMock)
 	})
 

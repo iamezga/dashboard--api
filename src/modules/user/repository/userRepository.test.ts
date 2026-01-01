@@ -1,6 +1,6 @@
-import { User as PrismaUserModel } from '@prisma/client'
 import { Logger } from 'pino'
 import { RepositoryManager } from '../../../core/repositoryManager'
+import { User as PrismaUserModel } from '../../../generated/prisma/client'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { UserAuthDetails } from '../../auth/entities/AuthDataTypes'
 import { UserCreateInput, UserStatus, UserUpdateInput } from '../entities/User'

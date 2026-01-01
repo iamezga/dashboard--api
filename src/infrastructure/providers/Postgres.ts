@@ -1,5 +1,8 @@
+import { PrismaClient } from '@/generated/prisma/client'
+import { LogEvent } from '@/generated/prisma/internal/prismaNamespace'
 import { ProviderInterface } from '@/types/providers/ProviderInterface'
-import { Prisma, PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+
 import { Logger } from 'pino'
 
 export class Postgres implements ProviderInterface {
@@ -25,7 +28,9 @@ export class Postgres implements ProviderInterface {
 		}
 
 		try {
+			const adapter = new PrismaPg({ connectionString: this.config.url })
 			this.client = new PrismaClient({
+				adapter,
 				log: [
 					{ level: 'query', emit: 'event' },
 					{ level: 'error', emit: 'event' },
@@ -34,23 +39,23 @@ export class Postgres implements ProviderInterface {
 				]
 			})
 
-			this.client.$on(<never>'error', (e: Prisma.LogEvent) =>
-				this.logger.error('Prisma Error:', e)
+			this.client.$on(<never>'error', (e: LogEvent) =>
+				this.logger.error(`Prisma Error: ${e.message}`)
 			)
-			this.client.$on(<never>'info', (e: Prisma.LogEvent) =>
-				this.logger.info('Prisma Info:', e)
+			this.client.$on(<never>'info', (e: LogEvent) =>
+				this.logger.info(`Prisma Info: ${e.message}`)
 			)
-			this.client.$on(<never>'warn', (e: Prisma.LogEvent) =>
-				this.logger.warn('Prisma Warn:', e)
+			this.client.$on(<never>'warn', (e: LogEvent) =>
+				this.logger.warn(`Prisma Warn: ${e.message}`)
 			)
-			// this.client.$on(<never>'quey', (e: Prisma.LogEvent) =>
-			// 	this.logger.warn('Prisma Query:', e)
+			// this.client.$on(<never>'quey', (e: LogEvent) =>
+			// 	this.logger.warn(`Prisma Query: ${e}`)
 			// )
 
 			await this.client.$connect()
 			this.logger.info(`${this.displayName} connected successfully.`)
 			return this.client
-		} catch (error) {
+		} catch (error: any) {
 			this.logger.error(`Failed to connect ${this.displayName}:`, error)
 			throw error
 		}

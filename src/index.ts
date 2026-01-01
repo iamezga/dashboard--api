@@ -6,7 +6,7 @@ import { infrastructureManager } from './infrastructure'
 const shutdown = async (signal: string) => {
 	logger.info(`${signal} signal received. Shutting down gracefully.`)
 	await infrastructureManager.shutdown()
-	process.exit(0)
+	process.exit(1)
 }
 
 ;(async () => {

@@ -11,13 +11,12 @@ export type AuditRepositoryContext = {
 	logger: Logger
 }
 
-export class AuditRepository implements AuditRepositoryInterface {
+export class MongoAuditRepository implements AuditRepositoryInterface {
 	static name = 'audit' as const
 	static provider: keyof DatabaseClientsMap = 'mongo'
 	private readonly collection: Collection<Audit>
 	private context!: AuditRepositoryContext
 	public readonly db: DatabaseClientsMap['mongo']
-	public readonly name = 'AuditRepository'
 
 	constructor(db: DatabaseClientsMap['mongo']) {
 		this.db = db
@@ -46,7 +45,7 @@ export class AuditRepository implements AuditRepositoryInterface {
 	public async insert(data: AuditInput): Promise<void> {
 		try {
 			await this.collection.insertOne(data as any)
-		} catch (error) {
+		} catch (error: any) {
 			// It's crucial not to throw an error here. A failed audit log should not block the main user action.
 			this.context.logger.error({ error }, 'Failed to insert audit record.')
 		}

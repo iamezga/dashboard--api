@@ -1,8 +1,8 @@
 import { RepositoryManager } from '@/core/repositoryManager'
+import { Prisma, Role as PrismaRoleModel } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
-import { Prisma, Role as PrismaRoleModel } from '@prisma/client'
 import { Logger } from 'pino'
 import {
 	Role,

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../../generated/prisma/client'
 import logger from '../../services/logger'
 import { Postgres } from './Postgres'
 
@@ -8,7 +8,7 @@ jest.mock('../../services/logger', () => ({
 	warn: jest.fn()
 }))
 
-jest.mock('@prisma/client', () => {
+jest.mock('../../generated/prisma/client', () => {
 	const mPrismaClient = {
 		$connect: jest.fn(),
 		$disconnect: jest.fn(),
@@ -94,9 +94,9 @@ describe('Postgres', () => {
 		infoHandler(info)
 		warnHandler(warn)
 
-		expect(logger.error).toHaveBeenCalledWith('Prisma Error:', err)
-		expect(logger.info).toHaveBeenCalledWith('Prisma Info:', info)
-		expect(logger.warn).toHaveBeenCalledWith('Prisma Warn:', warn)
+		expect(logger.error).toHaveBeenCalledWith(`Prisma Error: ${err.message}`)
+		expect(logger.info).toHaveBeenCalledWith(`Prisma Info: ${info.message}`)
+		expect(logger.warn).toHaveBeenCalledWith(`Prisma Warn: ${warn.message}`)
 	})
 
 	it('should log and throw if PrismaClient constructor or $connect fails', async () => {

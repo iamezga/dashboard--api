@@ -1,3 +1,5 @@
+import { PrismaPg } from '@prisma/adapter-pg'
+import { hash } from 'argon2' // Use argon2 for password hashing
 import {
 	Module,
 	Organization,
@@ -8,8 +10,8 @@ import {
 	PrismaClient,
 	Role,
 	RoleScope
-} from '@prisma/client'
-import { hash } from 'argon2' // Use argon2 for password hashing
+} from '../src/generated/prisma/client'
+import { config } from '../src/services/config'
 
 // Define an interface for the module data to ensure type safety
 interface IModuleSeedData {
@@ -29,7 +31,10 @@ interface IPermissionSeedData {
 }
 
 // Initialize the Prisma Client
-const prisma = new PrismaClient()
+const adapter = new PrismaPg({
+	connectionString: config.get('database.postgres.url')
+})
+const prisma = new PrismaClient({ adapter })
 
 async function main(): Promise<void> {
 	console.log('Starting database seeding...')

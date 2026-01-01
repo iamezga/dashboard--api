@@ -81,7 +81,7 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 
 			// everything ok
 			return next()
-		} catch (error) {
+		} catch (error: any) {
 			next(error)
 		}
 	}

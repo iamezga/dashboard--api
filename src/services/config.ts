@@ -107,6 +107,14 @@ export const config = convict({
 			}
 		}
 	},
+	audit: {
+		provider: {
+			doc: 'Audit repository provider. Must be "postgres" or "mongo" and set via env AUDIT_PROVIDER',
+			format: String,
+			env: 'AUDIT_PROVIDER',
+			default: ''
+		}
+	},
 	jwt: {
 		secret: {
 			format: String,

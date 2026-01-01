@@ -31,7 +31,7 @@ export const useCaseMiddleware = (useCaseName: UseCaseKeys): RequestHandler => {
 			res.locals.useCaseResponse = useCaseResponse
 
 			next()
-		} catch (error) {
+		} catch (error: any) {
 			return next(error)
 		}
 	}

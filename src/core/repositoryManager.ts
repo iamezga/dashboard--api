@@ -3,6 +3,7 @@ import {
 	databaseManager
 } from '@/infrastructure/databaseManager'
 import { repositories, RepositoryMap } from '@/modules/repositories'
+import { config } from '@/services/config'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 
 export interface RepositoryManager {
@@ -26,7 +27,19 @@ export function createRepositoryManager(
 		Record<keyof RepositoryMap, RepositoryMap[keyof RepositoryMap]>
 	> = {}
 
+	const auditProvider = config.get('audit.provider') as unknown as string
+
 	Object.values(repositories).forEach(RepoClass => {
+		// If this is the logical 'audit' repository, only instantiate the implementation
+		// that matches the configured audit provider. This allows multiple implementation
+		// classes to exist while only one is activated.
+		if (
+			(RepoClass as any).name === 'audit' &&
+			(RepoClass as any).provider !== auditProvider
+		) {
+			return
+		}
+
 		const providerKey = RepoClass.provider as keyof DatabaseClientsMap
 		const client = clients[providerKey]
 		if (!client) return

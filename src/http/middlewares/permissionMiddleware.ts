@@ -57,7 +57,7 @@ export const permissionMiddleware = (
 			}
 
 			return next()
-		} catch (error) {
+		} catch (error: any) {
 			next(error)
 		}
 	}

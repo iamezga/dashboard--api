@@ -45,11 +45,13 @@ export class Mongo implements ProviderInterface {
 			this.client.on('reconnect', () =>
 				this.logger.info('MongoDB reconnected.')
 			)
-			this.client.on('error', err => this.logger.error('MongoDB error:', err))
+			this.client.on('error', (err: any) =>
+				this.logger.error('MongoDB error:', err)
+			)
 
 			this.logger.info(`${this.displayName} connected successfully.`)
 			return this.instance
-		} catch (error) {
+		} catch (error: any) {
 			this.logger.error(`Failed to connect ${this.displayName}:`, error)
 			throw error
 		}

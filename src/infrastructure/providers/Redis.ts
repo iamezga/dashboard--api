@@ -56,7 +56,7 @@ export class Redis implements ProviderInterface {
 			await this.client.connect()
 			this.logger.info(`${this.displayName} connected successfully.`)
 			return this.client
-		} catch (error) {
+		} catch (error: any) {
 			this.logger.error(`Failed to connect ${this.displayName}:`, error)
 			throw error
 		}
