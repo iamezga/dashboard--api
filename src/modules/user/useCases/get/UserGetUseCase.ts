@@ -25,23 +25,10 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		job: JobInterface,
 		_container: DependencyContainer
 	): Promise<UseCasePermissionValidationData> {
-		const permissions = job.getUser()
-
-		const data = {
-			permission: UserGetUseCase.permission
-		}
-		const schema = {
-			permission: {
-				type: 'enum',
-				values: Object.keys(permissions)
-			}
-		}
-
-		return { schema, data }
+		return this.buildPermissionSchema(this.permission, job)
 	}
 
 	async run(job: UserGetJobInterface): Promise<UseCaseResponseInterface> {
-		// ...Some business logic
 		const data = job.getData()
 		const requestingUser = job.getUser()
 		job.logger.info(data)

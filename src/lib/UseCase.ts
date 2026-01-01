@@ -25,6 +25,23 @@ export abstract class UseCase<J extends JobInterface = JobInterface>
 	constructor(protected container: DependencyContainer) {}
 
 	/**
+	 *  Builds the permission validation schema and data for a given permission key.
+	 * @param permissionKey
+	 * @param job
+	 * @returns
+	 */
+	static buildPermissionSchema(permissionKey: string, job: JobInterface) {
+		const schema: Record<string, any> = {
+			permission: {
+				type: 'enum',
+				values: Object.keys(job.getUser().permissions)
+			}
+		}
+		const data: Record<string, any> = { permission: permissionKey }
+		return { schema, data }
+	}
+
+	/**
 	 * The `run` method is the entry point for executing the use case's business logic.
 	 *
 	 * @param job The Job object containing all the necessary data and context for the request.

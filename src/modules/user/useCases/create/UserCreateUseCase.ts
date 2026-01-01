@@ -33,19 +33,7 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		job: JobInterface,
 		_container: DependencyContainer
 	): Promise<UseCasePermissionValidationData> {
-		const permissions = job.getUser().permissions
-
-		const data = {
-			permission: UserCreateUseCase.permission
-		}
-		const schema = {
-			permission: {
-				type: 'enum',
-				values: Object.keys(permissions)
-			}
-		}
-
-		return { schema, data }
+		return this.buildPermissionSchema(this.permission, job)
 	}
 
 	/**

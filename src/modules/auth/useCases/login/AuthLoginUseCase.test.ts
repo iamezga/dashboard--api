@@ -55,7 +55,7 @@ describe('AuthLoginUseCase', () => {
 		jwt: { sign: jest.fn(() => 'token123') },
 		dayjs: jest.fn((date?: Date) => ({
 			format: jest.fn((pattern: string) => {
-				if (pattern === 'dddd') return 'Monday' // día de la semana
+				if (pattern === 'dddd') return 'Monday' // day of the week
 				if (pattern === 'HH:mm') {
 					const d = date || new Date()
 					return `${d.getHours().toString().padStart(2, '0')}:${d

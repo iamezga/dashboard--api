@@ -26,23 +26,10 @@ export class AuditGetUseCase extends UseCase<AuditGetJobInterface> {
 		job: JobInterface,
 		_container: DependencyContainer
 	): Promise<UseCasePermissionValidationData> {
-		const permissions = job.getUser().permissions
-
-		const data = {
-			permission: AuditGetUseCase.permission
-		}
-		const schema = {
-			permission: {
-				type: 'enum',
-				values: Object.keys(permissions)
-			}
-		}
-
-		return { schema, data }
+		return this.buildPermissionSchema(this.permission, job)
 	}
 
 	async run(job: AuditGetJobInterface): Promise<UseCaseResponseInterface> {
-		// ...Some business logic
 		const data = job.getData()
 		job.logger.info(data)
 		const user = await this.container.repositoryManager

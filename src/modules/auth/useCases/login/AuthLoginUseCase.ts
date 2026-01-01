@@ -45,16 +45,18 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const permissions = job.getUser().permissions
 		const meta = job.getMeta()
 
-		const data: Record<string, any> = {
-			permission: AuthLoginUseCase.permission
-		}
+		const { schema, data } = this.buildPermissionSchema(this.permission, job)
 
-		const schema: Record<string, any> = {
-			permission: {
-				type: 'enum',
-				values: Object.keys(permissions)
-			}
-		}
+		// const data: Record<string, any> = {
+		// 	permission: AuthLoginUseCase.permission
+		// }
+
+		// const schema: Record<string, any> = {
+		// 	permission: {
+		// 		type: 'enum',
+		// 		values: Object.keys(permissions)
+		// 	}
+		// }
 		if (permissions[AuthLoginUseCase.permission]) {
 			const { config } = permissions[AuthLoginUseCase.permission]
 			if (config.conditions) {
