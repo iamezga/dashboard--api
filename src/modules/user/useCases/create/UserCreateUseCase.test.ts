@@ -51,7 +51,7 @@ describe('UserCreateUseCase', () => {
 	}
 
 	const jobService = {
-		dispatch: jest.fn()
+		dispatchUseCase: jest.fn()
 	}
 
 	const globalLogger = {
@@ -242,20 +242,10 @@ describe('UserCreateUseCase', () => {
 			'User new@mail.com created successfully.'
 		)
 
-		const expectedPayload = {
-			jobType: 'useCase',
-			useCaseName: 'UserSendWelcomeEmailUseCase',
-			jobData: {
-				id: 'job-id',
-				payload: job.getData(),
-				meta: expect.any(Object),
-				user: expect.objectContaining({ id: 'user-id' })
-			}
-		}
-		expect(jobService.dispatch).toHaveBeenCalledWith(
+		expect(jobService.dispatchUseCase).toHaveBeenCalledWith(
 			'emails',
 			'UserSendWelcomeEmailUseCase',
-			expectedPayload
+			job
 		)
 	})
 
@@ -324,20 +314,10 @@ describe('UserCreateUseCase', () => {
 
 		await useCase.run(job)
 
-		const expectedPayload = {
-			jobType: 'useCase',
-			useCaseName: 'UserSendWelcomeEmailUseCase',
-			jobData: {
-				id: 'job-id',
-				payload: job.getData(),
-				meta: expect.any(Object),
-				user: undefined // The user context should be undefined
-			}
-		}
-		expect(jobService.dispatch).toHaveBeenCalledWith(
+		expect(jobService.dispatchUseCase).toHaveBeenCalledWith(
 			expect.any(String),
 			expect.any(String),
-			expectedPayload
+			job
 		)
 	})
 

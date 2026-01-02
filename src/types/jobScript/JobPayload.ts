@@ -20,6 +20,7 @@ export interface UseCaseJobPayload {
  * Defines the payload structure for a job that executes a self-contained JobScript.
  */
 export interface JobScriptJobPayload {
+	id: string
 	jobType: 'jobScript'
 	scriptName: JobScriptKeys
 	jobData: Record<string, any>
@@ -29,6 +30,7 @@ export interface JobScriptJobPayload {
  * Defines the payload structure for a simple, ad-hoc background task.
  */
 export interface SimpleTaskJobPayload {
+	id: string
 	jobType: 'simpleTask'
 	jobData: Record<string, any>
 }
