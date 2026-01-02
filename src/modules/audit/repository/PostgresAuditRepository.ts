@@ -2,13 +2,14 @@ import { DependencyContainer } from '@/types/core/dependencyContainer'
 
 import { PrismaClient } from '@/generated/prisma/client'
 import { AuditInput } from '../entities/Audit'
+import { AuditRepositoryContext } from '../entities/AuditRepositoryContext'
 import { AuditRepositoryInterface } from '../entities/AuditRepositoryInterface'
 
 export class PostgresAuditRepository implements AuditRepositoryInterface {
 	static name = 'audit' as const
 	static provider = 'postgres' as const
 	private prisma: PrismaClient
-	private context!: { repositoryManager: any; logger: any }
+	private context!: AuditRepositoryContext
 
 	constructor(prisma: PrismaClient) {
 		this.prisma = prisma

@@ -1,15 +1,9 @@
-import { RepositoryManager } from '@/core/repositoryManager'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { Collection } from 'mongodb'
-import { Logger } from 'pino'
 import { Audit, AuditInput } from '../entities/Audit'
+import { AuditRepositoryContext } from '../entities/AuditRepositoryContext'
 import { AuditRepositoryInterface } from '../entities/AuditRepositoryInterface'
-
-export type AuditRepositoryContext = {
-	repositoryManager: RepositoryManager
-	logger: Logger
-}
 
 export class MongoAuditRepository implements AuditRepositoryInterface {
 	static name = 'audit' as const
