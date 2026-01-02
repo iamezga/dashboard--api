@@ -47,16 +47,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 		const { schema, data } = this.buildPermissionSchema(this.permission, job)
 
-		// const data: Record<string, any> = {
-		// 	permission: AuthLoginUseCase.permission
-		// }
-
-		// const schema: Record<string, any> = {
-		// 	permission: {
-		// 		type: 'enum',
-		// 		values: Object.keys(permissions)
-		// 	}
-		// }
 		if (permissions[AuthLoginUseCase.permission]) {
 			const { config } = permissions[AuthLoginUseCase.permission]
 			if (config.conditions) {
