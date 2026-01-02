@@ -13,8 +13,15 @@ export const infrastructureManager = {
 		try {
 			databaseManager.get(auditProvider) // throws si no inicializado
 		} catch (err) {
-			logger.error({ err }, 'Audit DB client not initialized')
-			throw new Error()
+			logger.error(
+				{ err },
+				`Audit DB client (${auditProvider}) not initialized`
+			)
+			throw new Error(
+				`Audit DB client "${auditProvider}" failed to initialize: ${
+					(err as Error).message
+				}`
+			)
 		}
 
 		await queueManager.initialize()
