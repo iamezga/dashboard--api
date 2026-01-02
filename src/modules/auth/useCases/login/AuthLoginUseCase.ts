@@ -92,13 +92,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	public async run(
 		job: AuthLoginJobInterface
 	): Promise<UseCaseResponseInterface<LoginOutput>> {
-		if (!this.container.config.get('jwt.secret')) {
-			throw new Error('JWT SECRET is not defined')
-		}
-		if (!this.container.config.get('jwt.expiresIn')) {
-			throw new Error('JWT EXPIRES IN is not defined')
-		}
-
 		const { email, password } = job.getData()
 
 		const userRepository = this.container.repositoryManager.get('user')

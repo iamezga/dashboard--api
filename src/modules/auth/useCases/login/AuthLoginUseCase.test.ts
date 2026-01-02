@@ -108,24 +108,6 @@ describe('AuthLoginUseCase', () => {
 		}
 	})
 
-	it('should throw if JWT SECRET is missing', async () => {
-		config.get.mockReturnValueOnce(null)
-		const useCase = new AuthLoginUseCase(makeContainer())
-		await expect(
-			useCase.run(makeJob({ email: 'a@b.com', password: '123' }))
-		).rejects.toThrow('JWT SECRET is not defined')
-	})
-
-	it('should throw if JWT EXPIRES IN is missing', async () => {
-		config.get.mockImplementation((key: string) =>
-			key === 'jwt.secret' ? 'super-secret' : null
-		)
-		const useCase = new AuthLoginUseCase(makeContainer())
-		await expect(
-			useCase.run(makeJob({ email: 'a@b.com', password: '123' }))
-		).rejects.toThrow('JWT EXPIRES IN is not defined')
-	})
-
 	it('should throw BadRequestError for non-existent user', async () => {
 		userRepo.findUserAuthDetailsByEmail.mockResolvedValueOnce(null)
 		const useCase = new AuthLoginUseCase(makeContainer())
