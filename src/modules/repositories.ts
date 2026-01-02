@@ -1,4 +1,5 @@
 import { MongoAuditRepository, PostgresAuditRepository } from './audit'
+import { AuditRepositoryInterface } from './audit/entities/AuditRepositoryInterface'
 import { OrganizationRepository } from './organization'
 import { PermissionRepository } from './permission'
 import { RoleRepository } from './role'
@@ -22,7 +23,7 @@ export const repositories = {
  */
 type RepositoriesType = typeof repositories
 
-export type RepositoryMap = {
+type DerivedRepositoryMap = {
 	[Key in keyof RepositoriesType as RepositoriesType[Key] extends {
 		name: infer N
 	}
@@ -34,4 +35,9 @@ export type RepositoryMap = {
 	) => infer Instance
 		? Instance
 		: never
+}
+
+// Override the logical 'audit' entry to the shared interface to avoid unions of concrete implementations
+export type RepositoryMap = Omit<DerivedRepositoryMap, 'audit'> & {
+	audit: AuditRepositoryInterface
 }
