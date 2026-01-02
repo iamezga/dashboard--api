@@ -109,13 +109,15 @@ export const authMiddleware = async (
 
 		next()
 	} catch (error: any) {
-		if (error instanceof TokenExpiredError) {
+		if (
+			error instanceof TokenExpiredError ||
+			error instanceof JsonWebTokenError
+		) {
 			return next(new UnauthorizedError(`Authentication failed.`))
 		}
-		if (error instanceof JsonWebTokenError || error instanceof SyntaxError) {
-			return next(new UnauthorizedError('Authentication failed.'))
+		if (error instanceof UnauthorizedError) {
+			return next(error)
 		}
-
 		return next(error)
 	}
 }
