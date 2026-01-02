@@ -77,6 +77,8 @@ export const authMiddleware = async (
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
+		// Retrieve cached user session data (pre-filtered permissions from login)
+		// This avoids expensive database queries on every request
 		const sessionUser: SessionUser | null = await sessionRepository.getUserData(
 			userId
 		)
@@ -85,6 +87,7 @@ export const authMiddleware = async (
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
+		// Verify user is still active (lightweight query, only status fields)
 		const userStatus: UserStatus | null = await userRepository.findStatusById(
 			userId
 		)

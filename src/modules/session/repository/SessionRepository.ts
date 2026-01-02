@@ -68,8 +68,13 @@ export class SessionRepository implements SessionRepositoryInterface {
 
 	/**
 	 * Saves user's merged permissions and a snapshot of their data.
+	 * This is a convenience method for authentication workflows to cache user session data.
+	 *
+	 * Used to avoid repeated database queries during request authentication.
+	 * The cached data includes pre-computed permissions merged from role + user overrides.
+	 *
 	 * @param userId - The user's unique ID.
-	 * @param data - The user's permissions and data snapshot.
+	 * @param data - The user's permissions and data snapshot (pre-filtered and merged).
 	 * @param expiresInSeconds - Time-to-live for the user's data key.
 	 * @returns True if the data was saved successfully, false otherwise.
 	 */
@@ -87,9 +92,13 @@ export class SessionRepository implements SessionRepositoryInterface {
 	}
 
 	/**
-	 * Retrieves the user's merged permissions and data snapshot.
+	 * Retrieves the user's merged permissions and data snapshot from cache.
+	 * This is a convenience method for authentication workflows.
+	 *
+	 * Returns pre-computed session data saved during login to avoid database queries.
+	 *
 	 * @param userId - The user's unique ID.
-	 * @returns The user data, or null if not found.
+	 * @returns The cached user data with merged permissions, or null if not found/expired.
 	 */
 	async getUserData(userId: string): Promise<SessionUser | null> {
 		const key = SessionRepository.USER_DATA_KEY_PREFIX + userId

@@ -76,28 +76,27 @@ export class UserRepository implements UserRepositoryInterface {
 
 	/**
 	 * Maps a subset of Prisma User properties to the UserAuthDetails DTO.
-	 * This is used for authentication-specific data retrieval.
+	 * This is a pure data mapper - it does NOT apply business rules or filtering.
+	 * Permission filtering (active, non-deleted, etc.) should be done in the application layer.
+	 *
 	 * @param {UserAuthDetailsPayload} prismaUserSubset - The partial user object from Prisma.
-	 * @returns {UserAuthDetails} The mapped UserAuthDetails DTO.
+	 * @returns {UserAuthDetails} The mapped UserAuthDetails DTO with raw permission data.
 	 */
 	private mapPrismaAuthDetailsToDomain(
 		prismaUserSubset: UserAuthDetailsPayload
 	): UserAuthDetails {
-		const mappedUserPermissions = prismaUserSubset.userPermissions
-			.filter(
-				up => !up.permission.deletedAt && !up.disabled && up.permission.active
-			)
-			.map(up => ({
-				config: up.config as Record<string, any>,
-				deletedAt: up.deletedAt,
-				disabled: up.disabled,
-				assignedAt: up.assignedAt,
-				permission: {
-					...up.permission,
-					scope: up.permission.scope as PermissionScope,
-					config: { ...(up.permission.config as Record<string, any>) }
-				}
-			}))
+		// Pure mapping - no filtering, no business logic
+		const mappedUserPermissions = prismaUserSubset.userPermissions.map(up => ({
+			config: up.config as Record<string, any>,
+			deletedAt: up.deletedAt,
+			disabled: up.disabled,
+			assignedAt: up.assignedAt,
+			permission: {
+				...up.permission,
+				scope: up.permission.scope as PermissionScope,
+				config: { ...(up.permission.config as Record<string, any>) }
+			}
+		}))
 
 		return {
 			id: prismaUserSubset.id,
@@ -254,8 +253,13 @@ export class UserRepository implements UserRepositoryInterface {
 
 	/**
 	 * Finds a user by email, retrieving essential authentication fields.
+	 * This is a convenience method optimized for authentication workflows.
+	 *
+	 * NOTE: Returns raw permission data without filtering. Business logic
+	 * (filtering active/deleted permissions) should be applied in the use case layer.
+	 *
 	 * @param email - The email address of the user.
-	 * @returns {Promise<UserAuthDetails | null>}
+	 * @returns {Promise<UserAuthDetails | null>} User with raw permissions, or null if not found.
 	 */
 	async findUserAuthDetailsByEmail(
 		email: string

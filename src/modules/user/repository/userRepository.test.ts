@@ -340,7 +340,7 @@ describe('UserRepository', () => {
 		expect(result[0].id).toBe('1')
 	})
 
-	it('should exclude permissions when deletedAt, disabled or inactive', async () => {
+	it('should return raw permissions without filtering (filtering is use case responsibility)', async () => {
 		const prismaUser = {
 			id: '40',
 			organizationId: 'orgX',
@@ -421,7 +421,12 @@ describe('UserRepository', () => {
 			'filter2@example.com'
 		)
 
+		// Repository mapper should NOT filter - returns all permissions as-is
+		// Business logic (filtering) belongs in the use case layer
 		expect(result?.userPermissions.map((p: any) => p.permission.key)).toEqual([
+			'DEL',
+			'DIS',
+			'INA',
 			'OK'
 		])
 	})

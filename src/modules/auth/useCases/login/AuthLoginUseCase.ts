@@ -3,6 +3,7 @@ import { UseCase } from '@/lib/UseCase'
 import {
 	JwtUserPayload,
 	LoginOutput,
+	UserAuthDetails,
 	UserLoginDetails
 } from '@/modules/auth/entities/AuthDataTypes'
 import {
@@ -82,6 +83,36 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	}
 
 	/**
+	 * Filters user permissions applying business rules.
+	 * Removes inactive, disabled, or deleted permissions.
+	 * This is application-layer logic, separate from repository mapping.
+	 *
+	 * @param rawUserAuthDetails - Raw user data from repository (unfiltered)
+	 * @returns User data with filtered permissions, or null if input is null
+	 */
+	private static filterActivePermissions(
+		rawUserAuthDetails: UserAuthDetails | null
+	): UserAuthDetails | null {
+		if (!rawUserAuthDetails) return null
+
+		// If no userPermissions array, return as-is (edge case for incomplete data)
+		if (!rawUserAuthDetails.userPermissions) {
+			return rawUserAuthDetails
+		}
+
+		return {
+			...rawUserAuthDetails,
+			userPermissions: rawUserAuthDetails.userPermissions.filter(
+				up =>
+					!up.permission.deletedAt &&
+					!up.disabled &&
+					up.permission.active &&
+					!up.deletedAt
+			)
+		}
+	}
+
+	/**
 	 * Executes the user login business logic.
 	 * @param {AuthLoginJobInterface} job - The Job object containing the login credentials.
 	 * @returns {Promise<UseCaseResponseInterface<LoginOutput>>} A promise that resolves with the authentication token and public user data.
@@ -98,10 +129,12 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		const roleRepository = this.container.repositoryManager.get('role')
 		const sessionRepository = this.container.repositoryManager.get('session')
 
-		// Find user authentication details
-		const userAuthDetails = await userRepository.findUserAuthDetailsByEmail(
+		// Find user authentication details and apply business rules
+		const rawUserAuthDetails = await userRepository.findUserAuthDetailsByEmail(
 			email
 		)
+		const userAuthDetails =
+			AuthLoginUseCase.filterActivePermissions(rawUserAuthDetails)
 
 		// Check if user exists and is active
 		if (
@@ -162,9 +195,9 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			},
 			<Record<string, any>>{}
 		)
+		// userPermissions are already filtered by filterActivePermissions (active & not deleted)
 		const userPermissions = userAuthDetails.userPermissions.reduce(
 			(acc, curr) => {
-				if (!curr.permission.active || curr.permission.deletedAt) return acc
 				const permission = this.container.utils.deepMerge(curr.permission, {
 					config: curr.config
 				})
