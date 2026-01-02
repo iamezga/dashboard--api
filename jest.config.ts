@@ -7,7 +7,6 @@ const config: Config = {
 		'^@/(.*)$': '<rootDir>/src/$1'
 	},
 	roots: ['<rootDir>/src'],
-	collectCoverage: true,
 	coverageDirectory: 'coverage',
 	coverageReporters: ['json', 'lcov', 'text', 'clover'],
 	collectCoverageFrom: [

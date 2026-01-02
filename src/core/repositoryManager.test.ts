@@ -1,6 +1,7 @@
 import {
 	createRepositoryManager,
-	getRepositoryManager
+	getRepositoryManager,
+	resetRepositoryManager
 } from '../core/repositoryManager'
 import { DatabaseClientsMap } from '../infrastructure/databaseManager'
 
@@ -47,6 +48,10 @@ describe('RepositoryManager', () => {
 			mongo: {} as any,
 			redis: {} as any
 		}
+	})
+
+	afterEach(() => {
+		resetRepositoryManager()
 	})
 
 	it('should load valid repositories with getAll()', () => {
@@ -129,6 +134,49 @@ describe('RepositoryManager', () => {
 
 		const all = manager.getAll() as any
 		expect(all.orphan).toBeUndefined()
+	})
+
+	it('should instantiate only the audit implementation matching config.audit.provider', () => {
+		jest.resetModules()
+
+		class MongoAuditRepo {
+			static name = 'audit'
+			static provider = 'mongo'
+			constructor(public db: any) {}
+		}
+
+		class PostgresAuditRepo {
+			static name = 'audit'
+			static provider = 'postgres'
+			constructor(public db: any) {}
+		}
+
+		jest.doMock('@/modules/repositories', () => {
+			return {
+				repositories: { MongoAuditRepo, PostgresAuditRepo },
+				RepositoryMap: {
+					audit: {} as InstanceType<typeof MongoAuditRepo>
+				} as any
+			}
+		})
+
+		jest.doMock('@/services/config', () => ({
+			config: {
+				get: (key: string) =>
+					key === 'audit.provider' ? 'postgres' : undefined
+			}
+		}))
+
+		const { createRepositoryManager } = require('../core/repositoryManager')
+		const manager = createRepositoryManager({
+			postgres: { pg: true } as any,
+			mongo: { mongo: true } as any,
+			redis: { redis: true } as any
+		})
+
+		const all = manager.getAll() as any
+		expect(all.audit).toBeInstanceOf(PostgresAuditRepo)
+		expect(all.audit.db).toEqual({ pg: true })
 	})
 
 	it('should always return the same instance from getRepositoryManager() (singleton)', () => {

@@ -14,6 +14,7 @@ describe('databaseManager', () => {
 	let Mongo: any
 	let connectMock: jest.Mock
 	let disconnectMock: jest.Mock
+	let resetDatabaseManager: () => Promise<void>
 
 	beforeEach(() => {
 		jest.clearAllMocks()
@@ -42,7 +43,15 @@ describe('databaseManager', () => {
 		}))
 
 		// Import the module under test AFTER mocks are set up
-		databaseManager = require('./databaseManager').databaseManager
+		const dbmModule = require('./databaseManager')
+		databaseManager = dbmModule.databaseManager
+		resetDatabaseManager = dbmModule.resetDatabaseManager
+	})
+
+	afterEach(async () => {
+		if (resetDatabaseManager) {
+			await resetDatabaseManager()
+		}
 	})
 
 	it('falls back to PROVIDERS when config.database.providers is undefined', async () => {

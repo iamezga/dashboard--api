@@ -95,3 +95,10 @@ export function getRepositoryManager(): RepositoryManager {
 
 	return repositoryManagerInstance
 }
+
+/**
+ * Test helper: reset the repository manager instance.
+ */
+export const resetRepositoryManager = (): void => {
+	repositoryManagerInstance = null
+}

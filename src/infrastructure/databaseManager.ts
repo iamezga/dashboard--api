@@ -169,3 +169,22 @@ export const databaseManager: DatabaseManager = {
 		return status
 	}
 }
+
+/**
+ * Test helper: resets the internal registry and disconnects any active clients.
+ * Useful for isolating test cases that exercise initialization logic.
+ */
+export const resetDatabaseManager = async (): Promise<void> => {
+	for (const key of Object.keys(registry) as Provider[]) {
+		const entry = registry[key]
+		if (entry.instance) {
+			try {
+				await entry.provider.disconnect()
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			} catch (_e) {
+				// swallow errors in test cleanup
+			}
+			entry.instance = undefined
+		}
+	}
+}
