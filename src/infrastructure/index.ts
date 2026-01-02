@@ -9,10 +9,7 @@ export const infrastructureManager = {
 		await databaseManager.initialize()
 
 		const auditProvider = config.get('audit.provider') as Provider
-		if (!config.get('database.providers').includes(auditProvider)) {
-			logger.error('audit.provider is not listed in database.providers')
-			throw new Error('audit.provider is not listed in database.providers')
-		}
+
 		try {
 			databaseManager.get(auditProvider) // throws si no inicializado
 		} catch (err) {

@@ -2,6 +2,7 @@ import { config } from '@/services/config'
 import logger from '@/services/logger'
 import { app } from './http/app'
 import { infrastructureManager } from './infrastructure'
+import { validateConfig } from './services/configValidator'
 
 const shutdown = async (signal: string) => {
 	logger.info(`${signal} signal received. Shutting down gracefully.`)
@@ -11,6 +12,8 @@ const shutdown = async (signal: string) => {
 
 ;(async () => {
 	try {
+		// Validate configuration before starting the application
+		validateConfig()
 		// Connect and initialize all services
 		await infrastructureManager.initialize()
 
