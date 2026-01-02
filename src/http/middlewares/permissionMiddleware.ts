@@ -32,13 +32,24 @@ export const permissionMiddleware = (
 					`Permission Middleware Error: Use Case "${useCaseName}" not found.`
 				)
 			}
-			// The `permission` property and `getPermissionValidationData` method are mandatory for private use case
+
+			// Verify that permissionMiddleware is not applied to a public use case
+			// (public use cases should not have the `permission` property)
+			if (!(useCaseClass as any).permission) {
+				throw new Error(
+					`Permission Middleware Error: Use Case "${useCaseName}" is public (has no permission property). Remove permissionMiddleware from this route, or add a permission property to the use case.`
+				)
+			}
+
+			// At this point, getPermissionValidationData must exist (validated at startup by useCaseValidator)
+			// This check is defensive programming for runtime safety
 			if (
-				!(useCaseClass as any).permission ||
 				typeof (useCaseClass as any).getPermissionValidationData !== 'function'
 			) {
 				throw new Error(
-					`Permission Middleware Error: Use Case "${useCaseName}" is missing permission configuration.`
+					`Permission Middleware Error: Use Case "${useCaseName}" has permission="${
+						(useCaseClass as any).permission
+					}" but is missing getPermissionValidationData() method. This should have been caught at startup.`
 				)
 			}
 

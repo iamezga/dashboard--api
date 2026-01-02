@@ -1,8 +1,9 @@
 import { config } from '@/services/config'
 import logger from '@/services/logger'
+import { validateConfig } from './core/configValidator'
+import { validateUseCases } from './core/useCaseValidator'
 import { app } from './http/app'
 import { infrastructureManager } from './infrastructure'
-import { validateConfig } from './services/configValidator'
 
 const shutdown = async (signal: string) => {
 	logger.info(`${signal} signal received. Shutting down gracefully.`)
@@ -12,6 +13,8 @@ const shutdown = async (signal: string) => {
 
 ;(async () => {
 	try {
+		// Validate implementation of private use cases before starting the application
+		validateUseCases()
 		// Validate configuration before starting the application
 		validateConfig()
 		// Connect and initialize all services

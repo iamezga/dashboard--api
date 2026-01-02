@@ -1,8 +1,13 @@
-import { config } from './config'
+import { config } from '@/services/config'
 
 /**
- * Validates the application configuration.
- * Throws an error if any configuration is invalid.
+ * Validates cross-field application configuration at startup.
+ * Ensures consistency between related config values.
+ *
+ * This validation runs before infrastructure initialization
+ * to catch configuration errors early (fail-fast).
+ *
+ * @throws {Error} If any configuration constraint is violated.
  */
 export function validateConfig() {
 	//| PROVIDERS
