@@ -12,11 +12,6 @@ import {
 } from '../entities/Role'
 import { RoleRepositoryInterface } from '../entities/RoleRepositoryInterface'
 
-export type RoleRepositoryContext = {
-	repositoryManager: RepositoryManager
-	logger: Logger
-}
-
 const roleWithPermissionsInclude = {
 	rolePermissions: {
 		where: { deletedAt: null },
@@ -35,28 +30,42 @@ export type RoleWithPermissionsPayload = Prisma.RoleGetPayload<{
  * @description Implements RoleRepositoryInterface for PostgreSQL using PrismaClient.
  * Handles mapping between domain entities and Prisma models for roles,
  * and manages role-permission relationships.
+ *
+ * Constructor Injection:
+ * - Receives DependencyContainer in constructor
+ * - Extracts only needed dependencies (repositoryManager, logger)
+ * - 100% ready to use immediately after instantiation
+ * - No two-phase initialization required
  */
 export class RoleRepository implements RoleRepositoryInterface {
 	static name = 'role' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
-	private context!: RoleRepositoryContext
 	private roleMapper = new RoleMapper()
 	private roleWithPermissionsMapper = new RoleWithPermissionsMapper()
 
-	constructor(readonly db: DatabaseClientsMap['postgres']) {}
+	// Dependencies extracted from container
+	private readonly repositoryManager: RepositoryManager
+	private readonly logger: Logger
 
 	/**
-	 * Injects the dependency container into the repository instance.
-	 * This allows the repository to access other services or repositories from the container.
-	 * @param {DependencyContainer} container - The main dependency container.
+	 * Creates a new RoleRepository instance.
+	 *
+	 * @param {DatabaseClientsMap['postgres']} db - The Prisma client for Postgres
+	 * @param {DependencyContainer} container - The dependency container with services and other repositories
+	 *
+	 * Architecture:
+	 * - Extract only required dependencies from container
+	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
+	 * - Makes dependencies explicit and testable
 	 */
-	setContext(container: DependencyContainer): void {
-		const { repositoryManager, logger } = container
-		this.context = {
-			repositoryManager,
-			logger
-		}
-		this.context.logger.info(`Repository context ready.`)
+	constructor(
+		readonly db: DatabaseClientsMap['postgres'],
+		container: DependencyContainer
+	) {
+		this.repositoryManager = container.repositoryManager
+		this.logger = container.logger
+
+		this.logger.info(`Repository initialized: ${RoleRepository.name}`)
 	}
 
 	/**
@@ -98,7 +107,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 
 		if (permissionKeys && permissionKeys.length > 0) {
 			// Get valid permission IDs
-			const permissions = await this.context.repositoryManager
+			const permissions = await this.repositoryManager
 				.get('permission')
 				.findByKeys(permissionKeys)
 			if (permissions.length !== permissionKeys.length) {
@@ -144,7 +153,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		} as Prisma.RoleUpdateInput
 
 		if (permissionKeysToAdd && permissionKeysToAdd.length > 0) {
-			const permissions = await this.context.repositoryManager
+			const permissions = await this.repositoryManager
 				.get('permission')
 				.findByKeys(permissionKeysToAdd)
 			if (permissions.length !== permissionKeysToAdd.length) {
@@ -163,7 +172,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		}
 
 		if (permissionKeysToRemove && permissionKeysToRemove.length > 0) {
-			const permissions = await this.context.repositoryManager
+			const permissions = await this.repositoryManager
 				.get('permission')
 				.findByKeys(permissionKeysToRemove)
 			if (permissions.length !== permissionKeysToRemove.length) {

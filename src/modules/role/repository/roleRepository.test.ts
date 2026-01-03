@@ -44,8 +44,8 @@ describe('RoleRepository', () => {
 			repositoryManager: repositoryManagerMock,
 			logger: loggerMock
 		} as unknown as DependencyContainer
-		repository = new RoleRepository(dbMock as any)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new RoleRepository(dbMock as any, containerMock)
 	})
 
 	it('should return role by id', async () => {

@@ -1,6 +1,7 @@
 import {
 	getRepositoryManager,
-	RepositoryManager
+	RepositoryManager,
+	setDependencyContainerForRepositoryManager
 } from '@/core/repositoryManager'
 import { databaseManager } from '@/infrastructure/databaseManager'
 import { AuditService } from '@/services/auditService'
@@ -23,15 +24,46 @@ let repositoryManager: RepositoryManager | null = null
 /**
  * @function getContainer
  * @description Retrieves the singleton instance of the dependency container.
- * If the container does not exist, it creates and initializes it, including the repository manager and all services.
+ *
+ * Initialization Flow:
+ * 1. Build base container with services that don't depend on repositories
+ * 2. Register container with repository manager (allows repos to access dependencies)
+ * 3. Retrieve repository manager (now fully initialized with container)
+ * 4. Build services that depend on repositories
+ * 5. Finalize container with all dependencies
+ *
+ * Architecture:
+ * - Repositories receive DependencyContainer in constructor (constructor injection)
+ * - No circular dependency issues (container registered before repos access it)
+ * - All repositories 100% ready after instantiation
+ * - No setContext pattern required
+ *
  * @returns {DependencyContainer} The singleton dependency container instance.
  */
 export const getContainer = (): DependencyContainer => {
 	if (dependencyContainer) return dependencyContainer
 
+	// Step 1: Create a temporary container with base dependencies
+	// This allows repositories to access config and logger during construction
+	const baseContainer: Partial<DependencyContainer> = {
+		config,
+		validator,
+		logger,
+		databaseManager: databaseManager,
+		utils,
+		libs: { argon2, jwt, ms, dayjs }
+	}
+
+	// Step 2: Register the base container with repository manager
+	// This allows repositories to extract dependencies they need from the container
+	setDependencyContainerForRepositoryManager(
+		baseContainer as DependencyContainer
+	)
+
+	// Step 3: Retrieve the now-initialized repository manager
 	repositoryManager = getRepositoryManager()
 
-	// Resolve the audit repository implementation
+	// Step 4: Build services that depend on repositories
 	const auditServiceInstance = new AuditService(repositoryManager.get('audit'))
 
 	const services = {
@@ -47,6 +79,7 @@ export const getContainer = (): DependencyContainer => {
 		services.emailService = new LogEmailService()
 	}
 
+	// Step 5: Finalize the container with all dependencies
 	dependencyContainer = {
 		config,
 		validator,
@@ -58,7 +91,7 @@ export const getContainer = (): DependencyContainer => {
 		libs: { argon2, jwt, ms, dayjs }
 	}
 
-	repositoryManager.setContext(dependencyContainer)
+	// Inject container into services that need it
 	services.emailService.setContext(dependencyContainer)
 
 	return dependencyContainer

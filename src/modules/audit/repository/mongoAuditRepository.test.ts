@@ -41,8 +41,8 @@ describe('MongoAuditRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new MongoAuditRepository(dbMock)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new MongoAuditRepository(dbMock, containerMock)
 	})
 
 	it('should cover getCustomContainer return and call insertOne successfully', async () => {
@@ -93,7 +93,7 @@ describe('MongoAuditRepository', () => {
 
 		expect(loggerMock.error).toHaveBeenCalledWith(
 			{ error },
-			'Failed to insert audit record.'
+			'Failed to insert audit record (Mongo).'
 		)
 	})
 })

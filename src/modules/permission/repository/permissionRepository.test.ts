@@ -46,12 +46,14 @@ describe('PermissionRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new PermissionRepository(dbMock as any)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new PermissionRepository(dbMock as any, containerMock)
 	})
 
-	it('should set context and log info', () => {
-		expect(loggerMock.info).toHaveBeenCalledWith('Repository context ready.')
+	it('should initialize repository and log info', () => {
+		expect(loggerMock.info).toHaveBeenCalledWith(
+			'Repository initialized: permission'
+		)
 	})
 
 	it('should return permission by id', async () => {

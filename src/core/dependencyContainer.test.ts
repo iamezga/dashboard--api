@@ -15,9 +15,9 @@ describe('dependencyContainer', () => {
 			getRepositoryManager: () => ({
 				get: jest.fn(),
 				create: jest.fn(),
-				getAll: jest.fn(),
-				setContext: jest.fn()
-			})
+				getAll: jest.fn()
+			}),
+			setDependencyContainerForRepositoryManager: jest.fn()
 		}))
 
 		// AuditService simple class shim (constructor must exist)

@@ -1,34 +1,48 @@
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { Collection } from 'mongodb'
+import { Logger } from 'pino'
 import { Audit, AuditInput } from '../entities/Audit'
-import { AuditRepositoryContext } from '../entities/AuditRepositoryContext'
 import { AuditRepositoryInterface } from '../entities/AuditRepositoryInterface'
 
+/**
+ * @class MongoAuditRepository
+ * @description Implements AuditRepositoryInterface for MongoDB.
+ * Handles audit log persistence for the Mongo implementation.
+ *
+ * Constructor Injection:
+ * - Receives DependencyContainer in constructor
+ * - Extracts only needed dependencies (repositoryManager, logger)
+ * - 100% ready to use immediately after instantiation
+ * - No two-phase initialization required
+ */
 export class MongoAuditRepository implements AuditRepositoryInterface {
 	static name = 'audit' as const
 	static provider: keyof DatabaseClientsMap = 'mongo'
 	private readonly collection: Collection<Audit>
-	private context!: AuditRepositoryContext
 	public readonly db: DatabaseClientsMap['mongo']
 
-	constructor(db: DatabaseClientsMap['mongo']) {
-		this.db = db
-		this.collection = db.collection<Audit>('audits')
-	}
+	private readonly logger: Logger
 
 	/**
-	 * Injects the dependency container into the repository instance.
-	 * This allows the repository to access other services or repositories from the container.
-	 * @param {DependencyContainer} container - The main dependency container.
+	 * Creates a new MongoAuditRepository instance.
+	 *
+	 * @param {DatabaseClientsMap['mongo']} db - The MongoDB client for audit logs
+	 * @param {DependencyContainer} container - The dependency container with services and other repositories
+	 *
+	 * Architecture:
+	 * - Extract only required dependencies from container
+	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
+	 * - Makes dependencies explicit and testable
 	 */
-	setContext(container: DependencyContainer): void {
-		const { repositoryManager, logger } = container
-		this.context = {
-			repositoryManager,
-			logger
-		}
-		this.context.logger.info(`Repository context ready.`)
+	constructor(db: DatabaseClientsMap['mongo'], container: DependencyContainer) {
+		this.db = db
+		this.collection = db.collection<Audit>('audits')
+		this.logger = container.logger
+
+		this.logger.info(
+			`Repository initialized: ${MongoAuditRepository.name} (Mongo)`
+		)
 	}
 
 	/**
@@ -41,7 +55,7 @@ export class MongoAuditRepository implements AuditRepositoryInterface {
 			await this.collection.insertOne(data as any)
 		} catch (error: any) {
 			// It's crucial not to throw an error here. A failed audit log should not block the main user action.
-			this.context.logger.error({ error }, 'Failed to insert audit record.')
+			this.logger.error({ error }, 'Failed to insert audit record (Mongo).')
 		}
 	}
 }

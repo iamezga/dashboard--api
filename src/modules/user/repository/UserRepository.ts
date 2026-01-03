@@ -1,4 +1,3 @@
-import { RepositoryManager } from '@/core/repositoryManager'
 import { Prisma } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
@@ -17,11 +16,6 @@ import {
 	UserUpdateInput
 } from '../entities/User'
 
-type UserRepositoryContext = {
-	repositoryManager: RepositoryManager
-	logger: Logger
-}
-
 // This type ensures that the permissions and the related permission data are loaded.
 const userAuthDetailsInclude = {
 	userPermissions: {
@@ -35,28 +29,43 @@ export type UserAuthDetailsPayload = Prisma.UserGetPayload<{
 	include: typeof userAuthDetailsInclude
 }>
 
+/**
+ * @class UserRepository
+ * @description Handles all user-related database operations using Prisma.
+ *
+ * Constructor Injection:
+ * - Receives DependencyContainer in constructor
+ * - Extracts only needed dependencies (repositoryManager, logger)
+ * - 100% ready to use immediately after instantiation
+ * - No two-phase initialization required
+ */
 export class UserRepository implements UserRepositoryInterface {
 	static name = 'user' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
-	private context!: UserRepositoryContext
 	private userMapper = new UserMapper()
 	private userAuthDetailsMapper = new UserAuthDetailsMapper()
 	private userStatusMapper = new UserStatusMapper()
 
-	constructor(private readonly db: DatabaseClientsMap['postgres']) {}
+	private readonly logger: Logger
 
 	/**
-	 * Injects the dependency container into the repository instance.
-	 * This allows the repository to access other services or repositories from the container.
-	 * @param {DependencyContainer} container - The main dependency container.
+	 * Creates a new UserRepository instance.
+	 *
+	 * @param {DatabaseClientsMap['postgres']} db - The Prisma client for Postgres
+	 * @param {DependencyContainer} container - The dependency container with services and other repositories
+	 *
+	 * Architecture:
+	 * - Extract only required dependencies from container
+	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
+	 * - Makes dependencies explicit and testable
 	 */
-	setContext(container: DependencyContainer): void {
-		const { repositoryManager, logger } = container
-		this.context = {
-			repositoryManager,
-			logger
-		}
-		this.context.logger.info(`Repository context ready.`)
+	constructor(
+		private readonly db: DatabaseClientsMap['postgres'],
+		container: DependencyContainer
+	) {
+		this.logger = container.logger
+
+		this.logger.info(`Repository initialized: ${UserRepository.name}`)
 	}
 
 	/**

@@ -39,8 +39,8 @@ describe('UserRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new UserRepository(dbMock)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new UserRepository(dbMock, containerMock)
 	})
 
 	afterEach(() => {

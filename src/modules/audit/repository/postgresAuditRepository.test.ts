@@ -12,8 +12,11 @@ describe('PostgresAuditRepository', () => {
 				create: jest.fn().mockResolvedValue({})
 			}
 		}
-		repo = new PostgresAuditRepository(mockPrisma)
-		repo.setContext({ repositoryManager: {}, logger: mockLogger } as any)
+		// Use constructor injection instead of setContext
+		repo = new PostgresAuditRepository(mockPrisma, {
+			repositoryManager: {},
+			logger: mockLogger
+		} as any)
 		jest.clearAllMocks()
 	})
 

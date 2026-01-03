@@ -1,4 +1,3 @@
-import { RepositoryManager } from '@/core/repositoryManager'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { randomUUID } from 'node:crypto'
@@ -7,39 +6,42 @@ import { RedisClientType } from 'redis'
 import { SessionData, SessionDataInput, SessionUser } from '../entities/Session'
 import { SessionRepositoryInterface } from '../entities/SessionRepositoryInterface'
 
-type SessionRepositoryContext = {
-	repositoryManager: RepositoryManager
-	logger: Logger
-}
-
 /**
  * @class SessionRepository
  * @description Implements SessionRepositoryInterface for Redis, managing user data
  * and multiple concurrent sessions.
+ *
+ * Constructor Injection:
+ * - Receives DependencyContainer in constructor
+ * - Extracts only needed dependencies (repositoryManager, logger)
+ * - 100% ready to use immediately after instantiation
+ * - No two-phase initialization required
  */
 export class SessionRepository implements SessionRepositoryInterface {
 	static name = 'session' as const
 	static provider: keyof DatabaseClientsMap = 'redis'
-	private context!: SessionRepositoryContext
 	// Key prefixes for different data types in Redis
 	private static readonly USER_DATA_KEY_PREFIX = 'user:data:'
 	private static readonly SESSION_METADATA_KEY_PREFIX = 'session:metadata:'
 	private static readonly USER_SESSIONS_SET_KEY_PREFIX = 'user:sessions:'
 
-	constructor(readonly db: RedisClientType) {}
+	private readonly logger: Logger
 
 	/**
-	 * Injects the dependency container into the repository instance.
-	 * This allows the repository to access other services or repositories from the container.
-	 * @param {DependencyContainer} container - The main dependency container.
+	 * Creates a new SessionRepository instance.
+	 *
+	 * @param {RedisClientType} db - The Redis client for session storage
+	 * @param {DependencyContainer} container - The dependency container with services and other repositories
+	 *
+	 * Architecture:
+	 * - Extract only required dependencies from container
+	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
+	 * - Makes dependencies explicit and testable
 	 */
-	setContext(container: DependencyContainer): void {
-		const { repositoryManager, logger } = container
-		this.context = {
-			repositoryManager,
-			logger
-		}
-		this.context.logger.info(`Repository context ready.`)
+	constructor(readonly db: RedisClientType, container: DependencyContainer) {
+		this.logger = container.logger
+
+		this.logger.info(`Repository initialized: ${SessionRepository.name}`)
 	}
 
 	/**
@@ -61,7 +63,7 @@ export class SessionRepository implements SessionRepositoryInterface {
 		try {
 			return JSON.parse(dataString) as T
 		} catch (error: any) {
-			this.context.logger.error('Failed to parse data from Redis:', error)
+			this.logger.error('Failed to parse data from Redis:', error)
 			return null
 		}
 	}

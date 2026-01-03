@@ -45,12 +45,14 @@ describe('OrganizationRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new OrganizationRepository(dbMock)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new OrganizationRepository(dbMock, containerMock)
 	})
 
-	it('should set context and log info', () => {
-		expect(loggerMock.info).toHaveBeenCalledWith('Repository context ready.')
+	it('should initialize repository and log info', () => {
+		expect(loggerMock.info).toHaveBeenCalledWith(
+			'Repository initialized: organization'
+		)
 	})
 
 	it('should create a new organization', async () => {

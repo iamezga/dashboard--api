@@ -10,18 +10,25 @@ export interface RepositoryManager {
 	get<K extends keyof RepositoryMap>(name: K): RepositoryMap[K]
 	create<K extends keyof RepositoryMap>(name: K): RepositoryMap[K]
 	getAll(): RepositoryMap
-	setContext(container: DependencyContainer): void
 }
 
 /**
  * @function createRepositoryManager
  * @description Factory function that creates and initializes a repository manager.
- * It instantiates all registered repositories, injecting the corresponding database client.
- * @param {DatabaseClientsMap} clients - A map of active database clients.
- * @returns {RepositoryManager} A new instance of the repository manager.
+ *
+ * Architecture:
+ * - All repositories receive DependencyContainer in their constructor
+ * - Each repository extracts only the dependencies it needs
+ * - No two-phase initialization (no setContext) required
+ * - Repositories are 100% ready after instantiation
+ *
+ * @param {DatabaseClientsMap} clients - A map of active database clients
+ * @param {DependencyContainer} container - Dependency container with logger and other services
+ * @returns {RepositoryManager} A new instance of the repository manager
  */
 export function createRepositoryManager(
-	clients: DatabaseClientsMap
+	clients: DatabaseClientsMap,
+	container: DependencyContainer
 ): RepositoryManager {
 	const repos: Partial<
 		Record<keyof RepositoryMap, RepositoryMap[keyof RepositoryMap]>
@@ -45,8 +52,10 @@ export function createRepositoryManager(
 		if (!client) return
 
 		const repoName = RepoClass.name as keyof RepositoryMap
+		// Pass both database client and dependency container to repository constructor
 		repos[repoName] = new (RepoClass as any)(
-			client
+			client,
+			container
 		) as RepositoryMap[typeof repoName]
 	})
 
@@ -69,36 +78,67 @@ export function createRepositoryManager(
 			if (!client)
 				throw new Error(`DB client for repository "${String(name)}" not found`)
 
-			return new RepoClass(client)
+			// Pass both database client and dependency container to repository constructor
+			return new RepoClass(client, container)
 		},
 		getAll(): RepositoryMap {
 			return repos as RepositoryMap
-		},
-		setContext(container: DependencyContainer) {
-			Object.values(repos).forEach(repo => repo.setContext(container))
 		}
 	}
 }
 
 let repositoryManagerInstance: RepositoryManager | null = null
+let dependencyContainerInstance: DependencyContainer | null = null
+
+/**
+ * @function setDependencyContainerForRepositoryManager
+ * @description Sets the dependency container to be used by the repository manager.
+ * This is called during dependency container initialization to ensure repositories
+ * can access all required dependencies.
+ *
+ * @param {DependencyContainer} container - The fully initialized dependency container
+ */
+export function setDependencyContainerForRepositoryManager(
+	container: DependencyContainer
+): void {
+	dependencyContainerInstance = container
+}
 
 /**
  * @function getRepositoryManager
  * @description Retrieves the singleton instance of the repository manager.
- * If it doesn't exist, it creates one using the initialized providers.
+ * If it doesn't exist, it creates one using the initialized providers and dependency container.
+ *
+ * Architecture:
+ * - The dependency container must be set before retrieving the repository manager
+ * - All repositories receive the container in their constructor
+ * - No two-phase initialization needed
+ *
  * @returns {RepositoryManager} The singleton repository manager instance.
+ * @throws {Error} If dependency container has not been set
  */
 export function getRepositoryManager(): RepositoryManager {
 	if (repositoryManagerInstance) return repositoryManagerInstance
 
-	repositoryManagerInstance = createRepositoryManager(databaseManager.getAll())
+	if (!dependencyContainerInstance) {
+		throw new Error(
+			'Repository manager cannot be created: dependency container not initialized. ' +
+				'Call setDependencyContainerForRepositoryManager before accessing repositories.'
+		)
+	}
+
+	repositoryManagerInstance = createRepositoryManager(
+		databaseManager.getAll(),
+		dependencyContainerInstance
+	)
 
 	return repositoryManagerInstance
 }
 
 /**
- * Test helper: reset the repository manager instance.
+ * Test helper: reset the repository manager instance and dependency container.
  */
 export const resetRepositoryManager = (): void => {
 	repositoryManagerInstance = null
+	dependencyContainerInstance = null
 }

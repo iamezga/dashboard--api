@@ -49,8 +49,8 @@ describe('SessionRepository', () => {
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		repository = new SessionRepository(dbMock as any)
-		repository.setContext(containerMock)
+		// Use constructor injection instead of setContext
+		repository = new SessionRepository(dbMock as any, containerMock)
 	})
 
 	it('should save user data successfully', async () => {
