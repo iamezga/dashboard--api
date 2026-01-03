@@ -1,15 +1,12 @@
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	Prisma,
-	Permission as PrismaPermissionModel
-} from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
+import { PermissionMapper } from '@/utils/mappers'
 import { Logger } from 'pino'
 import {
 	Permission,
 	PermissionCreateInput,
-	PermissionScope,
 	PermissionUpdateInput
 } from '../entities/Permission'
 import { PermissionRepositoryInterface } from '../entities/PermissionRepositoryInterface'
@@ -28,6 +25,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 	static name = 'permission' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: PermissionRepositoryContext
+	private permissionMapper = new PermissionMapper()
 
 	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
@@ -46,29 +44,6 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 	}
 
 	/**
-	 * Maps a Prisma-generated Permission object to the app domain Permission interface.
-	 * @param {PrismaPermissionModel} prismaPermission - The permission object returned by PrismaClient.
-	 * @returns {Permission} The mapped domain Permission entity.
-	 */
-	private mapPrismaPermissionToDomain(
-		prismaPermission: PrismaPermissionModel
-	): Permission {
-		return {
-			id: prismaPermission.id,
-			key: prismaPermission.key,
-			label: prismaPermission.label,
-			description: prismaPermission.description,
-			active: prismaPermission.active,
-			config: prismaPermission.config as Record<string, any>,
-			moduleId: prismaPermission.moduleId,
-			scope: prismaPermission.scope as PermissionScope,
-			createdAt: prismaPermission.createdAt,
-			updatedAt: prismaPermission.updatedAt,
-			deletedAt: prismaPermission.deletedAt
-		}
-	}
-
-	/**
 	 * Finds a permission by id.
 	 * @param {string} id - The ID of the permission.
 	 * @returns {Promise<Permission | null>} The permission entity or null if not found.
@@ -77,9 +52,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 		const prismaPermission = await this.db.permission.findUnique({
 			where: { id, deletedAt: null }
 		})
-		return prismaPermission
-			? this.mapPrismaPermissionToDomain(prismaPermission)
-			: null
+		return this.permissionMapper.mapOrNull(prismaPermission)
 	}
 
 	/**
@@ -93,7 +66,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 				...data
 			} as Prisma.PermissionCreateInput
 		})
-		return this.mapPrismaPermissionToDomain(prismaPermission)
+		return this.permissionMapper.mapToDomain(prismaPermission)
 	}
 
 	/**
@@ -110,9 +83,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 			where: { id },
 			data: data as Prisma.PermissionUpdateInput
 		})
-		return prismaPermission
-			? this.mapPrismaPermissionToDomain(prismaPermission)
-			: null
+		return this.permissionMapper.mapOrNull(prismaPermission)
 	}
 
 	/**
@@ -141,7 +112,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 				deletedAt: null // Only fetch non-deleted permissions
 			}
 		})
-		return prismaPermissions.map(this.mapPrismaPermissionToDomain)
+		return this.permissionMapper.mapArrayToDomain(prismaPermissions)
 	}
 
 	/**
@@ -153,9 +124,7 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 		const prismaPermission = await this.db.permission.findUnique({
 			where: { key, deletedAt: null }
 		})
-		return prismaPermission
-			? this.mapPrismaPermissionToDomain(prismaPermission)
-			: null
+		return this.permissionMapper.mapOrNull(prismaPermission)
 	}
 
 	/**
@@ -173,6 +142,6 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 				deletedAt: null // Only retrieve non-deleted permissions
 			}
 		})
-		return prismaPermissions.map(this.mapPrismaPermissionToDomain)
+		return this.permissionMapper.mapArrayToDomain(prismaPermissions)
 	}
 }

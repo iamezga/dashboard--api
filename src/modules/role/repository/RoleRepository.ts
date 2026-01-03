@@ -1,13 +1,12 @@
 import { RepositoryManager } from '@/core/repositoryManager'
-import { Prisma, Role as PrismaRoleModel } from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
-import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
+import { RoleMapper, RoleWithPermissionsMapper } from '@/utils/mappers'
 import { Logger } from 'pino'
 import {
 	Role,
 	RoleCreateInput,
-	RolePermissionDetail,
 	RoleUpdateInput,
 	RoleWithPermissions
 } from '../entities/Role'
@@ -27,7 +26,7 @@ const roleWithPermissionsInclude = {
 	}
 } as const // `as const` ensures literal types for keys for better inference
 
-type RoleWithPermissionsPayload = Prisma.RoleGetPayload<{
+export type RoleWithPermissionsPayload = Prisma.RoleGetPayload<{
 	include: typeof roleWithPermissionsInclude
 }>
 
@@ -41,6 +40,8 @@ export class RoleRepository implements RoleRepositoryInterface {
 	static name = 'role' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: RoleRepositoryContext
+	private roleMapper = new RoleMapper()
+	private roleWithPermissionsMapper = new RoleWithPermissionsMapper()
 
 	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
@@ -56,54 +57,6 @@ export class RoleRepository implements RoleRepositoryInterface {
 			logger
 		}
 		this.context.logger.info(`Repository context ready.`)
-	}
-
-	/**
-	 * Maps a Prisma-generated Role object to the app domain Role interface.
-	 * @param {PrismaRoleModel} prismaRole - The role object returned by PrismaClient.
-	 * @returns {Role} The mapped domain Role entity.
-	 */
-	private mapPrismaRoleToDomain(prismaRole: PrismaRoleModel): Role {
-		return {
-			id: prismaRole.id,
-			organizationId: prismaRole.organizationId,
-			name: prismaRole.name,
-			label: prismaRole.label,
-			description: prismaRole.description,
-			active: prismaRole.active,
-			config: prismaRole.config as Record<string, any>,
-			createdAt: prismaRole.createdAt,
-			updatedAt: prismaRole.updatedAt,
-			deletedAt: prismaRole.deletedAt
-		}
-	}
-
-	/**
-	 * Maps a Prisma-generated Role object with relations to the RoleWithPermissions domain interface.
-	 * @param {RoleWithPermissionsPayload} prismaRoleWithPermissions - Role object with nested rolePermissions and permissions from Prisma.
-	 * @returns {RoleWithPermissions} The mapped domain RoleWithPermissions entity.
-	 */
-	private mapPrismaRoleWithPermissionsToDomain(
-		prismaRoleWithPermissions: RoleWithPermissionsPayload
-	): RoleWithPermissions {
-		const { rolePermissions, ...roleData } = prismaRoleWithPermissions
-		const mappedRolePermissions = rolePermissions
-			.filter(rp => !rp.permission.deletedAt && rp.permission.active) // Only active and non-deleted permissions
-			.map(rp => ({
-				permission: {
-					...rp.permission,
-					scope: rp.permission.scope as PermissionScope,
-					config: {
-						...(rp.permission.config as Record<string, any>)
-					} as Record<string, any>
-				},
-				config: rp.config
-			})) as RolePermissionDetail[]
-
-		return {
-			...this.mapPrismaRoleToDomain(roleData),
-			rolePermissions: mappedRolePermissions
-		}
 	}
 
 	/**
@@ -125,7 +78,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		const prismaRole = await this.db.role.findFirst({
 			where: whereClause
 		})
-		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
+		return this.roleMapper.mapOrNull(prismaRole)
 	}
 
 	/**
@@ -162,7 +115,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		const prismaRole = await this.db.role.create({
 			data: createData
 		})
-		return this.mapPrismaRoleToDomain(prismaRole)
+		return this.roleMapper.mapToDomain(prismaRole)
 	}
 
 	/**
@@ -232,7 +185,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 			where: whereClause,
 			data: updateData
 		})
-		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
+		return this.roleMapper.mapOrNull(prismaRole)
 	}
 
 	/**
@@ -281,7 +234,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 		const prismaRoles = await this.db.role.findMany({
 			where: whereClause
 		})
-		return prismaRoles.map(this.mapPrismaRoleToDomain)
+		return this.roleMapper.mapArrayToDomain(prismaRoles)
 	}
 
 	/**
@@ -305,9 +258,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 			where: whereClause,
 			include: roleWithPermissionsInclude
 		})
-		return prismaRole
-			? this.mapPrismaRoleWithPermissionsToDomain(prismaRole)
-			: null
+		return this.roleWithPermissionsMapper.mapOrNull(prismaRole)
 	}
 
 	/**
@@ -324,7 +275,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 				deletedAt: null
 			}
 		})
-		return prismaRole ? this.mapPrismaRoleToDomain(prismaRole) : null
+		return this.roleMapper.mapOrNull(prismaRole)
 	}
 
 	/**

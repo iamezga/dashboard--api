@@ -1,10 +1,8 @@
 import { RepositoryManager } from '@/core/repositoryManager'
-import {
-	Prisma,
-	Organization as PrismaOrganizationModel
-} from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
+import { OrganizationMapper } from '@/utils/mappers'
 import { Logger } from 'pino'
 import {
 	Organization,
@@ -27,6 +25,7 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 	static name = 'organization' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: OrganizationRepositoryContext
+	private organizationMapper = new OrganizationMapper()
 
 	constructor(readonly db: DatabaseClientsMap['postgres']) {}
 
@@ -45,26 +44,6 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 	}
 
 	/**
-	 * Maps a Prisma-generated Organization object to the app domain Organization interface.
-	 * @param {PrismaOrganizationModel} prismaOrganization - The organization object returned by PrismaClient.
-	 * @returns {Organization} The mapped domain Organization entity.
-	 */
-	private mapPrismaOrganizationToDomain(
-		prismaOrganization: PrismaOrganizationModel
-	): Organization {
-		return {
-			id: prismaOrganization.id,
-			name: prismaOrganization.name,
-			email: prismaOrganization.email,
-			phone: prismaOrganization.phone,
-			address: prismaOrganization.address,
-			createdAt: prismaOrganization.createdAt,
-			updatedAt: prismaOrganization.updatedAt,
-			deletedAt: prismaOrganization.deletedAt
-		}
-	}
-
-	/**
 	 * Finds organization by ID.
 	 * @param {string} id - The ID of the organization.
 	 * @returns {Promise<Organization | null>} The organization entity or null if not found.
@@ -76,9 +55,7 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 				deletedAt: null
 			}
 		})
-		return prismaOrganization
-			? this.mapPrismaOrganizationToDomain(prismaOrganization)
-			: null
+		return this.organizationMapper.mapOrNull(prismaOrganization)
 	}
 
 	/**
@@ -92,7 +69,7 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 				...data
 			} as Prisma.OrganizationCreateInput
 		})
-		return this.mapPrismaOrganizationToDomain(prismaOrganization)
+		return this.organizationMapper.mapToDomain(prismaOrganization)
 	}
 
 	/**
@@ -109,9 +86,7 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 			where: { id },
 			data: data as Prisma.OrganizationUpdateInput
 		})
-		return prismaOrganization
-			? this.mapPrismaOrganizationToDomain(prismaOrganization)
-			: null
+		return this.organizationMapper.mapOrNull(prismaOrganization)
 	}
 
 	/**
@@ -138,7 +113,7 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 				deletedAt: null
 			}
 		})
-		return prismaOrganizations.map(this.mapPrismaOrganizationToDomain)
+		return this.organizationMapper.mapArrayToDomain(prismaOrganizations)
 	}
 
 	/**
@@ -153,8 +128,6 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 				deletedAt: null
 			}
 		})
-		return prismaOrganization
-			? this.mapPrismaOrganizationToDomain(prismaOrganization)
-			: null
+		return this.organizationMapper.mapOrNull(prismaOrganization)
 	}
 }

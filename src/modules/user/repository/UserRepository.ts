@@ -1,10 +1,14 @@
 import { RepositoryManager } from '@/core/repositoryManager'
-import { Prisma, User as PrismaUserModel } from '@/generated/prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { DatabaseClientsMap } from '@/infrastructure/databaseManager'
 import { UserAuthDetails } from '@/modules/auth/entities/AuthDataTypes'
-import { PermissionScope } from '@/modules/permission/entities/Permission'
 import { UserRepositoryInterface } from '@/modules/user/entities/UserRepositoryInterface'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
+import {
+	UserAuthDetailsMapper,
+	UserMapper,
+	UserStatusMapper
+} from '@/utils/mappers'
 import { Logger } from 'pino'
 import {
 	User,
@@ -27,7 +31,7 @@ const userAuthDetailsInclude = {
 } as const
 
 // The type for the raw Prisma user object with the required relations
-type UserAuthDetailsPayload = Prisma.UserGetPayload<{
+export type UserAuthDetailsPayload = Prisma.UserGetPayload<{
 	include: typeof userAuthDetailsInclude
 }>
 
@@ -35,6 +39,9 @@ export class UserRepository implements UserRepositoryInterface {
 	static name = 'user' as const
 	static provider: keyof DatabaseClientsMap = 'postgres'
 	private context!: UserRepositoryContext
+	private userMapper = new UserMapper()
+	private userAuthDetailsMapper = new UserAuthDetailsMapper()
+	private userStatusMapper = new UserStatusMapper()
 
 	constructor(private readonly db: DatabaseClientsMap['postgres']) {}
 
@@ -53,96 +60,6 @@ export class UserRepository implements UserRepositoryInterface {
 	}
 
 	/**
-	 * Maps a full Prisma User model to the domain User entity.
-	 * @param {PrismaUserModel} prismaUser - The user object returned by PrismaClient.
-	 * @returns {User} The mapped domain User entity.
-	 */
-	private mapPrismaUserToDomain(prismaUser: PrismaUserModel): User {
-		return {
-			id: prismaUser.id,
-			organizationId: prismaUser.organizationId,
-			name: prismaUser.name,
-			surname: prismaUser.surname,
-			email: prismaUser.email,
-			active: prismaUser.active,
-			lastLogin: prismaUser.lastLogin,
-			roleId: prismaUser.roleId,
-			config: prismaUser.config as Record<string, any>,
-			createdAt: prismaUser.createdAt,
-			updatedAt: prismaUser.updatedAt,
-			deletedAt: prismaUser.deletedAt
-		}
-	}
-
-	/**
-	 * Maps a subset of Prisma User properties to the UserAuthDetails DTO.
-	 * This is a pure data mapper - it does NOT apply business rules or filtering.
-	 * Permission filtering (active, non-deleted, etc.) should be done in the application layer.
-	 *
-	 * @param {UserAuthDetailsPayload} prismaUserSubset - The partial user object from Prisma.
-	 * @returns {UserAuthDetails} The mapped UserAuthDetails DTO with raw permission data.
-	 */
-	private mapPrismaAuthDetailsToDomain(
-		prismaUserSubset: UserAuthDetailsPayload
-	): UserAuthDetails {
-		// Pure mapping - no filtering, no business logic
-		const mappedUserPermissions = prismaUserSubset.userPermissions.map(up => ({
-			config: up.config as Record<string, any>,
-			deletedAt: up.deletedAt,
-			disabled: up.disabled,
-			assignedAt: up.assignedAt,
-			permission: {
-				...up.permission,
-				scope: up.permission.scope as PermissionScope,
-				config: { ...(up.permission.config as Record<string, any>) }
-			}
-		}))
-
-		return {
-			id: prismaUserSubset.id,
-			organizationId: prismaUserSubset.organizationId,
-			email: prismaUserSubset.email,
-			passwordHash: prismaUserSubset.passwordHash,
-			active: prismaUserSubset.active,
-			name: prismaUserSubset.name,
-			surname: prismaUserSubset.surname,
-			roleId: prismaUserSubset.roleId,
-			config: prismaUserSubset.config as Record<string, any>,
-			userPermissions: mappedUserPermissions,
-			lastLogin: prismaUserSubset.lastLogin,
-			createdAt: prismaUserSubset.createdAt,
-			updatedAt: prismaUserSubset.updatedAt,
-			deletedAt: prismaUserSubset.deletedAt
-		}
-	}
-
-	/**
-	 * Maps a subset of Prisma User properties to the domain UserStatus interface.
-	 * @param {Pick<PrismaUserModel, 'active' | 'config' | 'lastLogin' | 'createdAt' | 'updatedAt' | 'deletedAt'>} prismaUserStatus - The partial user object from Prisma.
-	 * @returns {UserStatus} The mapped domain UserStatus entity.
-	 */
-	private mapPrismaUserStatusToDomain(
-		prismaUserStatus: Pick<
-			PrismaUserModel,
-			| 'active'
-			| 'config'
-			| 'lastLogin'
-			| 'createdAt'
-			| 'updatedAt'
-			| 'deletedAt'
-		>
-	): UserStatus {
-		return {
-			active: prismaUserStatus.active,
-			config: prismaUserStatus.config as Record<string, any>,
-			lastLogin: prismaUserStatus.lastLogin,
-			createdAt: prismaUserStatus.createdAt,
-			updatedAt: prismaUserStatus.updatedAt,
-			deletedAt: prismaUserStatus.deletedAt
-		}
-	}
-
-	/**
 	 * Finds a user by id.
 	 * @param id - The ID of the user.
 	 * @param organizationId - The ID of the organization to scope the search.
@@ -156,7 +73,7 @@ export class UserRepository implements UserRepositoryInterface {
 				organizationId: organizationId || undefined
 			}
 		})
-		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
+		return this.userMapper.mapOrNull(prismaUser)
 	}
 
 	/**
@@ -178,7 +95,7 @@ export class UserRepository implements UserRepositoryInterface {
 				}
 			}
 		})
-		return this.mapPrismaUserToDomain(prismaUser)
+		return this.userMapper.mapToDomain(prismaUser)
 	}
 
 	/**
@@ -201,7 +118,7 @@ export class UserRepository implements UserRepositoryInterface {
 			where: whereClause,
 			data: data as Prisma.UserUpdateInput
 		})
-		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
+		return this.userMapper.mapOrNull(prismaUser)
 	}
 
 	/**
@@ -236,7 +153,7 @@ export class UserRepository implements UserRepositoryInterface {
 		const prismaUsers = await this.db.user.findMany({
 			where: whereClause
 		})
-		return prismaUsers.map(this.mapPrismaUserToDomain)
+		return this.userMapper.mapArrayToDomain(prismaUsers)
 	}
 
 	/**
@@ -248,7 +165,7 @@ export class UserRepository implements UserRepositoryInterface {
 		const prismaUser = await this.db.user.findUnique({
 			where: { email }
 		})
-		return prismaUser ? this.mapPrismaUserToDomain(prismaUser) : null
+		return this.userMapper.mapOrNull(prismaUser)
 	}
 
 	/**
@@ -268,7 +185,7 @@ export class UserRepository implements UserRepositoryInterface {
 			where: { email },
 			include: userAuthDetailsInclude
 		})
-		return prismaUser ? this.mapPrismaAuthDetailsToDomain(prismaUser) : null
+		return this.userAuthDetailsMapper.mapOrNull(prismaUser)
 	}
 
 	/**
@@ -288,6 +205,6 @@ export class UserRepository implements UserRepositoryInterface {
 				deletedAt: true
 			}
 		})
-		return user ? { ...this.mapPrismaUserStatusToDomain(user) } : null
+		return this.userStatusMapper.mapOrNull(user)
 	}
 }
