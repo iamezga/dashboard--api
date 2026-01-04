@@ -3,15 +3,14 @@ import { UseCaseRules } from '@/types/useCase/UseCaseRulesInterface'
 export const auditGetUseCaseRules: UseCaseRules = {
 	// Rules to validate `job.data` (payload)
 	data: {
-		foo: {
+		id: {
 			type: 'string',
 			optional: false,
-			alpha: true
-		},
-		bar: {
-			type: 'string',
-			optional: false,
-			alpha: true
+			empty: false,
+			messages: {
+				required: 'Audit ID is required',
+				stringEmpty: 'Audit ID cannot be empty'
+			}
 		}
 	}
 	//
