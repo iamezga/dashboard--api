@@ -6,23 +6,23 @@ import { EmailTemplate } from '@/types/services'
 export const passwordResetEmailTemplate: EmailTemplate = {
 	id: 'password-reset-email',
 	name: 'Password Reset Email',
-	subject: 'Reset your password for {{appName}}',
+	subject: 'Password Recovery Request - {{appName}}',
 	html: `
-		<h1>Password Reset Requested</h1>
-		<p>Hello {{firstName}},</p>
-		<p>We received a request to reset your password for {{appName}}.</p>
-		<p>You can reset it by clicking the link below:</p>
-		<p><a href="{{resetLink}}">Reset your password</a></p>
+		<h1>Password Recovery</h1>
+		<p>Hello {{name}},</p>
+		<p>You requested to reset your password for {{appName}}. Click the link below to proceed:</p>
+		<p><a href="{{resetLink}}">Reset Password</a></p>
 		<p>This link will expire in {{expiresIn}}.</p>
-		<p>If you did not request a password reset, you can ignore this email.</p>
+		<p>If you didn't request this, please ignore this email.</p>
 	`,
 	text:
-		`Hello {{firstName}},\n` +
-		`We received a password reset request for {{appName}}.\n` +
-		`Reset your password: {{resetLink}}\n` +
-		`This link expires in {{expiresIn}}.\n` +
-		`If you did not request a password reset, you can ignore this email.`,
-	requiredVariables: ['firstName', 'appName', 'resetLink', 'expiresIn'],
+		`Password Recovery\n\n` +
+		`Hello {{name}},\n\n` +
+		`You requested to reset your password for {{appName}}. Use the link below to proceed:\n` +
+		`{{resetLink}}\n\n` +
+		`This link will expire in {{expiresIn}}.\n\n` +
+		`If you didn't request this, please ignore this email.`,
+	requiredVariables: ['name', 'appName', 'resetLink', 'expiresIn'],
 	category: 'authentication',
 	description: 'Sent when a user requests a password reset'
 }

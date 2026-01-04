@@ -17,6 +17,14 @@ export const config = convict({
 		env: 'PORT',
 		arg: 'port'
 	},
+	front: {
+		url: {
+			doc: 'Frontend application URL for emails and redirects',
+			format: String,
+			env: 'FRONT_URL',
+			default: 'http://localhost:3000'
+		}
+	},
 	express: {
 		requestBodySize: {
 			format: String,
@@ -120,6 +128,11 @@ export const config = convict({
 			format: ['log', 'nodemailer'],
 			default: 'log',
 			env: 'EMAIL_PROVIDER'
+		},
+		supportEmail: {
+			format: String,
+			default: 'support@example.com',
+			env: 'SUPPORT_EMAIL'
 		},
 		nodemailer: {
 			host: {
