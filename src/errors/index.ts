@@ -1,4 +1,5 @@
 export { BadRequestError } from './BadRequestError'
+export { EmailProviderError } from './EmailProviderError'
 export { ForbiddenError } from './ForbiddenError'
 export { HttpStatusCode } from './httpStatusCode'
 export { NotFoundError } from './NotFoundError'

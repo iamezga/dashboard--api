@@ -2,6 +2,7 @@ import type { Config } from 'jest'
 
 const config: Config = {
 	testEnvironment: 'node',
+	setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
 	testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.ts$',
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/src/$1'

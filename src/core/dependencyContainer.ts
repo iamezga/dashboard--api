@@ -7,8 +7,15 @@ import { databaseManager } from '@/infrastructure/databaseManager'
 import { AuditService } from '@/services/auditService'
 import { config } from '@/services/config'
 import { dayjs } from '@/services/dayjs'
+import { EmailService } from '@/services/email/EmailService'
+import { InMemoryEmailTemplateRegistry } from '@/services/email/EmailTemplateRegistry'
+import { LogEmailProvider } from '@/services/email/providers/LogEmailProvider'
+import {
+	NodemailerConfig,
+	NodemailerProvider
+} from '@/services/email/providers/NodemailerProvider'
+import { defaultEmailTemplates } from '@/services/email/templates'
 import { JobService } from '@/services/jobService'
-import { LogEmailService } from '@/services/LogEmailService'
 import logger from '@/services/logger'
 import { validator } from '@/services/validationService'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
@@ -16,6 +23,7 @@ import { utils } from '@/utils'
 import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
+import { Logger } from 'pino'
 import { queueManager } from '../infrastructure/queueManager'
 
 let dependencyContainer: DependencyContainer | null = null
@@ -65,18 +73,13 @@ export const getContainer = (): DependencyContainer => {
 
 	// Step 4: Build services that depend on repositories
 	const auditServiceInstance = new AuditService(repositoryManager.get('audit'))
+	const emailService = buildEmailService()
 
 	const services = {
 		dayjs,
 		auditService: auditServiceInstance,
 		jobService: new JobService(queueManager),
-		emailService: new LogEmailService()
-	}
-
-	if (config.get('env') === 'production') {
-		// services.emailService = new [Some]EmailService() // TODO: Implement [Some]EmailService for production
-	} else {
-		services.emailService = new LogEmailService()
+		emailService
 	}
 
 	// Step 5: Finalize the container with all dependencies
@@ -91,10 +94,41 @@ export const getContainer = (): DependencyContainer => {
 		libs: { argon2, jwt, ms, dayjs }
 	}
 
-	// Inject container into services that need it
-	services.emailService.setContext(dependencyContainer)
-
 	return dependencyContainer
+}
+
+const buildEmailService = (): EmailService => {
+	const emailConfig = config.get('email')
+	const baseLogger =
+		typeof logger.child === 'function'
+			? logger.child({ service: 'email' })
+			: (logger as unknown as Logger)
+	const childLogger =
+		typeof baseLogger.child === 'function'
+			? (args: Record<string, unknown>) => baseLogger.child(args)
+			: (_args: Record<string, unknown>) => baseLogger
+
+	const provider =
+		emailConfig.provider === 'nodemailer'
+			? new NodemailerProvider(
+					{
+						host: emailConfig.nodemailer.host,
+						port: emailConfig.nodemailer.port,
+						secure: emailConfig.nodemailer.secure,
+						auth: {
+							user: emailConfig.nodemailer.auth.user,
+							pass: emailConfig.nodemailer.auth.pass
+						},
+						from: emailConfig.nodemailer.from
+					} as NodemailerConfig,
+					childLogger({ provider: 'nodemailer' })
+			  )
+			: new LogEmailProvider(childLogger({ provider: 'log' }))
+
+	const registry = new InMemoryEmailTemplateRegistry()
+	defaultEmailTemplates.forEach(template => registry.register(template))
+
+	return new EmailService(provider, baseLogger, registry)
 }
 
 /**

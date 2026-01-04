@@ -115,6 +115,48 @@ export const config = convict({
 			default: ''
 		}
 	},
+	email: {
+		provider: {
+			format: ['log', 'nodemailer'],
+			default: 'log',
+			env: 'EMAIL_PROVIDER'
+		},
+		nodemailer: {
+			host: {
+				format: String,
+				default: '',
+				env: 'SMTP_HOST'
+			},
+			port: {
+				format: 'port',
+				default: 587,
+				env: 'SMTP_PORT'
+			},
+			secure: {
+				format: Boolean,
+				default: false,
+				env: 'SMTP_SECURE'
+			},
+			auth: {
+				user: {
+					format: String,
+					default: '',
+					env: 'SMTP_USER'
+				},
+				pass: {
+					format: String,
+					default: '',
+					env: 'SMTP_PASS',
+					sensitive: true
+				}
+			},
+			from: {
+				format: String,
+				default: 'noreply@example.com',
+				env: 'SMTP_FROM'
+			}
+		}
+	},
 	jwt: {
 		secret: {
 			format: String,

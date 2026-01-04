@@ -28,14 +28,43 @@ describe('dependencyContainer', () => {
 		}))
 
 		// config, logger, validator, utils, libs
-		jest.doMock('@/services/config', () => ({
-			config: { get: jest.fn().mockReturnValue('secret') },
-			Config: {}
-		}))
+		jest.doMock('@/services/config', () => {
+			const mockGet = jest.fn((key: string) => {
+				switch (key) {
+					case 'env':
+						return 'test'
+					case 'appName':
+						return 'test-app'
+					case 'email':
+						return {
+							provider: 'log',
+							nodemailer: {
+								host: '',
+								port: 587,
+								secure: false,
+								auth: { user: '', pass: '' },
+								from: 'noreply@example.com'
+							}
+						}
+					default:
+						return undefined
+				}
+			})
+			return {
+				config: { get: mockGet },
+				Config: {}
+			}
+		})
 		jest.doMock('@/services/dayjs', () => ({ dayjs: {}, Dayjs: {} }))
-		jest.doMock('@/services/logger', () => ({
-			default: { info: jest.fn(), error: jest.fn() }
-		}))
+		jest.doMock('@/services/logger', () => {
+			const baseLogger: any = {
+				info: jest.fn(),
+				error: jest.fn(),
+				warn: jest.fn()
+			}
+			baseLogger.child = jest.fn(() => baseLogger)
+			return { default: baseLogger }
+		})
 		jest.doMock('@/services/validationService', () => ({
 			validator: {},
 			ValidationService: class {}

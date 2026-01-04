@@ -4,8 +4,8 @@ import { AuditService } from '@/services/auditService'
 import { Config } from '@/services/config'
 import { Dayjs } from '@/services/dayjs'
 import { JobService } from '@/services/jobService'
-import { LogEmailService } from '@/services/LogEmailService'
 import { ValidationService } from '@/services/validationService'
+import { EmailServiceInterface } from '@/types/services'
 import { UtilityMap } from '@/utils'
 import { Logger } from 'pino'
 import { Argon2, JWT, MS } from '../libs'
@@ -13,7 +13,7 @@ import { Argon2, JWT, MS } from '../libs'
 export interface Services {
 	auditService: AuditService
 	jobService: JobService
-	emailService: LogEmailService
+	emailService: EmailServiceInterface
 }
 export interface Libs {
 	dayjs: Dayjs

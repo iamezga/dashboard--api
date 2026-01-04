@@ -8,13 +8,13 @@ export class UserSendWelcomeEmailUseCase extends UseCase<UserSendWelcomeEmailJob
 		job: UserSendWelcomeEmailJobInterface
 	): Promise<UseCaseResponseInterface> {
 		const { email, name } = job.getData()
+		const appName = this.container.config.get('appName')
 
 		job.logger.info(`Sending welcome email to ${email}`)
 		await this.container.services.emailService.send({
 			to: email,
-			subject: 'Welcome to Our Platform!',
 			templateId: 'user-welcome',
-			data: { name }
+			templateData: { name, appName }
 		})
 
 		return {
