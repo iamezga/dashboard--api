@@ -284,6 +284,10 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			this.container.config.get('jwt.expiresIn') as StringValue
 		)
 
+		// Determine session TTL: use permission config maxSessionTime if available, otherwise use JWT default
+		const sessionTTL =
+			(loginPermissionConfig.maxSessionTime as number) || jwtExpiresInSeconds
+
 		// Create the user snapshot for the session
 		const sessionUser: SessionUser = {
 			id: updatedUser.id,
@@ -294,9 +298,6 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			email: updatedUser.email,
 			permissions
 		}
-
-		const sessionTTL =
-			(loginPermissionConfig.maxSessionTime as number) || jwtExpiresInSeconds
 		// Prepare session data with the embedded user snapshot
 		const sessionData: SessionDataInput = {
 			userId: updatedUser.id,
@@ -322,7 +323,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			throw new Error('Could not create user session in Redis.')
 		}
 
-		// Generate JWT Token
+		// Generate JWT Token with dynamic expiration based on permission config
 		const jwtPayload: JwtUserPayload = {
 			sessionId,
 			userId: updatedUser.id,
@@ -330,14 +331,17 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			roleId: updatedUser.roleId
 		}
 
+		// Use maxSessionTime from permission config if available, otherwise use default from env
+		const jwtExpiresIn = loginPermissionConfig.maxSessionTime
+			? (loginPermissionConfig.maxSessionTime as number) // JWT accepts seconds as number
+			: (this.container.config.get(
+					'jwt.expiresIn'
+			  ) as jwt.SignOptions['expiresIn'])
+
 		const token = this.container.libs.jwt.sign(
 			jwtPayload,
 			this.container.config.get('jwt.secret'),
-			{
-				expiresIn: this.container.config.get(
-					'jwt.expiresIn'
-				) as jwt.SignOptions['expiresIn']
-			}
+			{ expiresIn: jwtExpiresIn }
 		)
 
 		// Prepare user data for response
