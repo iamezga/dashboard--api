@@ -42,4 +42,149 @@ describe('JobService', () => {
 		expect(addedPayload).toEqual(payload)
 		expect(addedOptions).toEqual(options)
 	})
+
+	describe('dispatchUseCase', () => {
+		it('should dispatch a use case job correctly', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('job-123'),
+				getData: jest.fn().mockReturnValue({ userId: 'user-1' }),
+				getMeta: jest.fn().mockReturnValue({ source: 'api' }),
+				getUser: jest
+					.fn()
+					.mockReturnValue({ id: 'u1', organizationId: 'org1' }),
+				getPublicUser: jest.fn().mockReturnValue(true)
+			} as any
+
+			await jobService.dispatchUseCase('emails', 'UserCreateUseCase', mockJob, {
+				priority: 1
+			})
+
+			expect(mockQueueManager.get).toHaveBeenCalledWith('emails')
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'UserCreateUseCase',
+				{
+					jobType: 'useCase',
+					useCaseName: 'UserCreateUseCase',
+					jobData: {
+						id: 'job-123',
+						payload: { userId: 'user-1' },
+						meta: { source: 'api' },
+						user: { id: 'u1', organizationId: 'org1' }
+					}
+				},
+				{ priority: 1 }
+			)
+		})
+
+		it('should exclude user when getPublicUser returns false', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('job-456'),
+				getData: jest.fn().mockReturnValue({ data: 'test' }),
+				getMeta: jest.fn().mockReturnValue({}),
+				getUser: jest.fn().mockReturnValue({ id: 'u2' }),
+				getPublicUser: jest.fn().mockReturnValue(false)
+			} as any
+
+			await jobService.dispatchUseCase('emails', 'SomeUseCase' as any, mockJob)
+		})
+
+		it('should use default options when not provided', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('job-789'),
+				getData: jest.fn().mockReturnValue({}),
+				getMeta: jest.fn().mockReturnValue({}),
+				getPublicUser: jest.fn().mockReturnValue(false)
+			} as any
+
+			await jobService.dispatchUseCase('emails', 'TestUseCase' as any, mockJob)
+
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'TestUseCase',
+				expect.any(Object),
+				{}
+			)
+		})
+	})
+
+	describe('dispatchSimpleTask', () => {
+		it('should dispatch a simple task job correctly', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('task-001'),
+				getData: jest.fn().mockReturnValue({ taskData: 'value' })
+			} as any
+
+			await jobService.dispatchSimpleTask('emails', 'simpleTaskName', mockJob, {
+				delay: 5000
+			})
+
+			expect(mockQueueManager.get).toHaveBeenCalledWith('emails')
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'simpleTaskName',
+				{
+					id: 'task-001',
+					jobType: 'simpleTask',
+					jobData: { taskData: 'value' }
+				},
+				{ delay: 5000 }
+			)
+		})
+
+		it('should use default options when not provided', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('task-002'),
+				getData: jest.fn().mockReturnValue({ test: 'data' })
+			} as any
+
+			await jobService.dispatchSimpleTask('emails', 'emailTask', mockJob)
+
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'emailTask',
+				expect.any(Object),
+				{}
+			)
+		})
+	})
+
+	describe('dispatchJobScript', () => {
+		it('should dispatch a job script correctly', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('script-001'),
+				getData: jest.fn().mockReturnValue({ scriptParam: 'value' })
+			} as any
+
+			await jobService.dispatchJobScript(
+				'emails',
+				'CleanUpOldSessionsJob',
+				mockJob,
+				{ priority: 2 }
+			)
+
+			expect(mockQueueManager.get).toHaveBeenCalledWith('emails')
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'CleanUpOldSessionsJob',
+				{
+					id: 'script-001',
+					jobType: 'jobScript',
+					scriptName: 'CleanUpOldSessionsJob',
+					jobData: { scriptParam: 'value' }
+				},
+				{ priority: 2 }
+			)
+		})
+
+		it('should use default options when not provided', async () => {
+			const mockJob = {
+				getId: jest.fn().mockReturnValue('script-002'),
+				getData: jest.fn().mockReturnValue({})
+			} as any
+
+			await jobService.dispatchJobScript('emails', 'SomeScript' as any, mockJob)
+
+			expect(mockQueue.add).toHaveBeenCalledWith(
+				'SomeScript',
+				expect.any(Object),
+				{}
+			)
+		})
+	})
 })

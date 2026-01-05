@@ -7,6 +7,18 @@ import {
 
 describe('pagination utils', () => {
 	describe('normalizePagination', () => {
+		it('should use defaults when called without arguments', () => {
+			const result = normalizePagination()
+
+			expect(result).toEqual({
+				page: PAGINATION_DEFAULTS.PAGE,
+				limit: PAGINATION_DEFAULTS.LIMIT,
+				sortBy: PAGINATION_DEFAULTS.SORT_BY,
+				sortOrder: PAGINATION_DEFAULTS.SORT_ORDER,
+				skip: 0
+			})
+		})
+
 		it('should use defaults when no input provided', () => {
 			const result = normalizePagination({})
 

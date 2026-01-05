@@ -58,6 +58,22 @@ describe('permissionMiddleware', () => {
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
 	})
 
+	it('should throw Error if useCase has permission but missing getPermissionValidationData method', async () => {
+		;(useCases as any).MissingMethodCase = class {
+			static readonly permission = 'user.test'
+			// Missing getPermissionValidationData method
+		}
+
+		const middleware = permissionMiddleware('MissingMethodCase' as any)
+		res.locals.job = { id: 1 }
+
+		await middleware(req, res, next)
+
+		expect(next).toHaveBeenCalledWith(expect.any(Error))
+		const errorArg = (next as jest.Mock).mock.calls[0][0]
+		expect(errorArg.message).toContain('missing getPermissionValidationData()')
+	})
+
 	it('should throw UnauthorizedError if validator returns errors', async () => {
 		;(useCases as any).SecureCase = class {
 			static readonly permission = 'user.create'

@@ -1,5 +1,6 @@
 import {
 	createRepositoryManager,
+	getRepositoryManager,
 	resetRepositoryManager,
 	setDependencyContainerForRepositoryManager
 } from '../core/repositoryManager'
@@ -203,5 +204,25 @@ describe('RepositoryManager', () => {
 		const all = manager.getAll() as any
 		expect(all.audit).toBeInstanceOf(PostgresAuditRepo)
 		expect(all.audit.db).toEqual({ pg: true })
+	})
+
+	describe('getRepositoryManager', () => {
+		it('should throw error if dependency container not initialized', () => {
+			resetRepositoryManager()
+			expect(() => getRepositoryManager()).toThrow(
+				'Repository manager cannot be created: dependency container not initialized'
+			)
+		})
+
+		it('should return singleton instance after initialization', () => {
+			resetRepositoryManager()
+			const containerMock = { repositoryManager: {}, logger: {} } as any
+			setDependencyContainerForRepositoryManager(containerMock)
+
+			const manager1 = getRepositoryManager()
+			const manager2 = getRepositoryManager()
+
+			expect(manager1).toBe(manager2)
+		})
 	})
 })

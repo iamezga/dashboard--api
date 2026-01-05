@@ -1,21 +1,24 @@
-import { Collection } from 'mongodb'
 import { Logger } from 'pino'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
-import { Audit, AuditInput } from '../entities/Audit'
+import { AuditInput } from '../entities/Audit'
+import { AuditFilters } from '../entities/AuditFilters'
 import { MongoAuditRepository } from '../repository/MongoAuditRepository'
 
 describe('MongoAuditRepository', () => {
 	let repository: MongoAuditRepository
 	let dbMock: any
-	let collectionMock: jest.Mocked<Collection<Audit>>
+	let collectionMock: any
 	let repositoryManagerMock: jest.Mocked<RepositoryManager>
 	let loggerMock: jest.Mocked<Logger>
 	let containerMock: DependencyContainer
 
 	beforeEach(() => {
 		collectionMock = {
-			insertOne: jest.fn()
+			insertOne: jest.fn(),
+			findOne: jest.fn(),
+			find: jest.fn(),
+			countDocuments: jest.fn()
 		} as any
 
 		dbMock = {
@@ -95,5 +98,279 @@ describe('MongoAuditRepository', () => {
 			{ error },
 			'Failed to insert audit record (Mongo).'
 		)
+	})
+
+	describe('findById', () => {
+		it('should find audit record by id', async () => {
+			const mockAudit = {
+				_id: 'audit-1',
+				action: 'user.get' as any,
+				jobId: 'job-1',
+				timestamp: new Date()
+			}
+			collectionMock.findOne.mockResolvedValue(mockAudit)
+
+			const result = await repository.findById('audit-1')
+
+			expect(collectionMock.findOne).toHaveBeenCalledWith({ _id: 'audit-1' })
+			expect(result).toEqual(mockAudit)
+		})
+
+		it('should return null when record not found', async () => {
+			collectionMock.findOne.mockResolvedValue(null)
+
+			const result = await repository.findById('non-existent')
+
+			expect(result).toBeNull()
+		})
+
+		it('should handle errors and return null', async () => {
+			const error = new Error('Find failed')
+			collectionMock.findOne.mockRejectedValue(error)
+
+			const result = await repository.findById('audit-1')
+
+			expect(result).toBeNull()
+			expect(loggerMock.error).toHaveBeenCalledWith(
+				{ error, id: 'audit-1' },
+				'Failed to find audit record by ID (Mongo).'
+			)
+		})
+	})
+
+	describe('find', () => {
+		const mockFindChain = {
+			skip: jest.fn().mockReturnThis(),
+			limit: jest.fn().mockReturnThis(),
+			sort: jest.fn().mockReturnThis(),
+			toArray: jest.fn()
+		}
+
+		beforeEach(() => {
+			collectionMock.find.mockReturnValue(mockFindChain)
+		})
+
+		it('should find records with basic pagination', async () => {
+			const filters: AuditFilters = {}
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			const mockRecords = [
+				{
+					_id: '1',
+					action: 'user.create' as any,
+					jobId: 'j1',
+					timestamp: new Date()
+				},
+				{
+					_id: '2',
+					action: 'user.get' as any,
+					jobId: 'j2',
+					timestamp: new Date()
+				}
+			]
+
+			collectionMock.countDocuments.mockResolvedValue(2)
+			mockFindChain.toArray.mockResolvedValue(mockRecords)
+
+			const result = await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({})
+			expect(mockFindChain.skip).toHaveBeenCalledWith(0)
+			expect(mockFindChain.limit).toHaveBeenCalledWith(10)
+			expect(mockFindChain.sort).toHaveBeenCalledWith({ timestamp: -1 })
+			expect(result.items).toEqual(mockRecords)
+			expect(result.pagination.totalItems).toBe(2)
+		})
+
+		it('should filter by action', async () => {
+			const filters: AuditFilters = { action: 'user.create' as any }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'asc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(1)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				action: 'user.create'
+			})
+			expect(mockFindChain.sort).toHaveBeenCalledWith({ timestamp: 1 })
+		})
+
+		it('should filter by organizationId', async () => {
+			const filters: AuditFilters = { organizationId: 'org-123' }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(5)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				'user.organizationId': 'org-123'
+			})
+		})
+
+		it('should filter by resourceType', async () => {
+			const filters: AuditFilters = { resourceType: 'user' }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(3)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				'resource.resourceType': 'user'
+			})
+		})
+
+		it('should filter with all possible filter fields', async () => {
+			const filters: AuditFilters = {
+				id: 'audit-1',
+				action: 'user.create' as any,
+				jobId: 'job-123',
+				ip: '192.168.1.1',
+				userId: 'user-456',
+				userEmail: 'test@example.com',
+				organizationId: 'org-789',
+				resourceType: 'user',
+				resourceId: 'res-999'
+			}
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(1)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				_id: 'audit-1',
+				action: 'user.create',
+				jobId: 'job-123',
+				ip: '192.168.1.1',
+				'user.userId': 'user-456',
+				'user.userEmail': 'test@example.com',
+				'user.organizationId': 'org-789',
+				'resource.resourceType': 'user',
+				'resource.resourceId': 'res-999'
+			})
+		})
+
+		it('should filter by date range', async () => {
+			const startDate = new Date('2026-01-01')
+			const endDate = new Date('2026-01-31')
+			const filters: AuditFilters = { startDate, endDate }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(5)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				timestamp: { $gte: startDate, $lte: endDate }
+			})
+		})
+
+		it('should filter by startDate only', async () => {
+			const startDate = new Date('2026-01-01')
+			const filters: AuditFilters = { startDate }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(3)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				timestamp: { $gte: startDate }
+			})
+		})
+
+		it('should filter by endDate only', async () => {
+			const endDate = new Date('2026-01-31')
+			const filters: AuditFilters = { endDate }
+			const pagination = {
+				page: 1,
+				limit: 10,
+				skip: 0,
+				sortBy: 'timestamp',
+				sortOrder: 'desc' as const
+			}
+
+			collectionMock.countDocuments.mockResolvedValue(4)
+			mockFindChain.toArray.mockResolvedValue([])
+
+			await repository.find(filters, pagination)
+
+			expect(collectionMock.find).toHaveBeenCalledWith({
+				timestamp: { $lte: endDate }
+			})
+		})
+
+		it('should return empty result on error', async () => {
+			const error = new Error('Query failed')
+			collectionMock.find.mockImplementation(() => {
+				throw error
+			})
+
+			const result = await repository.find(
+				{},
+				{
+					page: 1,
+					limit: 10,
+					skip: 0,
+					sortBy: 'timestamp',
+					sortOrder: 'desc'
+				}
+			)
+
+			expect(result.items).toEqual([])
+			expect(result.pagination.totalItems).toBe(0)
+			expect(loggerMock.error).toHaveBeenCalled()
+		})
 	})
 })

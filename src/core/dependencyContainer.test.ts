@@ -57,13 +57,16 @@ describe('dependencyContainer', () => {
 		})
 		jest.doMock('@/services/dayjs', () => ({ dayjs: {}, Dayjs: {} }))
 		jest.doMock('@/services/logger', () => {
-			const baseLogger: any = {
-				info: jest.fn(),
-				error: jest.fn(),
-				warn: jest.fn()
+			const createMockLogger: any = (): any => {
+				const mockLogger: any = {
+					info: jest.fn(),
+					error: jest.fn(),
+					warn: jest.fn(),
+					child: (..._args: any[]) => createMockLogger()
+				}
+				return mockLogger
 			}
-			baseLogger.child = jest.fn(() => baseLogger)
-			return { default: baseLogger }
+			return createMockLogger()
 		})
 		jest.doMock('@/services/validationService', () => ({
 			validator: {},
@@ -132,5 +135,114 @@ describe('dependencyContainer', () => {
 		const c2 = mod.getContainer()
 
 		expect(c1).not.toBe(c2)
+	})
+
+	it('should build email service with nodemailer provider when configured', () => {
+		jest.resetModules()
+
+		// Setup all basic mocks
+		jest.doMock('@/infrastructure/databaseManager', () => ({
+			databaseManager: { __mocked: true }
+		}))
+		jest.doMock('@/core/repositoryManager', () => ({
+			getRepositoryManager: () => ({
+				get: jest.fn(),
+				create: jest.fn(),
+				getAll: jest.fn()
+			}),
+			setDependencyContainerForRepositoryManager: jest.fn()
+		}))
+		jest.doMock('@/services/auditService', () => ({
+			AuditService: class {
+				constructor(_arg: any) {}
+			}
+		}))
+
+		// Config with nodemailer provider (instead of 'log')
+		jest.doMock('@/services/config', () => ({
+			config: {
+				get: (key: string) => {
+					if (key === 'email') {
+						return {
+							provider: 'nodemailer',
+							nodemailer: {
+								host: 'smtp.example.com',
+								port: 587,
+								secure: false,
+								auth: { user: 'test@example.com', pass: 'password' },
+								from: 'noreply@example.com'
+							}
+						}
+					}
+					return undefined
+				}
+			}
+		}))
+
+		jest.doMock('@/services/dayjs', () => ({ dayjs: {} }))
+		jest.doMock('@/services/logger', () => {
+			const createMockLogger: any = (): any => {
+				const mockLogger: any = {
+					info: jest.fn(),
+					error: jest.fn(),
+					warn: jest.fn(),
+					child: (..._args: any[]) => createMockLogger()
+				}
+				return mockLogger
+			}
+			return createMockLogger()
+		})
+		jest.doMock('@/services/validationService', () => ({
+			validator: {},
+			ValidationService: class {}
+		}))
+		jest.doMock('@/utils', () => ({ utils: {} }))
+		jest.doMock('argon2', () => ({}))
+		jest.doMock('jsonwebtoken', () => ({}))
+		jest.doMock('ms', () => () => '1ms')
+
+		// Mock email services
+		jest.doMock('@/services/email/EmailService', () => ({
+			EmailService: class {
+				constructor(_provider: any, _logger: any, _registry: any) {}
+			}
+		}))
+		jest.doMock('@/services/email/providers/LogEmailProvider', () => ({
+			LogEmailProvider: class {
+				constructor(_logger: any) {}
+			}
+		}))
+		jest.doMock('@/services/email/providers/NodemailerProvider', () => ({
+			NodemailerProvider: class {
+				constructor(_config: any, _logger: any) {}
+			}
+		}))
+		jest.doMock('@/services/email/EmailTemplateRegistry', () => ({
+			InMemoryEmailTemplateRegistry: class {
+				register() {}
+			}
+		}))
+		jest.doMock('@/services/email/templates', () => ({
+			defaultEmailTemplates: []
+		}))
+		jest.doMock('@/services/jobService', () => ({
+			JobService: class {
+				constructor(_queueManager: any) {}
+			}
+		}))
+		jest.doMock('@/infrastructure/queueManager', () => ({
+			queueManager: { getQueue: jest.fn() }
+		}))
+
+		const { getContainer } = require('@/core/dependencyContainer') as {
+			getContainer: () => any
+		}
+
+		const container = getContainer()
+
+		// Should create container successfully with nodemailer provider
+		expect(container).toBeDefined()
+		expect(container.services).toBeDefined()
+		expect(container.services.emailService).toBeDefined()
 	})
 })

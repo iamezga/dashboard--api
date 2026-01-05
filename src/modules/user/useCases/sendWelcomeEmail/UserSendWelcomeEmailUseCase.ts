@@ -1,9 +1,15 @@
 import { UseCase } from '@/lib/UseCase'
+import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
 import { UserSendWelcomeEmailJobInterface } from './UserSendWelcomeEmailJobInterface'
 
 export class UserSendWelcomeEmailUseCase extends UseCase<UserSendWelcomeEmailJobInterface> {
 	// This is an internal use case and does not require external permissions.
+
+	constructor(container: DependencyContainer) {
+		super(container)
+	}
+
 	async run(
 		job: UserSendWelcomeEmailJobInterface
 	): Promise<UseCaseResponseInterface> {

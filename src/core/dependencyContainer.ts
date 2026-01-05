@@ -23,7 +23,6 @@ import { utils } from '@/utils'
 import * as argon2 from 'argon2'
 import jwt from 'jsonwebtoken'
 import ms from 'ms'
-import { Logger } from 'pino'
 import { queueManager } from '../infrastructure/queueManager'
 
 let dependencyContainer: DependencyContainer | null = null
@@ -99,14 +98,7 @@ export const getContainer = (): DependencyContainer => {
 
 const buildEmailService = (): EmailService => {
 	const emailConfig = config.get('email')
-	const baseLogger =
-		typeof logger.child === 'function'
-			? logger.child({ service: 'email' })
-			: (logger as unknown as Logger)
-	const childLogger =
-		typeof baseLogger.child === 'function'
-			? (args: Record<string, unknown>) => baseLogger.child(args)
-			: (_args: Record<string, unknown>) => baseLogger
+	const baseLogger = logger.child({ service: 'email' })
 
 	const provider =
 		emailConfig.provider === 'nodemailer'
@@ -121,9 +113,9 @@ const buildEmailService = (): EmailService => {
 						},
 						from: emailConfig.nodemailer.from
 					} as NodemailerConfig,
-					childLogger({ provider: 'nodemailer' })
+					baseLogger.child({ provider: 'nodemailer' })
 			  )
-			: new LogEmailProvider(childLogger({ provider: 'log' }))
+			: new LogEmailProvider(baseLogger.child({ provider: 'log' }))
 
 	const registry = new InMemoryEmailTemplateRegistry()
 	defaultEmailTemplates.forEach(template => registry.register(template))
