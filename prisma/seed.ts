@@ -93,6 +93,12 @@ async function main(): Promise<void> {
 	const rolesModule: Module | undefined = createdModules.find(
 		m => m.key === 'roles'
 	)
+	const permissionsModule: Module | undefined = createdModules.find(
+		m => m.key === 'permissions'
+	)
+	const organizationsModule: Module | undefined = createdModules.find(
+		m => m.key === 'organizations'
+	)
 
 	// --- CREATE PERMISSIONS ---
 	console.log('\n--- Creating Permissions ---')
@@ -110,6 +116,10 @@ async function main(): Promise<void> {
 						enabled: false,
 						values: ['Europe/Madrid']
 					},
+					// ^ Geographic restriction: user can only login from these timezones.
+					// Use case: Compliance, security, prevent unauthorized location access.
+					// Validation: Check user's request timezone against allowed list.
+					// To allow travel: temporarily add timezone or disable this check.
 					accessDays: {
 						enabled: true,
 						values: [
@@ -129,6 +139,9 @@ async function main(): Promise<void> {
 							to: '18:00'
 						}
 					}
+					// ^ Time restriction: always evaluated in organization's timezone.
+					// Example: User in London (20:00) trying to login when it's 21:00 in Madrid
+					// will be rejected if accessTime.to is '18:00' (Madrid time).
 				},
 				maxSessionTime: 86400, // seconds (24 hours)
 				maxInactivityTime: 86400, // seconds (24 hours)
@@ -136,9 +149,10 @@ async function main(): Promise<void> {
 			}
 		},
 		{
-			key: 'dashboard.view',
+			key: 'dashboard.read',
 			label: 'View Dashboard',
-			description: 'Allows viewing the main application dashboard.',
+			description:
+				'Allows viewing the main application dashboard. Example permission demonstrating GLOBAL scope - endpoint not implemented in template.',
 			scope: PermissionScope.GLOBAL,
 			active: true
 		},
@@ -193,6 +207,14 @@ async function main(): Promise<void> {
 			active: true
 		},
 		{
+			key: 'user.delete',
+			label: 'Delete Users',
+			description: 'Allows soft-deleting users from the system.',
+			scope: PermissionScope.MODULE,
+			moduleId: usersModule?.id,
+			active: true
+		},
+		{
 			key: 'role.create',
 			label: 'Create Roles',
 			description: 'Allows creating new roles.',
@@ -214,6 +236,38 @@ async function main(): Promise<void> {
 			description: 'Allows modifying information of existing roles.',
 			scope: PermissionScope.MODULE,
 			moduleId: rolesModule?.id,
+			active: true
+		},
+		{
+			key: 'role.delete',
+			label: 'Delete Roles',
+			description: 'Allows soft-deleting roles from the system.',
+			scope: PermissionScope.MODULE,
+			moduleId: rolesModule?.id,
+			active: true
+		},
+		{
+			key: 'organization.read',
+			label: 'View Organizations',
+			description: 'Allows viewing organization details and settings.',
+			scope: PermissionScope.MODULE,
+			moduleId: organizationsModule?.id,
+			active: true
+		},
+		{
+			key: 'organization.update',
+			label: 'Update Organization',
+			description: 'Allows modifying organization settings and information.',
+			scope: PermissionScope.MODULE,
+			moduleId: organizationsModule?.id,
+			active: true
+		},
+		{
+			key: 'permission.read',
+			label: 'View Permissions',
+			description: 'Allows viewing the list of available permissions.',
+			scope: PermissionScope.MODULE,
+			moduleId: permissionsModule?.id,
 			active: true
 		}
 	]
@@ -343,9 +397,28 @@ async function main(): Promise<void> {
 	console.log(`All permissions assigned to role: ${superAdminRole.name}`)
 
 	// Assign permissions for tenant roles (example setup)
-	const adminPermissions = ['user.create', 'user.read', 'user.update']
-	const editorPermissions = ['user.read']
-	const viewerPermissions = ['dashboard.view']
+	const adminPermissions = [
+		'auth.login',
+		'dashboard.read',
+		'user.create',
+		'user.read',
+		'user.update',
+		'user.delete',
+		'role.create',
+		'role.read',
+		'role.update',
+		'role.delete',
+		'organization.read',
+		'organization.update',
+		'permission.read'
+	]
+	const editorPermissions = ['auth.login', 'dashboard.read', 'user.read']
+	const viewerPermissions = [
+		'auth.login',
+		'dashboard.read',
+		'user.read',
+		'role.read'
+	]
 
 	for (const org of [tenantOrg1, tenantOrg2]) {
 		const roles = tenantRoles[org.id]
@@ -372,6 +445,61 @@ async function main(): Promise<void> {
 			skipDuplicates: true
 		})
 		console.log(`Permissions assigned for roles in: ${org.name}`)
+	}
+
+	// --- APPLY PERMISSION CONFIG OVERRIDES (demonstrates config hierarchy) ---
+	console.log('\n--- Applying Permission Config Overrides ---')
+
+	// Demonstrate config hierarchy: Permission.config -> RolePermission.config -> UserPermission.config
+	// Each level can override the previous one using deepMerge in the application layer
+
+	for (const org of [tenantOrg1, tenantOrg2]) {
+		const roles = tenantRoles[org.id]
+		const authLoginPermission = byKey('auth.login')
+
+		// Admin: Longer sessions (12 hours) and multiple sessions allowed
+		await prisma.rolePermission.updateMany({
+			where: {
+				roleId: roles.admin.id,
+				permissionId: authLoginPermission.id
+			},
+			data: {
+				config: {
+					maxSessionTime: 43200, // 12 hours (admins work longer shifts)
+					allowMultipleSessions: true // admins can use multiple devices
+					// conditions (accessDays, accessTime) inherited from Permission.config
+				} as Prisma.InputJsonValue
+			}
+		})
+
+		// Editor: Standard work hours only (9-18) and weekdays only
+		await prisma.rolePermission.updateMany({
+			where: {
+				roleId: roles.editor.id,
+				permissionId: authLoginPermission.id
+			},
+			data: {
+				config: {
+					conditions: {
+						accessDays: {
+							enabled: true,
+							values: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+						},
+						accessTime: {
+							enabled: true,
+							options: {
+								from: '09:00',
+								to: '18:00'
+							}
+						}
+					},
+					maxSessionTime: 28800, // 8 hours (standard work day)
+					allowMultipleSessions: false // editors use single device
+				} as Prisma.InputJsonValue
+			}
+		})
+
+		console.log(`Permission config overrides applied for: ${org.name}`)
 	}
 
 	// --- CREATE USERS ---
