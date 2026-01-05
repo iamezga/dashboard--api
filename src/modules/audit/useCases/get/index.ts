@@ -1,2 +1,2 @@
 export * from './AuditGetUseCase'
-export * from './AuditGetUseCaseRules'
+export * from './auditGetUseCaseRules'
