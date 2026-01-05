@@ -8,8 +8,15 @@ import { BaseMapper } from './BaseMapper'
 import { RoleMapper } from './RoleMapper'
 
 /**
- * Mapper for transforming Prisma Role models with permissions to domain RoleWithPermissions entities.
- * This mapper handles the complex nested structure of role permissions.
+ * @class RoleWithPermissionsMapper
+ * @extends BaseMapper
+ * @description Maps Prisma Role models with nested permissions to domain RoleWithPermissions entities.
+ * Handles complex nested structure including role data, associated permissions,
+ * and permission configurations.
+ *
+ * This mapper filters out inactive and deleted permissions, ensuring only
+ * active permissions are included in the final role entity. It combines
+ * role-level and permission-level configuration data.
  */
 export class RoleWithPermissionsMapper extends BaseMapper<
 	RoleWithPermissionsPayload,
@@ -18,9 +25,11 @@ export class RoleWithPermissionsMapper extends BaseMapper<
 	private roleMapper = new RoleMapper()
 
 	/**
-	 * Maps a Prisma Role with permissions to a domain RoleWithPermissions entity.
-	 * @param {RoleWithPermissionsPayload} prismaRoleWithPermissions - The role object from Prisma with nested permissions.
-	 * @returns {RoleWithPermissions} The mapped domain RoleWithPermissions entity.
+	 * Transforms a Prisma Role with nested permissions to a domain RoleWithPermissions entity.
+	 * Filters out inactive/deleted permissions and maps configuration data.
+	 *
+	 * @param {RoleWithPermissionsPayload} prismaRoleWithPermissions - The role from Prisma with nested permissions
+	 * @returns {RoleWithPermissions} The domain role entity with filtered, active permissions
 	 */
 	mapToDomain(
 		prismaRoleWithPermissions: RoleWithPermissionsPayload

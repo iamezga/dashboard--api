@@ -3,7 +3,12 @@ import { SessionData, SessionDataInput, SessionUser } from './Session'
 /**
  * @interface SessionRepositoryInterface
  * @description Defines the contract for session data access operations using Redis.
- * It provides methods to manage user-related data and individual session metadata.
+ * Manages user sessions and authentication state with automatic expiration.
+ *
+ * Sessions store active user authentication state including user data, permissions,
+ * and metadata. They enable stateful authentication with Redis as the backing store
+ * for fast lookups and automatic expiration. Supports storing both user-level data
+ * (shared across sessions) and session-specific metadata.
  */
 export interface SessionRepositoryInterface {
 	/**

@@ -6,16 +6,26 @@ import {
 import { BaseMapper } from './BaseMapper'
 
 /**
- * Mapper for transforming Prisma Permission models to domain Permission entities.
+ * @class PermissionMapper
+ * @extends BaseMapper
+ * @description Maps Prisma Permission model to domain Permission entity.
+ * Handles transformation of permission data including scope, configuration,
+ * and module association.
+ *
+ * Permissions control access to use cases and features. They can be:
+ * - SYSTEM-scoped: Platform-wide permissions
+ * - TENANT-scoped: Organization-specific permissions
+ * - MODULE-associated: Grouped by functional modules (auth, user, etc.)
  */
 export class PermissionMapper extends BaseMapper<
 	PrismaPermissionModel,
 	Permission
 > {
 	/**
-	 * Maps a Prisma Permission to a domain Permission entity.
-	 * @param {PrismaPermissionModel} prismaPermission - The permission object from Prisma.
-	 * @returns {Permission} The mapped domain Permission entity.
+	 * Transforms a Prisma Permission model to a domain Permission entity.
+	 *
+	 * @param {PrismaPermissionModel} prismaPermission - The Prisma permission model from database
+	 * @returns {Permission} The domain permission entity
 	 */
 	mapToDomain(prismaPermission: PrismaPermissionModel): Permission {
 		return {

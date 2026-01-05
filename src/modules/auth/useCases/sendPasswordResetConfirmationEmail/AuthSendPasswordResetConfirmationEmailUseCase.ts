@@ -14,6 +14,12 @@ export class AuthSendPasswordResetConfirmationEmailUseCase extends UseCase<AuthS
 		super(container)
 	}
 
+	/**
+	 * Executes the password reset confirmation email sending logic.
+	 *
+	 * @param {AuthSendPasswordResetConfirmationEmailJobInterface} job - Job with user email and name
+	 * @returns {Promise<UseCaseResponseInterface>} Success confirmation
+	 */
 	async run(
 		job: AuthSendPasswordResetConfirmationEmailJobInterface
 	): Promise<UseCaseResponseInterface> {

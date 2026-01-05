@@ -4,6 +4,20 @@
  *
  * Pattern: Template Method - subclasses implement specific mapping logic
  */
+/**
+ * @abstract
+ * @class BaseMapper
+ * @description Abstract base class for all data mappers in the application.
+ * Provides common mapping functionality for transforming data between layers
+ * (e.g., Prisma models to domain entities).
+ *
+ * The mapper pattern ensures clean separation between infrastructure (database)
+ * and domain layers, allowing the domain model to remain independent of
+ * persistence details.
+ *
+ * @template TSource - The source type (e.g., Prisma model)
+ * @template TTarget - The target type (e.g., domain entity)
+ */
 export abstract class BaseMapper<TSource, TTarget> {
 	/**
 	 * Maps a single persistence model to a domain entity.

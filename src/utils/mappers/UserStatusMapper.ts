@@ -9,17 +9,26 @@ type PrismaUserStatusPayload = Pick<
 >
 
 /**
- * Mapper for transforming partial Prisma User models to domain UserStatus entities.
- * This mapper handles only status-related fields.
+ * @class UserStatusMapper
+ * @extends BaseMapper
+ * @description Maps partial Prisma User models to domain UserStatus entities.
+ * Handles only status-related fields for lightweight user status checks.
+ *
+ * This mapper is optimized for use cases that only need to verify user status
+ * without loading complete user data. Common use cases:
+ * - Pre-authentication status checks
+ * - Active/inactive validation
+ * - Last login tracking
  */
 export class UserStatusMapper extends BaseMapper<
 	PrismaUserStatusPayload,
 	UserStatus
 > {
 	/**
-	 * Maps a partial Prisma User to a domain UserStatus entity.
-	 * @param {PrismaUserStatusPayload} prismaUserStatus - The partial user object from Prisma.
-	 * @returns {UserStatus} The mapped domain UserStatus entity.
+	 * Transforms partial Prisma User status data to a domain UserStatus entity.
+	 *
+	 * @param {PrismaUserStatusPayload} prismaUserStatus - Partial user data with status fields
+	 * @returns {UserStatus} The domain user status entity
 	 */
 	mapToDomain(prismaUserStatus: PrismaUserStatusPayload): UserStatus {
 		return {

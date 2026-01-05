@@ -4,8 +4,23 @@ import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterfa
 import { AuthSendPasswordResetEmailJobInterface } from './AuthSendPasswordResetEmailJobInterface'
 
 /**
- * Use case for sending password reset email
- * This is an internal use case dispatched from AuthPasswordRecoveryRequestUseCase
+ * @class AuthSendPasswordResetEmailUseCase
+ * @extends UseCase
+ * @description Handles sending password reset emails with recovery links.
+ * This is a background job use case dispatched by AuthPasswordRecoveryRequestUseCase.
+ *
+ * Flow:
+ * 1. Extract user email, name, reset link, and expiration time from job data
+ * 2. Send email using EmailService with password-reset template
+ * 3. Log the operation
+ * 4. Return success confirmation
+ *
+ * Security considerations:
+ * - Token is generated and validated by AuthPasswordRecoveryRequestUseCase
+ * - Email sent asynchronously to avoid timing attacks
+ * - Link includes frontend URL + token for user-friendly UX
+ *
+ * This is an internal use case (no external permission required).
  */
 export class AuthSendPasswordResetEmailUseCase extends UseCase<AuthSendPasswordResetEmailJobInterface> {
 	// This is an internal use case and does not require external permissions.
@@ -14,6 +29,12 @@ export class AuthSendPasswordResetEmailUseCase extends UseCase<AuthSendPasswordR
 		super(container)
 	}
 
+	/**
+	 * Executes the password reset email sending logic.
+	 *
+	 * @param {AuthSendPasswordResetEmailJobInterface} job - Job with email, name, reset link, and expiration
+	 * @returns {Promise<UseCaseResponseInterface>} Success confirmation
+	 */
 	async run(
 		job: AuthSendPasswordResetEmailJobInterface
 	): Promise<UseCaseResponseInterface> {

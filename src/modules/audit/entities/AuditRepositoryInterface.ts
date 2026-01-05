@@ -5,6 +5,15 @@ import {
 import { Audit, AuditInput } from './Audit'
 import { AuditFilters } from './AuditFilters'
 
+/**
+ * @interface AuditRepositoryInterface
+ * @description Defines the contract for audit log data access operations.
+ * Provides methods for creating audit entries and searching audit history.
+ *
+ * Audit logs provide a complete history of actions performed in the system,
+ * including user actions, resource changes, and authentication events.
+ * They are stored in MongoDB for flexible querying and high write throughput.
+ */
 export interface AuditRepositoryInterface {
 	/**
 	 * @description Inserts a new audit record.

@@ -3,10 +3,26 @@ import { User } from '@/modules/user/entities/User'
 import { BaseMapper } from './BaseMapper'
 
 /**
- * Maps Prisma User model to domain User entity.
- * Centralizes user data transformation logic.
+ * @class UserMapper
+ * @extends BaseMapper
+ * @description Maps Prisma User model to domain User entity.
+ * Centralizes user data transformation logic and ensures the domain layer
+ * remains independent of Prisma's database schema.
+ *
+ * Handles transformation of:
+ * - User identification (id, email)
+ * - Organization relationship (multi-tenancy)
+ * - Role assignment (RBAC)
+ * - User configuration (JSON field)
+ * - Timestamps (createdAt, updatedAt, deletedAt)
  */
 export class UserMapper extends BaseMapper<PrismaUserModel, User> {
+	/**
+	 * Transforms a Prisma User model to a domain User entity.
+	 *
+	 * @param {PrismaUserModel} prismaUser - The Prisma user model from database
+	 * @returns {User} The domain user entity
+	 */
 	mapToDomain(prismaUser: PrismaUserModel): User {
 		return {
 			id: prismaUser.id,

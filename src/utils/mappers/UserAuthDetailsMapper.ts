@@ -4,20 +4,32 @@ import { UserAuthDetailsPayload } from '@/modules/user/repository/UserRepository
 import { BaseMapper } from './BaseMapper'
 
 /**
- * Mapper for transforming Prisma User models with authentication details to domain UserAuthDetails entities.
- * This mapper handles the complex nested structure of user permissions.
+ * @class UserAuthDetailsMapper
+ * @extends BaseMapper
+ * @description Maps Prisma User models with authentication details to domain UserAuthDetails entities.
+ * Handles complex nested structure including user data, role, organization,
+ * role permissions, and user-specific permission overrides.
  *
- * NOTE: This is a pure data mapper - it does NOT apply business rules or filtering.
- * Permission filtering (active, non-deleted, etc.) should be done in the application layer.
+ * This mapper performs PURE DATA TRANSFORMATION only - it does NOT apply
+ * business rules or filtering. Permission filtering (active, non-deleted, etc.)
+ * should be done at the application/use case layer.
+ *
+ * The resulting UserAuthDetails includes:
+ * - User identification and status
+ * - Organization and role information
+ * - Role-level permissions (from role assignment)
+ * - User-level permission overrides (specific to user)
  */
 export class UserAuthDetailsMapper extends BaseMapper<
 	UserAuthDetailsPayload,
 	UserAuthDetails
 > {
 	/**
-	 * Maps a Prisma User with authentication details to a domain UserAuthDetails entity.
-	 * @param {UserAuthDetailsPayload} prismaUserSubset - The user object from Prisma with nested permissions.
-	 * @returns {UserAuthDetails} The mapped UserAuthDetails DTO with raw permission data.
+	 * Transforms a Prisma User with nested auth data to a domain UserAuthDetails entity.
+	 * Includes role, organization, and permission data without filtering.
+	 *
+	 * @param {UserAuthDetailsPayload} prismaUserSubset - The user from Prisma with nested auth details
+	 * @returns {UserAuthDetails} The domain auth details entity with raw permission data
 	 */
 	mapToDomain(prismaUserSubset: UserAuthDetailsPayload): UserAuthDetails {
 		// Pure mapping - no filtering, no business logic

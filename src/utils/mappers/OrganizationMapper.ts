@@ -3,16 +3,25 @@ import { Organization } from '@/modules/organization/entities/Organization'
 import { BaseMapper } from './BaseMapper'
 
 /**
- * Mapper for transforming Prisma Organization models to domain Organization entities.
+ * @class OrganizationMapper
+ * @extends BaseMapper
+ * @description Maps Prisma Organization model to domain Organization entity.
+ * Handles transformation of organization data in the multi-tenant architecture.
+ *
+ * Organizations represent tenants in the system. Each organization has:
+ * - Isolated data (users, roles, permissions)
+ * - Contact information (email, phone, address)
+ * - Scope (SYSTEM for platform admin, TENANT for customers)
  */
 export class OrganizationMapper extends BaseMapper<
 	PrismaOrganizationModel,
 	Organization
 > {
 	/**
-	 * Maps a Prisma Organization to a domain Organization entity.
-	 * @param {PrismaOrganizationModel} prismaOrganization - The organization object from Prisma.
-	 * @returns {Organization} The mapped domain Organization entity.
+	 * Transforms a Prisma Organization model to a domain Organization entity.
+	 *
+	 * @param {PrismaOrganizationModel} prismaOrganization - The Prisma organization model from database
+	 * @returns {Organization} The domain organization entity
 	 */
 	mapToDomain(prismaOrganization: PrismaOrganizationModel): Organization {
 		return {
