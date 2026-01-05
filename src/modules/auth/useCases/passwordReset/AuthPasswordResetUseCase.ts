@@ -126,29 +126,26 @@ export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterf
 			)
 		}
 
-		// Send confirmation email
-		try {
-			const emailService = this.container.services.emailService
-			const config = this.container.config
+		// Dispatch confirmation email to background queue
+		job.setData({
+			email: user.email,
+			name: user.name
+		})
 
-			await emailService.send({
-				to: user.email,
-				templateId: 'password-reset-confirmation',
-				templateData: {
-					name: user.name,
-					appName: config.get('appName'),
-					supportEmail: config.get('email.supportEmail')
-				}
-			})
+		await this.container.services.jobService.dispatchUseCase(
+			'emails',
+			'AuthSendPasswordResetConfirmationEmailUseCase',
+			job,
+			{
+				priority: 8, // High priority for confirmation emails
+				attempts: 5 // More attempts for critical emails
+			}
+		)
 
-			job.logger.info({ userId }, 'Password change confirmation email sent')
-		} catch (emailError) {
-			// Log error but don't fail the password reset
-			job.logger.error(
-				{ error: emailError, userId },
-				'Failed to send confirmation email'
-			)
-		}
+		job.logger.info(
+			{ userId },
+			'Password reset confirmation email job dispatched successfully'
+		)
 
 		return {
 			data: {

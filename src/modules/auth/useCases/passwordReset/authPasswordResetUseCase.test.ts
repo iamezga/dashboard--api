@@ -25,6 +25,10 @@ describe('AuthPasswordResetUseCase', () => {
 		sendHtml: jest.fn()
 	}
 
+	const jobService = {
+		dispatchUseCase: jest.fn().mockResolvedValue(undefined)
+	}
+
 	const config = {
 		get: jest.fn((key: string) => {
 			if (key === 'appName') return 'TestApp'
@@ -54,7 +58,8 @@ describe('AuthPasswordResetUseCase', () => {
 				}
 			},
 			services: {
-				emailService
+				emailService,
+				jobService
 			},
 			libs: {
 				argon2
@@ -65,6 +70,9 @@ describe('AuthPasswordResetUseCase', () => {
 	const makeJob = (data: any): AuthPasswordResetJobInterface =>
 		({
 			getData: () => data,
+			setData: jest.fn((newData: any) => {
+				Object.assign(data, newData)
+			}),
 			logger
 		} as unknown as AuthPasswordResetJobInterface)
 
@@ -145,16 +153,18 @@ describe('AuthPasswordResetUseCase', () => {
 			'session:xyz:user-123'
 		])
 
-		// Verify confirmation email
-		expect(emailService.send).toHaveBeenCalledWith({
-			to: 'user@example.com',
-			templateId: 'password-reset-confirmation',
-			templateData: {
-				name: 'John Doe',
-				appName: 'TestApp',
-				supportEmail: 'support@example.com'
+		// Verify confirmation email job dispatched
+		expect(jobService.dispatchUseCase).toHaveBeenCalledWith(
+			'emails',
+			'AuthSendPasswordResetConfirmationEmailUseCase',
+			expect.objectContaining({
+				getData: expect.any(Function)
+			}),
+			{
+				priority: 8,
+				attempts: 5
 			}
-		})
+		)
 
 		expect(result.data.message).toContain('reset successfully')
 		expect(result.metadata).toBeDefined()
@@ -270,39 +280,6 @@ describe('AuthPasswordResetUseCase', () => {
 		expect(result.metadata?.sessionsInvalidated).toBe(0)
 	})
 
-	it('should continue if email fails to send', async () => {
-		const container = makeContainer()
-		const useCase = new AuthPasswordResetUseCase(container)
-
-		const mockUser = {
-			id: 'user-123',
-			email: 'user@example.com',
-			name: 'John Doe',
-			active: true,
-			deletedAt: null
-		}
-
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
-		argon2.hash.mockResolvedValue('hashed-password')
-		userRepo.update.mockResolvedValue(mockUser)
-		redisClient.del.mockResolvedValue(1)
-		redisClient.keys.mockResolvedValue([])
-		emailService.send.mockRejectedValue(new Error('Email service down'))
-
-		const job = makeJob({ token: validToken, password: newPassword })
-		const result = await useCase.run(job)
-
-		// Should still succeed
-		expect(result.data.message).toContain('reset successfully')
-
-		// Should log error
-		expect(logger.error).toHaveBeenCalledWith(
-			expect.objectContaining({ userId: 'user-123' }),
-			'Failed to send confirmation email'
-		)
-	})
-
 	it('should log all steps of password reset', async () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordResetUseCase(container)
@@ -341,7 +318,7 @@ describe('AuthPasswordResetUseCase', () => {
 		)
 		expect(logger.info).toHaveBeenCalledWith(
 			{ userId: 'user-123' },
-			'Password change confirmation email sent'
+			'Password reset confirmation email job dispatched successfully'
 		)
 	})
 

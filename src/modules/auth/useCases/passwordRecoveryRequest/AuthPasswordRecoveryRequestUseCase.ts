@@ -87,25 +87,32 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 					'Recovery token generated and stored'
 				)
 
-				// Send recovery email
-				const emailService = this.container.services.emailService
+				// Dispatch email sending to background queue
 				const config = this.container.config
 				const recoveryUrl = `${config.get(
 					'front.url'
 				)}/auth/password-reset?token=${token}`
 
-				await emailService.send({
-					to: email,
-					templateId: 'password-reset-email',
-					templateData: {
-						name: user.name,
-						appName: config.get('appName'),
-						resetLink: recoveryUrl,
-						expiresIn: '15 minutes'
-					}
+				job.setData({
+					name: user.name,
+					resetLink: recoveryUrl,
+					expiresIn: '15 minutes'
 				})
 
-				job.logger.info({ email }, 'Recovery email sent successfully')
+				await this.container.services.jobService.dispatchUseCase(
+					'emails',
+					'AuthSendPasswordResetEmailUseCase',
+					job,
+					{
+						priority: 10, // High priority for password reset emails
+						attempts: 5 // More attempts for critical emails
+					}
+				)
+
+				job.logger.info(
+					{ email: user.email },
+					'Password reset email job dispatched successfully'
+				)
 			} else {
 				// User doesn't exist or is inactive
 				// Don't reveal this information - log it securely

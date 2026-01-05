@@ -20,6 +20,10 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		sendHtml: jest.fn()
 	}
 
+	const jobService = {
+		dispatchUseCase: jest.fn().mockResolvedValue(undefined)
+	}
+
 	const config = {
 		get: jest.fn((key: string) => {
 			if (key === 'appName') return 'TestApp'
@@ -50,7 +54,8 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 				}
 			},
 			services: {
-				emailService
+				emailService,
+				jobService
 			},
 			config,
 			logger
@@ -59,6 +64,9 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 	const makeJob = (data: any): AuthPasswordRecoveryRequestJobInterface =>
 		({
 			getData: () => data,
+			setData: jest.fn((newData: any) => {
+				Object.assign(data, newData)
+			}),
 			logger
 		} as unknown as AuthPasswordRecoveryRequestJobInterface)
 
@@ -113,19 +121,18 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 			'user-123'
 		)
 
-		// Verify email sent with template
-		expect(emailService.send).toHaveBeenCalledWith({
-			to: 'user@example.com',
-			templateId: 'password-reset-email',
-			templateData: {
-				name: 'John Doe',
-				appName: 'TestApp',
-				resetLink: expect.stringContaining(
-					'https://example.com/auth/password-reset?token='
-				),
-				expiresIn: '15 minutes'
+		// Verify email job dispatched
+		expect(jobService.dispatchUseCase).toHaveBeenCalledWith(
+			'emails',
+			'AuthSendPasswordResetEmailUseCase',
+			expect.objectContaining({
+				getData: expect.any(Function)
+			}),
+			{
+				priority: 10,
+				attempts: 5
 			}
-		})
+		)
 
 		expect(result.data.message).toContain('recovery link has been sent')
 		expect(result.metadata).toHaveProperty('requestedAt')
@@ -287,7 +294,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 
 		expect(logger.info).toHaveBeenCalledWith(
 			{ email: 'user@example.com' },
-			'Recovery email sent successfully'
+			'Password reset email job dispatched successfully'
 		)
 	})
 })
