@@ -19,7 +19,7 @@ describe('authMiddleware', () => {
 
 	beforeEach(() => {
 		req = { headers: {}, requestData: { token: 'valid.token' } }
-		jobMock = { setUser: jest.fn() }
+		jobMock = { setUser: jest.fn(), updateMeta: jest.fn() }
 		res = { locals: { job: jobMock } }
 		next = jest.fn()
 

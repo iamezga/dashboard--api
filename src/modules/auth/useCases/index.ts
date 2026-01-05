@@ -1,4 +1,5 @@
 export * from './login'
+export * from './logout'
 export * from './passwordRecoveryRequest'
 export * from './passwordRecoveryVerify'
 export * from './passwordReset'

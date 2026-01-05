@@ -104,6 +104,9 @@ export const authMiddleware = async (
 		// Set authenticated user in the job
 		job.setUser(authenticatedUser)
 
+		// Store sessionId in job metadata for use in logout and other use cases
+		job.updateMeta({ sessionId })
+
 		// Update the 'lastActivity' in Redis to refresh the TTL
 		await sessionRepository.updateLastActivity(
 			sessionId,
