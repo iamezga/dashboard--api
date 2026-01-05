@@ -5,10 +5,36 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 import { Logger } from 'pino'
 
+/**
+ * @class Postgres
+ * @description PostgreSQL database provider using Prisma ORM with pg adapter.
+ *
+ * This provider manages the PostgreSQL connection lifecycle and configures
+ * Prisma Client with proper logging, connection pooling, and event handlers.
+ *
+ * Features:
+ * - Connection pooling via PrismaPg adapter
+ * - Comprehensive logging (query, error, info, warn)
+ * - Automatic reconnection handling
+ * - Graceful disconnection
+ *
+ * Architecture:
+ * - Uses Prisma as ORM for type-safe database access
+ * - PrismaPg adapter for native PostgreSQL driver integration
+ * - Singleton pattern enforced by DatabaseManager
+ *
+ * @implements {ProviderInterface}
+ */
 export class Postgres implements ProviderInterface {
 	private client: PrismaClient | null = null
 	public displayName = 'PostgreSQL (Prisma)'
 
+	/**
+	 * Creates a new Postgres provider instance.
+	 * @param {Object} config - Database configuration
+	 * @param {string} config.url - PostgreSQL connection URL (e.g., postgresql://user:password@host:port/database)
+	 * @param {Logger} logger - Pino logger instance for database events
+	 */
 	constructor(private config: { url: string }, private logger: Logger) {}
 
 	/**
@@ -62,7 +88,8 @@ export class Postgres implements ProviderInterface {
 	}
 
 	/**
-	 * Disconnects the Prisma client if connected.
+	 * Disconnects the Prisma client and releases all connections.
+	 * @returns {Promise<void>}
 	 */
 	public async disconnect(): Promise<void> {
 		if (this.client) {
@@ -73,7 +100,8 @@ export class Postgres implements ProviderInterface {
 	}
 
 	/**
-	 * For testing purposes: reset the internal client
+	 * Resets the internal client reference for testing purposes.
+	 * ⚠️ For testing only - does not disconnect active connections.
 	 */
 	public __resetForTests() {
 		this.client = null

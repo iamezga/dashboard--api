@@ -3,7 +3,13 @@ import { Queue } from 'bullmq'
 
 /**
  * Defines the names of all available queues in the application.
- * Add new queue names here.
+ * Add new queue names here when creating additional background job queues.
+ *
+ * @example
+ * ```typescript
+ * // Add a new queue
+ * export const QUEUE_NAMES = ['emails', 'notifications', 'reports'] as const
+ * ```
  */
 export const QUEUE_NAMES = ['emails'] as const
 export type QueueName = (typeof QUEUE_NAMES)[number]
@@ -12,6 +18,37 @@ type QueuesMap = {
 	[K in QueueName]?: Queue
 }
 
+/**
+ * @class Bullmq
+ * @description BullMQ queue manager provider for background job processing.
+ *
+ * This provider initializes and manages BullMQ queues backed by Redis,
+ * enabling reliable asynchronous job processing with features like:
+ * - Job retries with exponential backoff
+ * - Job prioritization
+ * - Delayed/scheduled jobs
+ * - Job progress tracking
+ * - Queue metrics and monitoring
+ *
+ * Use Cases:
+ * - Email sending: Async email delivery without blocking requests
+ * - Report generation: Long-running background processes
+ * - Data processing: Batch operations and ETL tasks
+ * - Notifications: Push notifications and alerts
+ *
+ * Architecture:
+ * - Queues are defined centrally in QUEUE_NAMES constant
+ * - Each queue is initialized with Redis connection
+ * - Jobs are processed by worker.ts (separate process)
+ * - Auto-cleanup: Completed jobs are automatically removed
+ *
+ * Queue Configuration:
+ * - Connection: Uses same Redis instance as other services
+ * - Socket timeout: 3000ms
+ * - Auto-removal: Completed jobs deleted immediately
+ *
+ * @implements {ProviderInterface}
+ */
 export class Bullmq implements ProviderInterface {
 	public displayName = 'BullMQ Queue Manager'
 	private logger: any
@@ -19,6 +56,15 @@ export class Bullmq implements ProviderInterface {
 
 	private isConnected = false
 
+	/**
+	 * Creates a new BullMQ queue manager instance.
+	 * @param {Object} connectionConfig - Redis connection configuration for BullMQ
+	 * @param {string} connectionConfig.host - Redis server hostname
+	 * @param {number} connectionConfig.port - Redis server port
+	 * @param {string} connectionConfig.password - Redis authentication password (optional)
+	 * @param {number} connectionConfig.db - Redis database number (0-15)
+	 * @param {Logger} logger - Pino logger instance for queue events
+	 */
 	constructor(
 		private readonly connectionConfig: {
 			host: string
@@ -32,8 +78,10 @@ export class Bullmq implements ProviderInterface {
 	}
 
 	/**
-	 * Connects and initializes all defined queues.
+	 * Connects and initializes all queues defined in QUEUE_NAMES.
+	 * Creates a Queue instance for each queue name with shared Redis connection.
 	 * @returns {Promise<void>}
+	 * @throws {Error} If queue initialization fails
 	 */
 	public async connect(): Promise<void> {
 		if (this.isConnected) {
@@ -65,10 +113,16 @@ export class Bullmq implements ProviderInterface {
 	}
 
 	/**
-	 * Retrieves a specific queue instance.
-	 * @param {QueueName} name The name of the queue to retrieve.
-	 * @returns {Queue} The BullMQ Queue instance.
-	 * @throws {Error} If the queue has not been initialized.
+	 * Retrieves a specific queue instance by name.
+	 * @template K - The queue name type
+	 * @param {K} name - The name of the queue to retrieve (must be in QUEUE_NAMES)
+	 * @returns {Queue} The BullMQ Queue instance
+	 * @throws {Error} If the queue has not been initialized or doesn't exist
+	 * @example
+	 * ```typescript
+	 * const emailQueue = bullmq.getQueue('emails')
+	 * await emailQueue.add('sendWelcomeEmail', { userId: '123' })
+	 * ```
 	 */
 	public getQueue<K extends QueueName>(name: K): Queue {
 		const queue = this.queues[name]
@@ -79,7 +133,8 @@ export class Bullmq implements ProviderInterface {
 	}
 
 	/**
-	 * Disconnects from all queues.
+	 * Gracefully closes all queue connections.
+	 * Waits for pending operations to complete before closing.
 	 * @returns {Promise<void>}
 	 */
 	public async disconnect(): Promise<void> {
@@ -90,7 +145,8 @@ export class Bullmq implements ProviderInterface {
 	}
 
 	/**
-	 * Helper for tests. Resets the internal state.
+	 * Resets internal state for testing purposes.
+	 * ⚠️ For testing only - does not close active queue connections.
 	 */
 	public __resetForTests() {
 		this.queues = {}

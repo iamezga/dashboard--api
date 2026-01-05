@@ -20,9 +20,28 @@ import { AuthLoginJobInterface } from './AuthLoginJobInterface'
 
 /**
  * @class AuthLoginUseCase
- * @description Handles the user authentication (login) process.
- * It verifies user credentials and generates a JWT token upon successful authentication,
- * leveraging the UserRepository for data access.
+ * @description Handles the user authentication (login) process with advanced permission controls.
+ *
+ * Use Case Flow:
+ * 1. Validate user credentials (email + password)
+ * 2. Check user exists, is active, and not deleted
+ * 3. Verify password using argon2
+ * 4. Validate permission-based access conditions (if configured):
+ *    - Access days: Restrict login to specific days of the week
+ *    - Access time: Restrict login to specific time windows
+ * 5. Load user's complete role and permissions
+ * 6. Generate JWT token with user payload
+ * 7. Create session in Redis with expiration
+ * 8. Log audit event
+ * 9. Return token and user details
+ *
+ * Security Features:
+ * - Password verification with argon2
+ * - Configurable day/time access restrictions per permission
+ * - Session management with Redis
+ * - Audit logging for all login attempts
+ * - Multi-tenancy isolation
+ *
  * @permission auth.login
  */
 export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {

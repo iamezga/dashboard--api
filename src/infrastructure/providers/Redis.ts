@@ -2,10 +2,47 @@ import { ProviderInterface } from '@/types/providers/ProviderInterface'
 import { Logger } from 'pino'
 import { createClient, RedisClientType } from 'redis'
 
+/**
+ * @class Redis
+ * @description Redis in-memory data store provider using node-redis client.
+ *
+ * This provider manages Redis connection lifecycle with automatic reconnection,
+ * exponential backoff, and comprehensive event monitoring.
+ *
+ * Use Cases:
+ * - Session storage: Fast TTL-based session management
+ * - Rate limiting: Distributed counters with expiration
+ * - Caching: High-performance temporary data storage
+ * - Password recovery tokens: Secure temporary token storage
+ * - Queue backend: BullMQ job queue persistence
+ *
+ * Features:
+ * - Automatic reconnection with exponential backoff (max 5 attempts)
+ * - Connection pooling via node-redis
+ * - Event-driven monitoring (connect, error, reconnecting, end)
+ * - Password authentication support
+ * - Database selection (0-15)
+ *
+ * Architecture:
+ * - Returns RedisClientType for direct Redis operations
+ * - Singleton pattern enforced by DatabaseManager
+ * - Used by rate limiter, sessions, and BullMQ
+ *
+ * @implements {ProviderInterface}
+ */
 export class Redis implements ProviderInterface {
 	private client: RedisClientType | null = null
 	public displayName = 'Redis'
 
+	/**
+	 * Creates a new Redis provider instance.
+	 * @param {Object} config - Redis configuration
+	 * @param {string} config.host - Redis server hostname (e.g., 'localhost')
+	 * @param {number} config.port - Redis server port (default: 6379)
+	 * @param {string} config.password - Redis authentication password (optional)
+	 * @param {number} config.db - Redis database number (0-15, default: 0)
+	 * @param {Logger} logger - Pino logger instance for connection events
+	 */
 	constructor(
 		private config: {
 			host: string
@@ -17,7 +54,10 @@ export class Redis implements ProviderInterface {
 	) {}
 
 	/**
-	 * Connects to Redis and returns the client.
+	 * Connects to Redis server with automatic reconnection strategy.
+	 * Implements exponential backoff with max 5 retry attempts.
+	 * @returns {Promise<RedisClientType>} The connected Redis client
+	 * @throws {Error} If connection fails after max retry attempts
 	 */
 	public async connect(): Promise<RedisClientType> {
 		if (this.client && this.client.isReady) {
@@ -63,7 +103,9 @@ export class Redis implements ProviderInterface {
 	}
 
 	/**
-	 * Disconnects from Redis.
+	 * Gracefully disconnects from Redis using QUIT command.
+	 * Waits for pending operations to complete before closing.
+	 * @returns {Promise<void>}
 	 */
 	public async disconnect(): Promise<void> {
 		if (this.client && this.client.isReady) {
@@ -74,7 +116,8 @@ export class Redis implements ProviderInterface {
 	}
 
 	/**
-	 * Reset internal state for testing
+	 * Resets internal state for testing purposes.
+	 * ⚠️ For testing only - does not close active connections.
 	 */
 	public __resetForTests() {
 		this.client = null

@@ -8,7 +8,20 @@ import { User } from '../../entities/User'
 import { UserGetJobInterface } from './UserGetJobInterface'
 
 /**
- * UseCase Example to define the standard structure that each new useCase of use must follo
+ * @class UserGetUseCase
+ * @description Retrieves a single user by ID with multi-tenancy validation.
+ *
+ * Use Case Flow:
+ * 1. Extract user ID from request data
+ * 2. Validate user has 'user.get' permission
+ * 3. Query user by ID within requesting user's organization
+ * 4. Return user data or throw NotFoundError
+ *
+ * Multi-tenancy:
+ * - Only returns users from the same organization as the requesting user
+ * - Prevents cross-organization data access
+ *
+ * @permission user.get
  */
 export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 	static readonly permission: string = 'user.get'
@@ -30,6 +43,12 @@ export class UserGetUseCase extends UseCase<UserGetJobInterface> {
 		return this.buildPermissionSchema(this.permission, job)
 	}
 
+	/**
+	 * Executes the business logic for retrieving a user by ID.
+	 * @param {UserGetJobInterface} job - The Job object containing the user ID to retrieve.
+	 * @returns {Promise<UseCaseResponseInterface<User>>} A promise that resolves to the user entity.
+	 * @throws {NotFoundError} If the user is not found within the organization.
+	 */
 	public async run(
 		job: UserGetJobInterface
 	): Promise<UseCaseResponseInterface<User>> {
