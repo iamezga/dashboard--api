@@ -46,6 +46,7 @@ async function main(): Promise<void> {
 		update: {},
 		create: {
 			name: 'System Administration',
+			timezone: 'UTC', // System organization always uses UTC
 			scope: OrganizationScope.SYSTEM
 		}
 	})
@@ -55,13 +56,21 @@ async function main(): Promise<void> {
 
 	const tenantOrg1: Organization = await prisma.organization.upsert({
 		where: { id: '00000000-0000-0000-0000-000000000002' },
-		update: { name: 'Quantum Dynamics' },
-		create: { name: 'Innovatech Solutions', scope: OrganizationScope.TENANT }
+		update: { name: 'Innovatech Solutions' },
+		create: {
+			name: 'Innovatech Solutions',
+			timezone: 'Europe/Madrid', // Spanish company timezone
+			scope: OrganizationScope.TENANT
+		}
 	})
 	const tenantOrg2: Organization = await prisma.organization.upsert({
 		where: { id: '00000000-0000-0000-0000-000000000003' },
 		update: {},
-		create: { name: 'Quantum Dynamics', scope: OrganizationScope.TENANT }
+		create: {
+			name: 'Quantum Dynamics',
+			timezone: 'America/New_York', // US company timezone
+			scope: OrganizationScope.TENANT
+		}
 	})
 	console.log(
 		`Tenant organizations created/updated: ${tenantOrg1.name}, ${tenantOrg2.name}`
@@ -118,8 +127,12 @@ async function main(): Promise<void> {
 					},
 					// ^ Geographic restriction: user can only login from these timezones.
 					// Use case: Compliance, security, prevent unauthorized location access.
-					// Validation: Check user's request timezone against allowed list.
-					// To allow travel: temporarily add timezone or disable this check.
+					// Validation: Requires client to send X-Timezone header (e.g., 'Europe/Madrid').
+					//   - Frontend: Intl.DateTimeFormat().resolvedOptions().timeZone
+					//   - Header: axios.defaults.headers.common['X-Timezone'] = timezone
+					// If enabled=true and X-Timezone header is missing, login will fail.
+					// To allow travel: add user's current timezone to allowed values list.
+					// NOTE: This validates WHERE user is (geographic), not WHEN (use accessTime for that).
 					accessDays: {
 						enabled: true,
 						values: [
@@ -495,6 +508,33 @@ async function main(): Promise<void> {
 					},
 					maxSessionTime: 28800, // 8 hours (standard work day)
 					allowMultipleSessions: false // editors use single device
+				} as Prisma.InputJsonValue
+			}
+		})
+
+		// Viewer: Geographic restriction example (only from EU timezones)
+		await prisma.rolePermission.updateMany({
+			where: {
+				roleId: roles.viewer.id,
+				permissionId: authLoginPermission.id
+			},
+			data: {
+				config: {
+					conditions: {
+						timezones: {
+							enabled: true, // Enable geographic restriction for viewers
+							values: [
+								'Europe/Madrid',
+								'Europe/London',
+								'Europe/Paris',
+								'Europe/Berlin'
+							]
+							// Viewers can only login from European timezones
+							// Client must send: X-Timezone header with valid IANA timezone
+						}
+						// accessDays and accessTime inherited from Permission.config
+					}
+					// maxSessionTime and allowMultipleSessions inherited from Permission.config
 				} as Prisma.InputJsonValue
 			}
 		})

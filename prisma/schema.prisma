@@ -27,12 +27,14 @@ enum RoleScope {
 }
 
 model Organization {
-  id      String            @id @default(uuid()) @db.Uuid
-  name    String
-  email   String?
-  phone   String?
-  address String?
-  scope   OrganizationScope @default(TENANT)
+  id       String            @id @default(uuid()) @db.Uuid
+  name     String
+  email    String?
+  phone    String?
+  address  String?
+  timezone String            @default("UTC")
+  config   Json              @default("{}")
+  scope    OrganizationScope @default(TENANT)
 
   users User[]
   roles Role[]
