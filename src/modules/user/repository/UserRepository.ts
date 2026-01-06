@@ -21,6 +21,14 @@ const userAuthDetailsInclude = {
 	userPermissions: {
 		where: { deletedAt: null },
 		include: { permission: true }
+	},
+	organization: {
+		select: {
+			id: true,
+			name: true,
+			timezone: true,
+			scope: true
+		}
 	}
 } as const
 

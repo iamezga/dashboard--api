@@ -135,7 +135,13 @@ describe('UserRepository', () => {
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null,
-			userPermissions: []
+			userPermissions: [],
+			organization: {
+				id: 'org2',
+				name: 'Test Org',
+				timezone: 'UTC',
+				scope: 'TENANT'
+			}
 		}
 
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
@@ -415,7 +421,15 @@ describe('UserRepository', () => {
 			]
 		} as any
 
-		;(dbMock.user!.findUnique as jest.Mock).mockResolvedValue(prismaUser)
+		;(dbMock.user!.findUnique as jest.Mock).mockResolvedValue({
+			...prismaUser,
+			organization: {
+				id: 'orgX',
+				name: 'Test Org',
+				timezone: 'UTC',
+				scope: 'TENANT'
+			}
+		})
 
 		const result = await repository.findUserAuthDetailsByEmail(
 			'filter2@example.com'

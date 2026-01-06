@@ -56,6 +56,12 @@ export class UserAuthDetailsMapper extends BaseMapper<
 			roleId: prismaUserSubset.roleId,
 			config: prismaUserSubset.config as Record<string, any>,
 			userPermissions: mappedUserPermissions,
+			organization: {
+				id: prismaUserSubset.organization.id,
+				name: prismaUserSubset.organization.name,
+				timezone: prismaUserSubset.organization.timezone,
+				scope: prismaUserSubset.organization.scope
+			},
 			lastLogin: prismaUserSubset.lastLogin,
 			createdAt: prismaUserSubset.createdAt,
 			updatedAt: prismaUserSubset.updatedAt,

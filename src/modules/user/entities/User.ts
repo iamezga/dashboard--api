@@ -1,3 +1,4 @@
+import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
 import { Permission } from '@/modules/permission/entities/Permission'
 
 /**
@@ -50,9 +51,11 @@ export interface User {
  * @interface AuthenticatedUser
  * @description Represents a User entity that has been successfully authenticated,
  * and for which permissions are guaranteed to be present and available.
+ * Includes minimal organization information needed for permission validation.
  */
 export interface AuthenticatedUser extends User {
 	permissions: UserMergedPermissions
+	organization: OrganizationBasicInfo
 }
 
 /**

@@ -7,4 +7,5 @@ export interface JobMetaInterface {
 	userAgent?: string
 	referer?: string
 	origin?: string
+	timezone?: string // Client's IANA timezone (e.g., 'Europe/Madrid') from X-Timezone header
 }

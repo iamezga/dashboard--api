@@ -30,6 +30,9 @@ export class OrganizationMapper extends BaseMapper<
 			email: prismaOrganization.email,
 			phone: prismaOrganization.phone,
 			address: prismaOrganization.address,
+			timezone: prismaOrganization.timezone,
+			scope: prismaOrganization.scope,
+			config: prismaOrganization.config as Record<string, any>,
 			createdAt: prismaOrganization.createdAt,
 			updatedAt: prismaOrganization.updatedAt,
 			deletedAt: prismaOrganization.deletedAt

@@ -1,3 +1,4 @@
+import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
 import { UserPermission } from '@/modules/user/entities/User'
 
 /**
@@ -27,6 +28,7 @@ export interface LoginOutput {
 /**
  * @interface UserAuthDetails
  * @description Defines the essential user data required for authentication processing,
+ * including minimal organization information for permission validation.
  */
 export interface UserAuthDetails {
 	id: string
@@ -39,6 +41,7 @@ export interface UserAuthDetails {
 	roleId: string
 	config: Record<string, any>
 	userPermissions: UserPermission[]
+	organization: OrganizationBasicInfo
 	lastLogin: Date | null
 	createdAt: Date
 	updatedAt: Date

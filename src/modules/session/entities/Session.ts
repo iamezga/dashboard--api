@@ -1,9 +1,11 @@
+import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
 import { UserMergedPermissions } from '@/modules/user/entities/User'
 
 /**
  * @interface SessionUser
  * @description Represents a snapshot of user data stored within the session.
  * Contains frequently needed but less volatile user information.
+ * Includes minimal organization info for permission validation.
  */
 export interface SessionUser {
 	id: string
@@ -13,6 +15,7 @@ export interface SessionUser {
 	surname: string | null
 	email: string
 	permissions: UserMergedPermissions
+	organization: OrganizationBasicInfo
 }
 
 /**

@@ -85,6 +85,9 @@ describe('OrganizationRepository', () => {
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Updated Street',
+			timezone: 'UTC',
+			scope: 'TENANT',
+			config: {},
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null
@@ -130,6 +133,9 @@ describe('OrganizationRepository', () => {
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Street 1',
+			timezone: 'UTC',
+			scope: 'TENANT',
+			config: {},
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null
@@ -156,6 +162,9 @@ describe('OrganizationRepository', () => {
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Street 1',
+			timezone: 'UTC',
+			scope: 'TENANT',
+			config: {},
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null
@@ -183,6 +192,9 @@ describe('OrganizationRepository', () => {
 				email: 'a@b.com',
 				phone: '123',
 				address: 'Street 1',
+				timezone: 'UTC',
+				scope: 'TENANT',
+				config: {},
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null
@@ -193,6 +205,9 @@ describe('OrganizationRepository', () => {
 				email: 'b@b.com',
 				phone: '456',
 				address: 'Street 2',
+				timezone: 'UTC',
+				scope: 'TENANT',
+				config: {},
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null

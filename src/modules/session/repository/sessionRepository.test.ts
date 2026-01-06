@@ -61,7 +61,13 @@ describe('SessionRepository', () => {
 			email: 'test@test.com',
 			permissions: {},
 			organizationId: 'org1',
-			roleId: 'r1'
+			roleId: 'r1',
+			organization: {
+				id: 'org1',
+				name: 'Test Org',
+				timezone: 'UTC',
+				scope: 'TENANT'
+			}
 		}
 		;(dbMock.set as jest.Mock).mockResolvedValue('OK')
 
@@ -82,7 +88,13 @@ describe('SessionRepository', () => {
 			email: 'test@test.com',
 			permissions: {},
 			organizationId: 'org1',
-			roleId: 'r1'
+			roleId: 'r1',
+			organization: {
+				id: 'org1',
+				name: 'Test Org',
+				timezone: 'UTC',
+				scope: 'TENANT'
+			}
 		}
 		;(dbMock.set as jest.Mock).mockResolvedValue('FAIL')
 

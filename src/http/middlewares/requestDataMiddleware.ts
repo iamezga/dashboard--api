@@ -11,7 +11,7 @@ interface RequestMiddlewareInputs {
 /**
  * Middleware factory that creates a handler to consolidate request data.
  * It gathers data from params, query, body, and files into a single `req.requestData` object.
- * It also extracts metadata like IP, URL, and headers.
+ * It also extracts metadata like IP, URL, headers, and client timezone (X-Timezone).
  * @param {RequestMiddlewareInputs} [inputs={}] - Configuration to specify which parts of the request to include.
  * @returns {RequestHandler} An Express middleware function.
  */
@@ -68,7 +68,8 @@ export const requestDataMiddleware = (
 				referer: req.headers['referer'],
 				origin: req.headers['origin'],
 				method: req.method,
-				url: req.originalUrl
+				url: req.originalUrl,
+				timezone: req.headers['x-timezone'] as string | undefined
 			}
 		}
 		return next()

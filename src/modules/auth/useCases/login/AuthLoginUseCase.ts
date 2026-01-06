@@ -27,8 +27,9 @@ import { AuthLoginJobInterface } from './AuthLoginJobInterface'
  * 2. Check user exists, is active, and not deleted
  * 3. Verify password using argon2
  * 4. Validate permission-based access conditions (if configured):
+ *    - Timezones: Restrict login to specific geographic locations (requires X-Timezone header)
  *    - Access days: Restrict login to specific days of the week
- *    - Access time: Restrict login to specific time windows
+ *    - Access time: Restrict login to specific time windows (evaluated in organization timezone)
  * 5. Load user's complete role and permissions
  * 6. Generate JWT token with user payload
  * 7. Create session in Redis with expiration
@@ -37,10 +38,12 @@ import { AuthLoginJobInterface } from './AuthLoginJobInterface'
  *
  * Security Features:
  * - Password verification with argon2
+ * - Geographic access control via timezone validation (X-Timezone header)
  * - Configurable day/time access restrictions per permission
  * - Session management with Redis
  * - Audit logging for all login attempts
  * - Multi-tenancy isolation
+ * - Context-aware error messages (detailed in dev, generic in production)
  *
  * @permission auth.login
  */
@@ -53,10 +56,15 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 
 	/**
 	 * Provides the validation schema and data for the `auth.login` permission check.
-	 * It dynamically generates the schema based on the permission config,
+	 * It dynamically generates the schema based on the permission config, including:
+	 * - Timezones validation (requires X-Timezone header from client)
+	 * - Access days validation (day of the week)
+	 * - Access time validation (time windows in organization timezone)
+	 *
 	 * @param {JobInterface} job - The job object containing the user context and request metadata.
 	 * @param {DependencyContainer} container - The application's dependency container.
 	 * @returns {Promise<UseCasePermissionValidationData>} A promise that resolves to the schema and data for validation.
+	 * @throws {UnauthorizedError} If timezones condition is enabled but X-Timezone header is missing.
 	 */
 	static async getPermissionValidationData(
 		job: JobInterface,
@@ -70,6 +78,26 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 		if (permissions[AuthLoginUseCase.permission]) {
 			const { config } = permissions[AuthLoginUseCase.permission]
 			if (config.conditions) {
+				// Validate client's timezone (geographic restriction)
+				if (config.conditions?.timezones?.enabled) {
+					const clientTimezone = meta.timezone
+
+					// If timezones validation is enabled, timezone header is required
+					if (!clientTimezone) {
+						const isDev = container.config.get('env') !== 'production'
+						const message = isDev
+							? 'Authentication failed: X-Timezone header is required for geographic access control.'
+							: 'Authentication failed: Insufficient permissions.'
+
+						throw new UnauthorizedError(message)
+					}
+
+					data.timezone = clientTimezone
+					schema.timezone = {
+						type: 'enum',
+						values: config.conditions.timezones.values
+					}
+				}
 				if (config.conditions?.accessDays?.enabled) {
 					data.accessDay = container.libs.dayjs(meta.timestamp).format('dddd')
 					schema.accessDay = {
@@ -78,7 +106,12 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 					}
 				}
 				if (config.conditions?.accessTime?.enabled) {
-					data.accessTime = container.libs.dayjs(meta.timestamp).format('HH:mm')
+					const organization = job.getUser().organization
+					const orgTimezone = organization.timezone
+					data.accessTime = container.libs
+						.dayjs(meta.timestamp)
+						.tz(orgTimezone)
+						.format('HH:mm')
 					schema.accessTime = {
 						type: 'multiAll',
 						rules: [
@@ -136,7 +169,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	 * @param {AuthLoginJobInterface} job - The Job object containing the login credentials.
 	 * @returns {Promise<UseCaseResponseInterface<LoginOutput>>} A promise that resolves with the authentication token and public user data.
 	 * @throws {BadRequestError} If credentials are incorrect, the user is inactive, or the password is invalid.
-	 * @throws {UnauthorizedError} If the user's role is invalid/inactive, or if login authorization rules (e.g., time/day restrictions) are not met.
+	 * @throws {UnauthorizedError} If the user's role is invalid/inactive, or if login authorization rules (e.g., timezone/geographic, time/day restrictions) are not met.
 	 * @throws {Error} For unexpected internal errors.
 	 */
 	public async run(
@@ -296,7 +329,8 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			name: updatedUser.name,
 			surname: updatedUser.surname,
 			email: updatedUser.email,
-			permissions
+			permissions,
+			organization: userAuthDetails.organization
 		}
 		// Prepare session data with the embedded user snapshot
 		const sessionData: SessionDataInput = {

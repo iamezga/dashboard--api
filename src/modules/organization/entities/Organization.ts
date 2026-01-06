@@ -10,9 +10,24 @@ export interface Organization {
 	email: string | null
 	phone: string | null
 	address: string | null
+	timezone: string
+	scope: 'TENANT' | 'SYSTEM'
+	config: Record<string, any>
 	createdAt: Date
 	updatedAt: Date
 	deletedAt: Date | null
+}
+
+/**
+ * @interface OrganizationBasicInfo
+ * @description Represents minimal organization information needed for authentication and session management.
+ * Used in authenticated user context to avoid loading full organization data.
+ */
+export interface OrganizationBasicInfo {
+	id: string
+	name: string
+	timezone: string
+	scope: 'TENANT' | 'SYSTEM'
 }
 
 /**
@@ -24,6 +39,8 @@ export interface OrganizationCreateInput {
 	email?: string | null
 	phone?: string | null
 	address?: string | null
+	timezone?: string
+	config?: Record<string, any>
 }
 
 /**
@@ -35,5 +52,7 @@ export interface OrganizationUpdateInput {
 	email?: string | null
 	phone?: string | null
 	address?: string | null
+	timezone?: string
+	config?: Record<string, any>
 	deletedAt?: Date | null
 }
