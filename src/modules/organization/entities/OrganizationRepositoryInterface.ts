@@ -28,4 +28,13 @@ export interface OrganizationRepositoryInterface
 	 * @returns {Promise<Organization | null>} The organization if found, null otherwise
 	 */
 	findByName(name: string): Promise<Organization | null>
+
+	/**
+	 * Finds an organization by its unique slug.
+	 * Slugs are used for subdomain routing and URL identification.
+	 *
+	 * @param {string} slug - The organization slug to search for (e.g., 'acme', 'innovatech')
+	 * @returns {Promise<Organization | null>} The organization if found, null otherwise
+	 */
+	findBySlug(slug: string): Promise<Organization | null>
 }

@@ -7,6 +7,7 @@
 export interface Organization {
 	id: string
 	name: string
+	slug: string
 	email: string | null
 	phone: string | null
 	address: string | null
@@ -36,6 +37,7 @@ export interface OrganizationBasicInfo {
  */
 export interface OrganizationCreateInput {
 	name: string
+	slug: string
 	email?: string | null
 	phone?: string | null
 	address?: string | null
@@ -49,6 +51,7 @@ export interface OrganizationCreateInput {
  */
 export interface OrganizationUpdateInput {
 	name?: string
+	slug?: string
 	email?: string | null
 	phone?: string | null
 	address?: string | null

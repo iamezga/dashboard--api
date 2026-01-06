@@ -55,17 +55,47 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 	async run(
 		job: AuthPasswordRecoveryRequestJobInterface
 	): Promise<UseCaseResponseInterface<{ message: string }>> {
-		const { email } = job.getData()
+		const { email, organization } = job.getData()
 
-		job.logger.info({ email }, 'Password recovery request initiated')
+		job.logger.info(
+			{ email, organization },
+			'Password recovery request initiated'
+		)
 
 		try {
 			// Get repositories
 			const userRepository = this.container.repositoryManager.get('user')
+			const organizationRepository =
+				this.container.repositoryManager.get('organization')
 			const redisClient = this.container.databaseManager.get('redis')
 
-			// Find user by email
-			const user = await userRepository.findByEmail(email)
+			// Resolve organization slug to organizationId
+			const organizationRecord = await organizationRepository.findBySlug(
+				organization
+			)
+
+			// If organization doesn't exist, still return success (security: prevent enumeration)
+			if (!organizationRecord) {
+				job.logger.warn(
+					{ organization },
+					'Password recovery attempted for invalid organization'
+				)
+				return {
+					data: {
+						message:
+							'If an account with that email exists, we have sent a password recovery link.'
+					},
+					metadata: {
+						attempts: job.getAttempts()
+					}
+				}
+			}
+
+			// Find user by email and organization
+			const user = await userRepository.findByEmail(
+				email,
+				organizationRecord.id
+			)
 
 			// If user exists, is active, and not deleted, proceed with recovery
 			if (user && user.active && !user.deletedAt) {

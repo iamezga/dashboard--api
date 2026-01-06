@@ -8,12 +8,164 @@ datasource db {
   provider = "postgresql"
 }
 
+model Organization {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?         @db.Timestamptz(6)
+  address   String?
+  email     String?
+  phone     String?
+  scope     OrganizationScope @default(TENANT)
+  config    Json              @default("{}")
+  timezone  String            @default("UTC")
+  slug      String            @unique
+  roles     Role[]
+  users     User[]
+
+  @@index([scope])
+}
+
+model Module {
+  id          String       @id @default(uuid()) @db.Uuid
+  key         String       @unique
+  label       String
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?    @db.Timestamptz(6)
+  permissions Permission[]
+  userModules UserModule[]
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  key             String           @unique
+  label           String
+  description     String?
+  scope           PermissionScope  @default(GLOBAL)
+  moduleId        String?          @db.Uuid
+  config          Json             @default("{}")
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime?        @db.Timestamptz(6)
+  module          Module?          @relation(fields: [moduleId], references: [id])
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @db.Uuid
+  name            String
+  label           String
+  description     String?
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime?        @db.Timestamptz(6)
+  config          Json             @default("{}")
+  scope           RoleScope        @default(TENANT)
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  rolePermissions RolePermission[]
+  users           User[]
+
+  @@unique([organizationId, name])
+  @@index([scope])
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  config       Json       @default("{}")
+  assignedAt   DateTime   @default(now()) @db.Timestamptz(6)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  deletedAt    DateTime?  @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model User {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @db.Uuid
+  name            String
+  surname         String?
+  email           String
+  passwordHash    String
+  active          Boolean          @default(true)
+  lastLogin       DateTime?        @db.Timestamptz(6)
+  roleId          String           @db.Uuid
+  config          Json             @default("{}")
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime?        @db.Timestamptz(6)
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  role            Role             @relation(fields: [roleId], references: [id])
+  modules         UserModule[]
+  userPermissions UserPermission[]
+
+  @@unique([email, organizationId])
+}
+
+model UserModule {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  moduleId  String    @db.Uuid
+  enabled   Boolean   @default(true)
+  config    Json      @default("{}")
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  module    Module    @relation(fields: [moduleId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, moduleId])
+  @@index([moduleId])
+}
+
+model UserPermission {
+  userId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  disabled     Boolean    @default(false)
+  config       Json       @default("{}")
+  assignedAt   DateTime   @default(now()) @db.Timestamptz(6)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?  @db.Timestamptz(6)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+}
+
+model Audit {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String
+  jobId     String
+  timestamp DateTime @db.Timestamptz(6)
+  user      Json
+  resource  Json
+  payload   Json?
+  ip        String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([timestamp])
+  @@index([jobId])
+}
+
 enum PermissionScope {
-  SYSTEM
   GLOBAL
-  ORGANIZATION
   MODULE
+  ORGANIZATION
   USER
+  SYSTEM
 }
 
 enum OrganizationScope {
@@ -24,169 +176,4 @@ enum OrganizationScope {
 enum RoleScope {
   TENANT
   SYSTEM
-}
-
-model Organization {
-  id       String            @id @default(uuid()) @db.Uuid
-  name     String
-  email    String?
-  phone    String?
-  address  String?
-  timezone String            @default("UTC")
-  config   Json              @default("{}")
-  scope    OrganizationScope @default(TENANT)
-
-  users User[]
-  roles Role[]
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-
-  @@index([scope])
-}
-
-model Module {
-  id     String  @id @default(uuid()) @db.Uuid
-  key    String  @unique
-  label  String
-  active Boolean @default(true)
-
-  permissions Permission[]
-  userModules UserModule[]
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-}
-
-model Permission {
-  id          String          @id @default(uuid()) @db.Uuid
-  key         String          @unique
-  label       String
-  description String?
-  scope       PermissionScope @default(GLOBAL)
-  moduleId    String?         @db.Uuid
-  config      Json            @default("{}")
-  active      Boolean         @default(true)
-
-  module          Module?          @relation(fields: [moduleId], references: [id])
-  rolePermissions RolePermission[]
-  userPermissions UserPermission[]
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-}
-
-model Role {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @db.Uuid
-  name           String
-  label          String
-  description    String?
-  scope          RoleScope @default(TENANT)
-  config         Json      @default("{}")
-  active         Boolean   @default(true)
-
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  rolePermissions RolePermission[]
-  users           User[]
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-
-  @@unique([organizationId, name])
-  @@index([scope])
-}
-
-model RolePermission {
-  roleId       String   @db.Uuid
-  permissionId String   @db.Uuid
-  config       Json     @default("{}")
-  assignedAt   DateTime @default(now()) @db.Timestamptz
-
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-
-  @@id([roleId, permissionId])
-  @@index([permissionId])
-}
-
-model User {
-  id             String    @id @default(uuid()) @db.Uuid
-  organizationId String    @db.Uuid
-  name           String
-  surname        String?
-  email          String    @unique
-  passwordHash   String
-  active         Boolean   @default(true)
-  lastLogin      DateTime? @db.Timestamptz
-  roleId         String    @db.Uuid
-  config         Json      @default("{}")
-
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  role            Role             @relation(fields: [roleId], references: [id])
-  userPermissions UserPermission[]
-  modules         UserModule[]
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-}
-
-model UserModule {
-  id       String  @id @default(uuid()) @db.Uuid
-  userId   String  @db.Uuid
-  moduleId String  @db.Uuid
-  enabled  Boolean @default(true)
-  config   Json    @default("{}")
-
-  user   User   @relation(fields: [userId], references: [id])
-  module Module @relation(fields: [moduleId], references: [id])
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-
-  @@unique([userId, moduleId])
-  @@index([moduleId])
-}
-
-model UserPermission {
-  userId       String   @db.Uuid
-  permissionId String   @db.Uuid
-  disabled     Boolean  @default(false)
-  config       Json     @default("{}")
-  assignedAt   DateTime @default(now()) @db.Timestamptz
-
-  user       User       @relation(fields: [userId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  createdAt DateTime  @default(now()) @db.Timestamptz
-  updatedAt DateTime  @updatedAt @db.Timestamptz
-  deletedAt DateTime? @db.Timestamptz
-
-  @@id([userId, permissionId])
-  @@index([permissionId])
-}
-
-model Audit {
-  id        String   @id @default(uuid()) @db.Uuid
-  action    String
-  jobId     String
-  timestamp DateTime @db.Timestamptz
-  user      Json
-  resource  Json
-  payload   Json?
-  ip        String?
-  createdAt DateTime @default(now()) @db.Timestamptz
-
-  @@index([timestamp])
-  @@index([jobId])
 }

@@ -27,6 +27,7 @@ export class OrganizationMapper extends BaseMapper<
 		return {
 			id: prismaOrganization.id,
 			name: prismaOrganization.name,
+			slug: prismaOrganization.slug,
 			email: prismaOrganization.email,
 			phone: prismaOrganization.phone,
 			address: prismaOrganization.address,

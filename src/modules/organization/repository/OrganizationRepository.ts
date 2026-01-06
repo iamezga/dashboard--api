@@ -136,4 +136,19 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 		})
 		return this.organizationMapper.mapOrNull(prismaOrganization)
 	}
+
+	/**
+	 * Finds an organization by its unique slug.
+	 * Slugs are used for subdomain routing and URL identification.
+	 * @param {string} slug - The unique slug of the organization (e.g., 'acme', 'innovatech').
+	 * @returns {Promise<Organization | null>} The organization entity or null if not found.
+	 */
+	async findBySlug(slug: string): Promise<Organization | null> {
+		const prismaOrganization = await this.db.organization.findUnique({
+			where: {
+				slug
+			}
+		})
+		return this.organizationMapper.mapOrNull(prismaOrganization)
+	}
 }

@@ -47,23 +47,23 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 	): Promise<UseCaseResponseInterface<User>> {
 		const { email, password, roleId, organizationId, ...rest } = job.getData()
 
-		// Check if email is already in use (deleted or not)
+		// The context for validation is the organization of the user being created,
+		// or the organization of the user making the request if not specified.
+		const validationOrgId = organizationId || job.getUser().organizationId
+
+		// Check if email is already in use within the organization
 		const existingUser = await this.container.repositoryManager
 			.get('user')
-			.findByEmail(email)
+			.findByEmail(email, validationOrgId)
 		if (existingUser) {
 			throw new BadRequestError('Email already in use', [
 				{
 					field: 'email',
-					message: 'This email is already registered.',
+					message: 'This email is already registered in this organization.',
 					type: 'emailExists'
 				}
 			])
 		}
-
-		// The context for validation is the organization of the user being created,
-		// or the organization of the user making the request if not specified.
-		const validationOrgId = organizationId || job.getUser().organizationId
 
 		// Validate if the roleId exists
 		const role = await this.container.repositoryManager

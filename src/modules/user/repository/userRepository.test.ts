@@ -107,16 +107,24 @@ describe('UserRepository', () => {
 
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
 
-		const result = await repository.findByEmail('alice@example.com')
+		const result = await repository.findByEmail('alice@example.com', 'org-123')
 		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
-			where: { email: 'alice@example.com' }
+			where: {
+				email_organizationId: {
+					email: 'alice@example.com',
+					organizationId: 'org-123'
+				}
+			}
 		})
 		expect(result?.email).toBe('alice@example.com')
 	})
 
 	it('should return null for findByEmail if not found', async () => {
 		dbMock.user.findUnique.mockResolvedValue(null)
-		const result = await repository.findByEmail('missing@example.com')
+		const result = await repository.findByEmail(
+			'missing@example.com',
+			'org-123'
+		)
 		expect(result).toBeNull()
 	})
 
@@ -147,10 +155,15 @@ describe('UserRepository', () => {
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
 
 		const result: UserAuthDetails | null =
-			await repository.findUserAuthDetailsByEmail('bob@example.com')
+			await repository.findUserAuthDetailsByEmail('bob@example.com', 'org-123')
 
 		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
-			where: { email: 'bob@example.com' },
+			where: {
+				email_organizationId: {
+					email: 'bob@example.com',
+					organizationId: 'org-123'
+				}
+			},
 			include: expect.any(Object)
 		})
 		expect(result?.email).toBe('bob@example.com')
@@ -159,7 +172,8 @@ describe('UserRepository', () => {
 	it('should return null for findUserAuthDetailsByEmail if not found', async () => {
 		dbMock.user.findUnique.mockResolvedValue(null)
 		const result = await repository.findUserAuthDetailsByEmail(
-			'notfound@example.com'
+			'notfound@example.com',
+			'org-123'
 		)
 		expect(result).toBeNull()
 	})
@@ -426,7 +440,8 @@ describe('UserRepository', () => {
 		})
 
 		const result = await repository.findUserAuthDetailsByEmail(
-			'filter2@example.com'
+			'filter2@example.com',
+			'orgX'
 		)
 
 		// Repository mapper should NOT filter - returns all permissions as-is

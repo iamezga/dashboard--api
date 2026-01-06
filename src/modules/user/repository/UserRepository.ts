@@ -176,13 +176,24 @@ export class UserRepository implements UserRepositoryInterface {
 	}
 
 	/**
-	 * Finds a user by email.
+	 * Finds a user by their email address within a specific organization.
+	 * Email uniqueness is enforced per organization (multi-tenancy).
+	 *
 	 * @param email - The email address of the user.
+	 * @param organizationId - The organization ID to scope the search.
 	 * @returns {Promise<User | null>}
 	 */
-	async findByEmail(email: string): Promise<User | null> {
+	async findByEmail(
+		email: string,
+		organizationId: string
+	): Promise<User | null> {
 		const prismaUser = await this.db.user.findUnique({
-			where: { email }
+			where: {
+				email_organizationId: {
+					email,
+					organizationId
+				}
+			}
 		})
 		return this.userMapper.mapOrNull(prismaUser)
 	}
@@ -195,13 +206,20 @@ export class UserRepository implements UserRepositoryInterface {
 	 * (filtering active/deleted permissions) should be applied in the use case layer.
 	 *
 	 * @param email - The email address of the user.
+	 * @param organizationId - The organization ID to scope the search.
 	 * @returns {Promise<UserAuthDetails | null>} User with raw permissions, or null if not found.
 	 */
 	async findUserAuthDetailsByEmail(
-		email: string
+		email: string,
+		organizationId: string
 	): Promise<UserAuthDetails | null> {
 		const prismaUser = await this.db.user.findUnique({
-			where: { email },
+			where: {
+				email_organizationId: {
+					email,
+					organizationId
+				}
+			},
 			include: userAuthDetailsInclude
 		})
 		return this.userAuthDetailsMapper.mapOrNull(prismaUser)

@@ -16,21 +16,27 @@ import { User, UserCreateInput, UserStatus, UserUpdateInput } from './User'
 export interface UserRepositoryInterface
 	extends RepositoryInterface<User, UserCreateInput, UserUpdateInput> {
 	/**
-	 * Finds a user by their email address.
+	 * Finds a user by their email address within a specific organization.
+	 * Email uniqueness is enforced per organization (multi-tenancy).
 	 *
 	 * @param {string} email - The email address to search for
+	 * @param {string} organizationId - The organization ID to scope the search
 	 * @returns {Promise<User | null>} The user entity if found, null otherwise
 	 */
-	findByEmail(email: string): Promise<User | null>
+	findByEmail(email: string, organizationId: string): Promise<User | null>
 
 	/**
-	 * Retrieves complete authentication details for a user by email.
+	 * Retrieves complete authentication details for a user by email within a specific organization.
 	 * Includes user data, role, permissions, and organization information.
 	 *
 	 * @param {string} email - The email address to search for
+	 * @param {string} organizationId - The organization ID to scope the search
 	 * @returns {Promise<UserAuthDetails | null>} Complete auth details if found, null otherwise
 	 */
-	findUserAuthDetailsByEmail(email: string): Promise<UserAuthDetails | null>
+	findUserAuthDetailsByEmail(
+		email: string,
+		organizationId: string
+	): Promise<UserAuthDetails | null>
 
 	/**
 	 * Retrieves the current status of a user (active/inactive).

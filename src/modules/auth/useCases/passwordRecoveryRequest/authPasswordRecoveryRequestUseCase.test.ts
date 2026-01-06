@@ -8,6 +8,10 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		findByEmail: jest.fn()
 	}
 
+	const organizationRepo = {
+		findBySlug: jest.fn()
+	}
+
 	const redisClient = {
 		setEx: jest.fn(),
 		get: jest.fn(),
@@ -44,6 +48,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 			repositoryManager: {
 				get: (name: string) => {
 					if (name === 'user') return userRepo
+					if (name === 'organization') return organizationRepo
 					throw new Error(`Repo ${name} not mocked`)
 				}
 			},
@@ -73,6 +78,13 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
 		process.env.FRONT_URL = 'https://example.com'
+
+		// Mock organization repository to return valid organization by default
+		organizationRepo.findBySlug.mockResolvedValue({
+			id: 'org-123',
+			slug: 'test-org',
+			name: 'Test Organization'
+		})
 	})
 
 	it('should have undefined permission for public use case', () => {
@@ -92,6 +104,25 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		})
 	})
 
+	it('should return success message for invalid organization (security)', async () => {
+		const container = makeContainer()
+		const useCase = new AuthPasswordRecoveryRequestUseCase(container)
+
+		organizationRepo.findBySlug.mockResolvedValueOnce(null)
+
+		const job = makeJob({
+			email: 'user@example.com',
+			organization: 'invalid-org'
+		})
+		const result = await useCase.run(job)
+
+		expect(result.data.message).toBe(
+			'If the email exists in our system, a recovery link has been sent.'
+		)
+		expect(userRepo.findByEmail).not.toHaveBeenCalled()
+		expect(jobService.dispatchUseCase).not.toHaveBeenCalled()
+	})
+
 	it('should generate token and send email for active user', async () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordRecoveryRequestUseCase(container)
@@ -108,11 +139,14 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		redisClient.setEx.mockResolvedValue('OK')
 		emailService.send.mockResolvedValue(undefined)
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		const result = await useCase.run(job)
 
 		// Verify user lookup
-		expect(userRepo.findByEmail).toHaveBeenCalledWith('user@example.com')
+		expect(userRepo.findByEmail).toHaveBeenCalledWith(
+			'user@example.com',
+			'org-123'
+		)
 
 		// Verify token stored in Redis
 		expect(redisClient.setEx).toHaveBeenCalledWith(
@@ -144,7 +178,10 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 
 		userRepo.findByEmail.mockResolvedValue(null)
 
-		const job = makeJob({ email: 'nonexistent@example.com' })
+		const job = makeJob({
+			email: 'nonexistent@example.com',
+			organization: 'test-org'
+		})
 		const result = await useCase.run(job)
 
 		// Should not send email
@@ -179,7 +216,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 
 		userRepo.findByEmail.mockResolvedValue(mockUser)
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		const result = await useCase.run(job)
 
 		// Should not send email or store token
@@ -204,7 +241,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 
 		userRepo.findByEmail.mockResolvedValue(mockUser)
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		const result = await useCase.run(job)
 
 		// Should not send email or store token
@@ -221,7 +258,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 
 		userRepo.findByEmail.mockRejectedValue(new Error('Database error'))
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		const result = await useCase.run(job)
 
 		// Should log error
@@ -250,7 +287,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		redisClient.setEx.mockResolvedValue('OK')
 		emailService.send.mockResolvedValue(undefined)
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		await useCase.run(job)
 
 		// Verify token is 64 characters (32 bytes hex)
@@ -278,12 +315,12 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		redisClient.setEx.mockResolvedValue('OK')
 		emailService.send.mockResolvedValue(undefined)
 
-		const job = makeJob({ email: 'user@example.com' })
+		const job = makeJob({ email: 'user@example.com', organization: 'test-org' })
 		await useCase.run(job)
 
 		// Verify logging
 		expect(logger.info).toHaveBeenCalledWith(
-			{ email: 'user@example.com' },
+			{ email: 'user@example.com', organization: 'test-org' },
 			'Password recovery request initiated'
 		)
 

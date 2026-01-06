@@ -58,6 +58,7 @@ describe('OrganizationRepository', () => {
 	it('should create a new organization', async () => {
 		const input: OrganizationCreateInput = {
 			name: 'Org1',
+			slug: 'Org1',
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Street 1'
@@ -82,6 +83,7 @@ describe('OrganizationRepository', () => {
 		const updatedOrg: Organization = {
 			id: '1',
 			name: 'Org1',
+			slug: 'Org1',
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Updated Street',
@@ -124,6 +126,7 @@ describe('OrganizationRepository', () => {
 		const org: Organization = {
 			id: '1',
 			name: 'Org1',
+			slug: 'Org1',
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Street 1',
@@ -153,6 +156,7 @@ describe('OrganizationRepository', () => {
 		const org: Organization = {
 			id: '1',
 			name: 'Org1',
+			slug: 'Org1',
 			email: 'a@b.com',
 			phone: '123',
 			address: 'Street 1',
@@ -183,6 +187,7 @@ describe('OrganizationRepository', () => {
 			{
 				id: '1',
 				name: 'Org1',
+				slug: 'Org1',
 				email: 'a@b.com',
 				phone: '123',
 				address: 'Street 1',
@@ -196,6 +201,7 @@ describe('OrganizationRepository', () => {
 			{
 				id: '2',
 				name: 'Org2',
+				slug: 'Org2',
 				email: 'b@b.com',
 				phone: '456',
 				address: 'Street 2',
@@ -214,5 +220,62 @@ describe('OrganizationRepository', () => {
 			where: { deletedAt: null }
 		})
 		expect(result).toEqual(orgs)
+	})
+
+	it('should find organization by slug', async () => {
+		const org: Organization = {
+			id: '1',
+			name: 'Acme Corp',
+			slug: 'acme',
+			email: 'contact@acme.com',
+			phone: '123456',
+			address: 'Main Street 1',
+			timezone: 'UTC',
+			scope: 'TENANT',
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null
+		}
+		dbMock.organization.findUnique.mockResolvedValue(org)
+
+		const result = await repository.findBySlug('acme')
+		expect(dbMock.organization.findUnique).toHaveBeenCalledWith({
+			where: { slug: 'acme' }
+		})
+		expect(result).toEqual(org)
+	})
+
+	it('should return null if findBySlug does not find anything', async () => {
+		dbMock.organization.findUnique.mockResolvedValue(null)
+		const result = await repository.findBySlug('non-existent-slug')
+		expect(dbMock.organization.findUnique).toHaveBeenCalledWith({
+			where: { slug: 'non-existent-slug' }
+		})
+		expect(result).toBeNull()
+	})
+
+	it('should return organization even if deleted when using findBySlug', async () => {
+		const deletedOrg: Organization = {
+			id: '1',
+			name: 'Deleted Org',
+			slug: 'deleted',
+			email: 'deleted@org.com',
+			phone: '999',
+			address: 'Old Street',
+			timezone: 'UTC',
+			scope: 'TENANT',
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: new Date()
+		}
+		dbMock.organization.findUnique.mockResolvedValue(deletedOrg)
+
+		const result = await repository.findBySlug('deleted')
+		expect(dbMock.organization.findUnique).toHaveBeenCalledWith({
+			where: { slug: 'deleted' }
+		})
+		expect(result).toEqual(deletedOrg)
 	})
 })

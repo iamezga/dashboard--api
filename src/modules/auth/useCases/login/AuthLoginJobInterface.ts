@@ -7,10 +7,11 @@ import { JobInterface } from '@/types/job/JobInterface'
 export interface AuthLoginJobInterface extends JobInterface {
 	/**
 	 * Overrides the generic getData method to return the specific input for login.
-	 * @returns {{ email: string; password: string; }} The login credentials.
+	 * @returns {{ email: string; password: string; organization: string }} The login credentials with organization slug.
 	 */
 	getData(): {
 		email: string
 		password: string
+		organization: string
 	}
 }

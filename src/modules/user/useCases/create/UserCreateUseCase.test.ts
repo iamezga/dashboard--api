@@ -148,7 +148,7 @@ describe('UserCreateUseCase', () => {
 		} as any)
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(userRepo.findByEmail).toHaveBeenCalledWith('taken@mail.com')
+		expect(userRepo.findByEmail).toHaveBeenCalledWith('taken@mail.com', 'org1')
 	})
 
 	it('Should throw BadRequest if role does not exist or is inactive', async () => {

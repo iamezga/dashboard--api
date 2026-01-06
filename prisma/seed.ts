@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { hash } from 'argon2' // Use argon2 for password hashing
+import { config as dotenvConfig } from 'dotenv'
 import {
 	Module,
 	Organization,
@@ -11,7 +12,8 @@ import {
 	Role,
 	RoleScope
 } from '../src/generated/prisma/client'
-import { config } from '../src/services/config'
+
+dotenvConfig()
 
 // Define an interface for the module data to ensure type safety
 interface IModuleSeedData {
@@ -32,7 +34,7 @@ interface IPermissionSeedData {
 
 // Initialize the Prisma Client
 const adapter = new PrismaPg({
-	connectionString: config.get('database.postgres.url')
+	connectionString: process.env.POSTGRES_URL
 })
 const prisma = new PrismaClient({ adapter })
 
@@ -42,10 +44,11 @@ async function main(): Promise<void> {
 	// --- CREATE ORGANIZATIONS ---
 	console.log('\n--- Creating Organizations ---')
 	const systemOrganization: Organization = await prisma.organization.upsert({
-		where: { id: '00000000-0000-0000-0000-000000000001' }, // A unique, identifiable name
+		where: { id: '00000000-0000-0000-0000-000000000001' },
 		update: {},
 		create: {
 			name: 'System Administration',
+			slug: 'system',
 			timezone: 'UTC', // System organization always uses UTC
 			scope: OrganizationScope.SYSTEM
 		}
@@ -59,6 +62,7 @@ async function main(): Promise<void> {
 		update: { name: 'Innovatech Solutions' },
 		create: {
 			name: 'Innovatech Solutions',
+			slug: 'innovatech',
 			timezone: 'Europe/Madrid', // Spanish company timezone
 			scope: OrganizationScope.TENANT
 		}
@@ -68,6 +72,7 @@ async function main(): Promise<void> {
 		update: {},
 		create: {
 			name: 'Quantum Dynamics',
+			slug: 'quantum',
 			timezone: 'America/New_York', // US company timezone
 			scope: OrganizationScope.TENANT
 		}
@@ -548,7 +553,12 @@ async function main(): Promise<void> {
 
 	// System User
 	await prisma.user.upsert({
-		where: { email: 'superadmin@system.io' },
+		where: {
+			email_organizationId: {
+				email: 'superadmin@system.io',
+				organizationId: systemOrganization.id
+			}
+		},
 		update: {
 			passwordHash: password
 		},
@@ -571,7 +581,12 @@ async function main(): Promise<void> {
 		const orgSuffix = org.name.split(' ')[0].toLowerCase()
 
 		await prisma.user.upsert({
-			where: { email: `admin@${orgSuffix}.com` },
+			where: {
+				email_organizationId: {
+					email: `admin@${orgSuffix}.com`,
+					organizationId: org.id
+				}
+			},
 			update: {},
 			create: {
 				name: 'Org Admin',
@@ -585,7 +600,12 @@ async function main(): Promise<void> {
 			`Admin user created for ${org.name}: admin@${orgSuffix}.com (Role: ${roles.admin.name})`
 		)
 		await prisma.user.upsert({
-			where: { email: `editor@${orgSuffix}.com` },
+			where: {
+				email_organizationId: {
+					email: `editor@${orgSuffix}.com`,
+					organizationId: org.id
+				}
+			},
 			update: {},
 			create: {
 				name: 'Org Editor',
@@ -599,7 +619,12 @@ async function main(): Promise<void> {
 			`Editor user created for ${org.name}: editor@${orgSuffix}.com (Role: ${roles.editor.name})`
 		)
 		await prisma.user.upsert({
-			where: { email: `viewer@${orgSuffix}.com` },
+			where: {
+				email_organizationId: {
+					email: `viewer@${orgSuffix}.com`,
+					organizationId: org.id
+				}
+			},
 			update: {},
 			create: {
 				name: 'Org Viewer',
