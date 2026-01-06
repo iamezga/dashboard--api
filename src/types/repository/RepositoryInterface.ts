@@ -10,11 +10,7 @@
 export interface RepositoryInterface<T, CreateInput, UpdateInput> {
 	findById(id: string, organizationId?: string): Promise<T | null>
 	create(data: CreateInput): Promise<T>
-	update(
-		id: string,
-		data: UpdateInput,
-		organizationId?: string
-	): Promise<T | null>
+	update(id: string, data: UpdateInput, organizationId?: string): Promise<T>
 	delete(id: string, organizationId?: string): Promise<boolean>
 	findAll(organizationId?: string): Promise<T[]>
 }

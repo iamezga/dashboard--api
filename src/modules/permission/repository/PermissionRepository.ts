@@ -78,17 +78,15 @@ export class PermissionRepository implements PermissionRepositoryInterface {
 	 * Updates an existing permission.
 	 * @param {string} id - The ID of the permission to update.
 	 * @param {PermissionUpdateInput} data - The partial data to update.
-	 * @returns {Promise<Permission | null>} The updated permission entity or null if not found.
+	 * @returns {Promise<Permission>} The updated permission entity.
+	 * @throws {Error} If the permission is not found (Prisma throws PrismaClientKnownRequestError with code P2025).
 	 */
-	async update(
-		id: string,
-		data: PermissionUpdateInput
-	): Promise<Permission | null> {
+	async update(id: string, data: PermissionUpdateInput): Promise<Permission> {
 		const prismaPermission = await this.db.permission.update({
 			where: { id },
 			data: data as Prisma.PermissionUpdateInput
 		})
-		return this.permissionMapper.mapOrNull(prismaPermission)
+		return this.permissionMapper.mapToDomain(prismaPermission)
 	}
 
 	/**

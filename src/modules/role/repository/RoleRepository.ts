@@ -132,13 +132,14 @@ export class RoleRepository implements RoleRepositoryInterface {
 	 * @param {string} id - The ID of the role to update.
 	 * @param {RoleUpdateInput} data - The partial data to update, including optional permissionKeysToAdd/ToRemove.
 	 * @param {string} [organizationId] - Optional. The ID of the organization to scope the update.
-	 * @returns {Promise<Role | null>} The updated role entity or null if not found.
+	 * @returns {Promise<Role>} The updated role entity.
+	 * @throws {Error} If the role is not found (Prisma throws PrismaClientKnownRequestError with code P2025).
 	 */
 	async update(
 		id: string,
 		data: RoleUpdateInput,
 		organizationId?: string
-	): Promise<Role | null> {
+	): Promise<Role> {
 		const whereClause: Prisma.RoleWhereUniqueInput = { id }
 		if (organizationId) {
 			whereClause.organizationId = organizationId
@@ -194,7 +195,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 			where: whereClause,
 			data: updateData
 		})
-		return this.roleMapper.mapOrNull(prismaRole)
+		return this.roleMapper.mapToDomain(prismaRole)
 	}
 
 	/**

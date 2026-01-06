@@ -119,13 +119,15 @@ export class UserRepository implements UserRepositoryInterface {
 	 * Updates an existing user.
 	 * @param id - The ID of the user to update.
 	 * @param data - The partial data to update.
-	 * @returns {Promise<User | null>} The updated user entity or null if not found.
+	 * @param organizationId - Optional organization ID for multi-tenancy validation.
+	 * @returns {Promise<User>} The updated user entity.
+	 * @throws {Error} If the user is not found (Prisma throws PrismaClientKnownRequestError with code P2025).
 	 */
 	async update(
 		id: string,
 		data: UserUpdateInput,
 		organizationId?: string
-	): Promise<User | null> {
+	): Promise<User> {
 		const whereClause: Prisma.UserWhereUniqueInput = { id }
 		if (organizationId) {
 			whereClause.organizationId = organizationId
@@ -135,7 +137,7 @@ export class UserRepository implements UserRepositoryInterface {
 			where: whereClause,
 			data: data as Prisma.UserUpdateInput
 		})
-		return this.userMapper.mapOrNull(prismaUser)
+		return this.userMapper.mapToDomain(prismaUser)
 	}
 
 	/**

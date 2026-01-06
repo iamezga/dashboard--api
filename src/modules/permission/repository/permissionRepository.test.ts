@@ -224,14 +224,6 @@ describe('PermissionRepository', () => {
 		expect(result?.label).toBe('Updated Label')
 	})
 
-	it('should return null if update does not find permission', async () => {
-		const updateData: PermissionUpdateInput = { label: 'New Label' }
-		;(dbMock.permission!.update as jest.Mock).mockResolvedValue(null)
-
-		const result = await repository.update('NON_EXISTENT_ID', updateData)
-		expect(result).toBeNull()
-	})
-
 	it('should delete a permission (soft delete)', async () => {
 		;(dbMock.permission!.update as jest.Mock).mockResolvedValue({
 			id: 'p4'

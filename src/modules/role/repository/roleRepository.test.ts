@@ -618,18 +618,4 @@ describe('RoleRepository', () => {
 		})
 		expect(result?.organizationId).toBe('org123')
 	})
-
-	it('should return null if update does not find role', async () => {
-		const updateData = { label: 'Updated Label' }
-
-		;(dbMock.role!.update as jest.Mock).mockResolvedValue(null)
-
-		const result = await repository.update('NON_EXISTENT_ID', updateData)
-
-		expect(dbMock.role!.update).toHaveBeenCalledWith({
-			where: { id: 'NON_EXISTENT_ID' },
-			data: expect.objectContaining(updateData)
-		})
-		expect(result).toBeNull()
-	})
 })

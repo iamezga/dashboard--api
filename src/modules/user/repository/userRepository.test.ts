@@ -252,12 +252,6 @@ describe('UserRepository', () => {
 		expect(result?.name).toBe('Alice Updated')
 	})
 
-	it('should return null when update does not find a user', async () => {
-		dbMock.user.update.mockResolvedValue(null)
-		const result = await repository.update('missing', { name: 'X' })
-		expect(result).toBeNull()
-	})
-
 	it('should delete a user (soft delete)', async () => {
 		dbMock.user.update.mockResolvedValue({ id: '2' })
 		const result = await repository.delete('2')

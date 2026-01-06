@@ -103,12 +103,6 @@ describe('OrganizationRepository', () => {
 		expect(result).toEqual(updatedOrg)
 	})
 
-	it('should return null if update returns null (unlikely in Prisma)', async () => {
-		dbMock.organization.update.mockResolvedValue(null)
-		const result = await repository.update('missing', { address: 'X' })
-		expect(result).toBeNull()
-	})
-
 	it('should delete an organization and return true', async () => {
 		dbMock.organization.update.mockResolvedValue({ id: '1' })
 		const result = await repository.delete('1')

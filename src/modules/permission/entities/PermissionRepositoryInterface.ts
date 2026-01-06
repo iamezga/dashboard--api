@@ -42,9 +42,10 @@ export interface PermissionRepositoryInterface
 	 *
 	 * @param {string} id - The permission ID to update
 	 * @param {PermissionUpdateInput} data - The fields to update
-	 * @returns {Promise<Permission | null>} The updated permission if found, null otherwise
+	 * @returns {Promise<Permission>} The updated permission
+	 * @throws {Error} If the permission is not found (Prisma throws PrismaClientKnownRequestError with code P2025)
 	 */
-	update(id: string, data: PermissionUpdateInput): Promise<Permission | null>
+	update(id: string, data: PermissionUpdateInput): Promise<Permission>
 
 	/**
 	 * Deletes a permission by ID.

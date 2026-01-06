@@ -81,17 +81,18 @@ export class OrganizationRepository implements OrganizationRepositoryInterface {
 	 * Updates an existing organization.
 	 * @param {string} id - The ID of the organization to update.
 	 * @param {OrganizationUpdateInput} data - The partial data to update.
-	 * @returns {Promise<Organization | null>} The updated organization entity or null if not found.
+	 * @returns {Promise<Organization>} The updated organization entity.
+	 * @throws {Error} If the organization is not found (Prisma throws PrismaClientKnownRequestError with code P2025).
 	 */
 	async update(
 		id: string,
 		data: OrganizationUpdateInput
-	): Promise<Organization | null> {
+	): Promise<Organization> {
 		const prismaOrganization = await this.db.organization.update({
 			where: { id },
 			data: data as Prisma.OrganizationUpdateInput
 		})
-		return this.organizationMapper.mapOrNull(prismaOrganization)
+		return this.organizationMapper.mapToDomain(prismaOrganization)
 	}
 
 	/**
