@@ -593,7 +593,43 @@ async function main(): Promise<void> {
 				email: `admin@${orgSuffix}.com`,
 				passwordHash: password,
 				organizationId: org.id,
-				roleId: roles.admin.id
+				roleId: roles.admin.id,
+				config:
+					org.name === 'Tenant Organization 1'
+						? {
+								user: {
+									preferences: {
+										ui: {
+											theme: 'dark',
+											language: 'en',
+											fontSize: 14,
+											dateFormat: 'DD/MM/YYYY'
+										},
+										notifications: {
+											email: true,
+											push: true,
+											desktop: false
+										},
+										dashboard: {
+											layout: 'grid',
+											widgets: ['analytics', 'users', 'activity']
+										}
+									}
+								},
+								admin: {
+									limits: {
+										maxStorageMB: 5000,
+										maxUploadsPerDay: 100,
+										maxApiCallsPerHour: 2000
+									},
+									features: {
+										betaFeatures: true,
+										exportData: true,
+										apiAccess: true
+									}
+								}
+						  }
+						: {}
 			}
 		})
 		console.log(
@@ -612,7 +648,43 @@ async function main(): Promise<void> {
 				email: `editor@${orgSuffix}.com`,
 				passwordHash: password,
 				organizationId: org.id,
-				roleId: roles.editor.id
+				roleId: roles.editor.id,
+				config:
+					org.name === 'Tenant Organization 1'
+						? {
+								user: {
+									preferences: {
+										ui: {
+											theme: 'light',
+											language: 'es',
+											fontSize: 16,
+											dateFormat: 'MM/DD/YYYY'
+										},
+										notifications: {
+											email: true,
+											push: false,
+											desktop: true
+										},
+										dashboard: {
+											layout: 'list',
+											widgets: ['tasks', 'calendar']
+										}
+									}
+								},
+								admin: {
+									limits: {
+										maxStorageMB: 1000,
+										maxUploadsPerDay: 30,
+										maxApiCallsPerHour: 500
+									},
+									features: {
+										betaFeatures: false,
+										exportData: true,
+										apiAccess: false
+									}
+								}
+						  }
+						: {}
 			}
 		})
 		console.log(
