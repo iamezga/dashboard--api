@@ -175,36 +175,14 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 	public async run(
 		job: AuthLoginJobInterface
 	): Promise<UseCaseResponseInterface<LoginOutput>> {
-		const { email, password, organization } = job.getData()
+		const { email, password } = job.getData()
 
 		const userRepository = this.container.repositoryManager.get('user')
 		const roleRepository = this.container.repositoryManager.get('role')
 		const sessionRepository = this.container.repositoryManager.get('session')
-		const organizationRepository =
-			this.container.repositoryManager.get('organization')
-
-		// Resolve organization slug to organizationId
-		const organizationRecord = await organizationRepository.findBySlug(
-			organization
-		)
-		if (!organizationRecord) {
-			job.logger.warn(
-				`Login attempt with invalid organization slug: ${organization}`
-			)
-			throw new BadRequestError('Incorrect credentials', [
-				{
-					field: 'credentials',
-					message: 'Incorrect credentials',
-					type: 'incorrectCredentials'
-				}
-			])
-		}
-
 		// Find user authentication details and apply business rules
-		const rawUserAuthDetails = await userRepository.findUserAuthDetailsByEmail(
-			email,
-			organizationRecord.id
-		)
+		const rawUserAuthDetails =
+			await userRepository.findUserAuthDetailsByEmail(email)
 		const userAuthDetails =
 			AuthLoginUseCase.filterActivePermissions(rawUserAuthDetails)
 
@@ -390,7 +368,7 @@ export class AuthLoginUseCase extends UseCase<AuthLoginJobInterface> {
 			? (loginPermissionConfig.maxSessionTime as number) // JWT accepts seconds as number
 			: (this.container.config.get(
 					'jwt.expiresIn'
-			  ) as jwt.SignOptions['expiresIn'])
+				) as jwt.SignOptions['expiresIn'])
 
 		const token = this.container.libs.jwt.sign(
 			jwtPayload,
