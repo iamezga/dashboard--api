@@ -1,3 +1,4 @@
+import { getContainer } from '@/core/dependencyContainer'
 import { BadRequestError, UnauthorizedError } from '@/errors'
 import { rules } from '@/modules'
 import { validator } from '@/services/validationService'
@@ -17,6 +18,12 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 				)
 			}
 
+			// to extend validator meta
+			const extendedMeta = {
+				job,
+				container: getContainer()
+			}
+
 			// Get rules by use case rule name
 			const useCaseRules = rules[useCaseRuleName]
 			if (!useCaseRules) {
@@ -30,7 +37,7 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 				const userErrors = await validator.validate(
 					job.getUser() || {},
 					useCaseRules.user,
-					job.getMeta()
+					extendedMeta
 				)
 				if (userErrors.length) {
 					throw new UnauthorizedError('User Validation failed.')
@@ -42,7 +49,7 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 				const attemptsErrors = await validator.validate(
 					{ attempts: job.getAttempts() },
 					useCaseRules.attempts,
-					job.getMeta()
+					extendedMeta
 				)
 				if (attemptsErrors.length) {
 					throw new BadRequestError(
@@ -54,14 +61,16 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 
 			// Validate job.data
 			if (useCaseRules.data) {
+				const data = job.getData() || {}
 				const dataErrors = await validator.validate(
-					job.getData(),
+					data,
 					useCaseRules.data,
-					job.getMeta()
+					extendedMeta
 				)
 				if (dataErrors.length) {
 					throw new BadRequestError('Data Validation failed.', dataErrors)
 				}
+				job.setData(data) // Set the (potentially) transformed data back to the job
 			}
 
 			// Validate job.recaptchaResponses
@@ -69,7 +78,7 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 				const recaptchaErrors = await validator.validate(
 					{ recaptchaResponse: job.getRecaptchaResponse() || '' },
 					useCaseRules.recaptchaResponse,
-					job.getMeta()
+					extendedMeta
 				)
 				if (recaptchaErrors.length) {
 					throw new BadRequestError(

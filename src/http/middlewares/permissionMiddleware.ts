@@ -60,7 +60,11 @@ export const permissionMiddleware = (
 
 			// The `Schema` and` Data` contain at least the information necessary to validate if the user has the necessary permission
 			// It can also include validation for specific conditions of each use case
-			const errors = await validator.validate(data, schema, {})
+			// extend validator meta
+			const errors = await validator.validate(data, schema, {
+				job,
+				container: getContainer()
+			})
 			if (errors.length > 0) {
 				throw new UnauthorizedError(
 					`Authorization failed: you don't have permissions for this action.`
