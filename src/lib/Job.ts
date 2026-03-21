@@ -7,8 +7,6 @@ import { Logger } from 'pino'
 interface JobOptions {
 	id: string
 	attempts: number
-	data?: Record<string, any>
-	recaptchaResponse?: string
 	meta?: JobMetaInterface
 	user?: AuthenticatedUser
 	logger: Logger
@@ -32,7 +30,7 @@ export class Job implements JobInterface {
 
 	private id: string
 	private attempts: number
-	private data: Record<string, any>
+	private data: Record<string, any> = {}
 	private recaptchaResponse?: string
 	private meta: JobMetaInterface
 	private user?: AuthenticatedUser
@@ -51,8 +49,6 @@ export class Job implements JobInterface {
 	constructor(options: JobOptions) {
 		this.id = options.id
 		this.attempts = options.attempts
-		this.data = structuredClone(options.data ?? {})
-		this.recaptchaResponse = options.recaptchaResponse
 		this.meta = structuredClone(options.meta ?? ({} as JobMetaInterface))
 		this.user = options.user ? structuredClone(options.user) : undefined
 		this.logger = options.logger

@@ -38,13 +38,7 @@ describe('requestDataMiddleware', () => {
 
 	it('should attach requestData to the request object for API calls', () => {
 		const req = mockRequest({
-			method: 'POST',
-			body: {
-				name: 'NAME',
-				surname: 'TEST',
-				'g-recaptcha-response': 'someString'
-			},
-			files: [{}, {}]
+			method: 'POST'
 		})
 		const res = mockResponse()
 
@@ -58,12 +52,6 @@ describe('requestDataMiddleware', () => {
 		expect(req.requestData.meta.userAgent).toBe('Jest Test')
 		expect(req.requestData.meta.referer).toBe('http://test.com')
 		expect(req.requestData.meta.origin).toBe('http://test.com')
-		expect(req.requestData.recaptchaResponse).toBe('someString')
-		expect(req.requestData.payload).toEqual({
-			name: 'NAME',
-			surname: 'TEST',
-			files: [{}, {}]
-		})
 
 		// Verify that next() was called once
 		expect(mockNext).toHaveBeenCalledTimes(1)

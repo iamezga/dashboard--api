@@ -20,13 +20,7 @@ export const jobMiddleware = (
 		)
 	}
 
-	const {
-		id,
-		attempts,
-		payload: data,
-		recaptchaResponse,
-		meta
-	} = req.requestData
+	const { id, attempts, meta } = req.requestData
 
 	// Create a child logger with job-specific data.
 	const jobLogger = logger.child({
@@ -42,8 +36,6 @@ export const jobMiddleware = (
 	const job = new Job({
 		id,
 		attempts,
-		data,
-		recaptchaResponse,
 		meta,
 		logger: jobLogger
 	})

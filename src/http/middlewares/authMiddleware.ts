@@ -31,14 +31,9 @@ export const authMiddleware = async (
 			)
 		}
 
-		let token: string | undefined = req.requestData.token
-
+		const token = req.requestData.token as string
 		if (!token) {
-			const authHeader = req.headers.authorization
-			if (!authHeader || !authHeader.startsWith('Bearer ')) {
-				throw new UnauthorizedError('Authentication failed.')
-			}
-			token = authHeader.split('Bearer ')[1]
+			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		const container = getContainer()
@@ -79,18 +74,16 @@ export const authMiddleware = async (
 
 		// Retrieve cached user session data (pre-filtered permissions from login)
 		// This avoids expensive database queries on every request
-		const sessionUser: SessionUser | null = await sessionRepository.getUserData(
-			userId
-		)
+		const sessionUser: SessionUser | null =
+			await sessionRepository.getUserData(userId)
 		if (!sessionUser) {
 			await sessionRepository.deleteAllUserSessions(userId)
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		// Verify user is still active (lightweight query, only status fields)
-		const userStatus: UserStatus | null = await userRepository.findStatusById(
-			userId
-		)
+		const userStatus: UserStatus | null =
+			await userRepository.findStatusById(userId)
 		if (!userStatus || !userStatus.active || userStatus.deletedAt) {
 			await sessionRepository.deleteAllUserSessions(userId)
 			throw new UnauthorizedError('Authentication failed.')
