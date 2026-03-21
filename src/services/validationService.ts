@@ -1,3 +1,5 @@
+import { DependencyContainer } from '@/types/core/dependencyContainer'
+import { JobInterface } from '@/types/job/JobInterface'
 import Validator, {
 	AsyncCheckFunction,
 	SyncCheckFunction,
@@ -8,7 +10,12 @@ import * as aliases from './validationAliases'
 
 export interface ValidationContextInterface {
 	[key: string]: any
-	meta: { [key: string]: any; validator: ValidationService }
+	meta: {
+		[key: string]: any
+		validator: ValidationService
+		job?: JobInterface
+		container?: DependencyContainer
+	}
 }
 
 export class ValidationService extends Validator {
@@ -32,7 +39,12 @@ export class ValidationService extends Validator {
 	async validate(
 		value: any,
 		schema: ValidationSchema,
-		meta: Record<string, any> = {}
+		meta: {
+			[key: string]: any
+			validator?: ValidationService
+			job?: JobInterface
+			container?: DependencyContainer
+		} = {}
 	) {
 		const check = this.compile({ $$async: true, $$strict: true, ...schema })
 		const errors = await check(value, { meta: { ...meta, validator: this } })
