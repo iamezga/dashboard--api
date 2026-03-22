@@ -4,8 +4,7 @@ export const userGetUseCaseRules: UseCaseRules = {
 	// Rules to validate `job.data` (payload)
 	data: {
 		id: {
-			type: 'string',
-			alphanum: true
+			type: 'uuid'
 		}
 	}
 	/**
