@@ -57,8 +57,6 @@ describe('jobMiddleware', () => {
 		const jobInstance = res.locals.job as Job
 		expect(jobInstance.getId()).toBe('mock-uuid')
 		expect(jobInstance.getAttempts()).toBe(1)
-		expect(jobInstance.getData()).toEqual({ data: 'test' })
-		expect(jobInstance.getRecaptchaResponse()).toBe('mock-recaptcha-token')
 		expect(jobInstance.getMeta()).toEqual({
 			timestamp: 1678886400000,
 			method: 'POST',

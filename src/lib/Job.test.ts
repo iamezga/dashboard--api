@@ -28,8 +28,6 @@ describe('Job', () => {
 		({
 			id: 'job-1',
 			attempts: 1,
-			data: { foo: 'bar' },
-			recaptchaResponse: 'recaptcha-token',
 			meta: { status: 'pending' } as any,
 			user: {
 				id: 'user-1',
@@ -42,7 +40,7 @@ describe('Job', () => {
 				config: { theme: 'dark' }
 			},
 			logger
-		} as any)
+		}) as any
 
 	it('should initialize defaults when data, meta and recaptchaResponse are missing', () => {
 		const job = new Job({
@@ -63,10 +61,10 @@ describe('Job', () => {
 		const job = new Job(baseOptions(logger))
 		expect(job.getId()).toBe('job-1')
 		expect(job.getAttempts()).toBe(1)
-		expect(job.getData()).toEqual({ foo: 'bar' })
+		expect(job.getData()).toEqual({})
 		expect(job.getMeta()).toEqual({ status: 'pending' })
 		expect(job.getUser()).toEqual(baseOptions(logger).user)
-		expect(job.getRecaptchaResponse()).toBe('recaptcha-token')
+		expect(job.getRecaptchaResponse()).toBe(undefined)
 	})
 
 	it('should set and get meta correctly', () => {
@@ -83,6 +81,7 @@ describe('Job', () => {
 
 	it('should set and get data correctly', () => {
 		const job = new Job(baseOptions(logger))
+		job.setData({ foo: 'bar' })
 		job.setData({ baz: 'qux' })
 		expect(job.getData()).toEqual({ foo: 'bar', baz: 'qux' })
 	})

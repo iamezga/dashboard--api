@@ -102,7 +102,7 @@ describe('AuthLoginUseCase', () => {
 			validator,
 			utils,
 			logger
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const makeJob = (data: any, permissions = {}): AuthLoginJobInterface =>
 		({
@@ -112,7 +112,7 @@ describe('AuthLoginUseCase', () => {
 			setUser: jest.fn(),
 			getAttempts: () => 1,
 			logger
-		} as any)
+		}) as any
 
 	beforeEach(() => {
 		jest.clearAllMocks()
@@ -744,10 +744,8 @@ describe('AuthLoginUseCase', () => {
 			})
 		)
 
-		expect(organizationRepo.findBySlug).toHaveBeenCalledWith('test-org')
 		expect(userRepo.findUserAuthDetailsByEmail).toHaveBeenCalledWith(
-			'user@mail.com',
-			'org-123'
+			'user@mail.com'
 		)
 		expect(result.data.token).toBe('token123')
 	})

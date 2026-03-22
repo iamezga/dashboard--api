@@ -26,7 +26,7 @@ describe('UserUpdateSelfUseCase', () => {
 			logger: mockLogger,
 			getMeta: jest.fn().mockReturnValue({}),
 			getPublicUser: jest.fn().mockReturnValue(false)
-		} as any)
+		}) as any
 
 	beforeEach(() => {
 		mockLogger = {
@@ -180,8 +180,7 @@ describe('UserUpdateSelfUseCase', () => {
 
 			expect(result.data.email).toBe('newemail@example.com')
 			expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(
-				'newemail@example.com',
-				'org-123'
+				'newemail@example.com'
 			)
 		})
 

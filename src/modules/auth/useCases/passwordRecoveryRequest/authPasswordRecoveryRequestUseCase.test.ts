@@ -64,7 +64,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 			},
 			config,
 			logger
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const makeJob = (data: any): AuthPasswordRecoveryRequestJobInterface =>
 		({
@@ -73,7 +73,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 				Object.assign(data, newData)
 			}),
 			logger
-		} as unknown as AuthPasswordRecoveryRequestJobInterface)
+		}) as unknown as AuthPasswordRecoveryRequestJobInterface
 
 	beforeEach(() => {
 		jest.clearAllMocks()
@@ -143,10 +143,7 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 		const result = await useCase.run(job)
 
 		// Verify user lookup
-		expect(userRepo.findByEmail).toHaveBeenCalledWith(
-			'user@example.com',
-			'org-123'
-		)
+		expect(userRepo.findByEmail).toHaveBeenCalledWith('user@example.com')
 
 		// Verify token stored in Redis
 		expect(redisClient.setEx).toHaveBeenCalledWith(

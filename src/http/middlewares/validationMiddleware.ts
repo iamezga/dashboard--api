@@ -61,7 +61,7 @@ export const validationMiddleware = (useCaseRuleName: keyof typeof rules) => {
 
 			// Validate job.data
 			if (useCaseRules.data) {
-				const data = job.getData() || {}
+				const data = job.getData()
 				const dataErrors = await validator.validate(
 					data,
 					useCaseRules.data,

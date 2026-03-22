@@ -33,7 +33,7 @@ const makeJob = (
 			error: jest.fn(),
 			child: jest.fn().mockReturnThis()
 		} as unknown as Logger
-	} as unknown as UserCreateJobInterface & JobInterface & { logger: Logger })
+	}) as unknown as UserCreateJobInterface & JobInterface & { logger: Logger }
 
 describe('UserCreateUseCase', () => {
 	const userRepo = {
@@ -78,7 +78,7 @@ describe('UserCreateUseCase', () => {
 			libs: { argon2 },
 			logger: globalLogger,
 			services: { jobService }
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const baseRole = { id: 'role1', active: true }
 	const baseOrganization = { id: 'org1' }
@@ -137,18 +137,19 @@ describe('UserCreateUseCase', () => {
 
 		userRepo.findByEmail.mockResolvedValueOnce({
 			id: 'u1',
-			email: 'taken@mail.com'
+			email: 'taken@mail.com',
+			organizationId: 'user-org'
 		})
 
 		const job = makeJob({
 			email: 'taken@mail.com',
 			password: 'secret',
 			roleId: 'role1',
-			organizationId: 'org1'
+			organizationId: 'user-org'
 		} as any)
 
 		await expect(useCase.run(job)).rejects.toBeInstanceOf(BadRequestError)
-		expect(userRepo.findByEmail).toHaveBeenCalledWith('taken@mail.com', 'org1')
+		expect(userRepo.findByEmail).toHaveBeenCalledWith('taken@mail.com')
 	})
 
 	it('Should throw BadRequest if role does not exist or is inactive', async () => {

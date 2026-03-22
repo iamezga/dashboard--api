@@ -107,13 +107,10 @@ describe('UserRepository', () => {
 
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
 
-		const result = await repository.findByEmail('alice@example.com', 'org-123')
+		const result = await repository.findByEmail('alice@example.com')
 		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
 			where: {
-				email_organizationId: {
-					email: 'alice@example.com',
-					organizationId: 'org-123'
-				}
+				email: 'alice@example.com'
 			}
 		})
 		expect(result?.email).toBe('alice@example.com')
@@ -121,10 +118,7 @@ describe('UserRepository', () => {
 
 	it('should return null for findByEmail if not found', async () => {
 		dbMock.user.findUnique.mockResolvedValue(null)
-		const result = await repository.findByEmail(
-			'missing@example.com',
-			'org-123'
-		)
+		const result = await repository.findByEmail('missing@example.com')
 		expect(result).toBeNull()
 	})
 
@@ -155,14 +149,11 @@ describe('UserRepository', () => {
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
 
 		const result: UserAuthDetails | null =
-			await repository.findUserAuthDetailsByEmail('bob@example.com', 'org-123')
+			await repository.findUserAuthDetailsByEmail('bob@example.com')
 
 		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
 			where: {
-				email_organizationId: {
-					email: 'bob@example.com',
-					organizationId: 'org-123'
-				}
+				email: 'bob@example.com'
 			},
 			include: expect.any(Object)
 		})
@@ -172,8 +163,7 @@ describe('UserRepository', () => {
 	it('should return null for findUserAuthDetailsByEmail if not found', async () => {
 		dbMock.user.findUnique.mockResolvedValue(null)
 		const result = await repository.findUserAuthDetailsByEmail(
-			'notfound@example.com',
-			'org-123'
+			'notfound@example.com'
 		)
 		expect(result).toBeNull()
 	})
@@ -440,8 +430,7 @@ describe('UserRepository', () => {
 		})
 
 		const result = await repository.findUserAuthDetailsByEmail(
-			'filter2@example.com',
-			'orgX'
+			'filter2@example.com'
 		)
 
 		// Repository mapper should NOT filter - returns all permissions as-is

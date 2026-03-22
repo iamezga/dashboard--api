@@ -32,7 +32,7 @@ describe('UserUpdateUseCase', () => {
 			logger: mockLogger,
 			getMeta: jest.fn().mockReturnValue({}),
 			getPublicUser: jest.fn().mockReturnValue(false)
-		} as any)
+		}) as any
 
 	beforeEach(() => {
 		mockLogger = {
@@ -397,7 +397,7 @@ describe('UserUpdateUseCase', () => {
 			expect(result.data.email).toBe('newemail@example.com')
 			expect(
 				container.repositoryManager.get('user').findByEmail
-			).toHaveBeenCalledWith('newemail@example.com', 'org-123')
+			).toHaveBeenCalledWith('newemail@example.com')
 		})
 
 		it('should throw BadRequestError if email already exists', async () => {

@@ -1,24 +1,22 @@
-import { Request, Response } from 'express'
-import { BadRequestError, UnauthorizedError } from '../../errors'
-import { rules } from '../../modules'
-import { validator } from '../../services/validationService'
-import { validationMiddleware } from './validationMiddleware'
-
-jest.mock('@/modules', () => ({
-	rules: {}
-}))
-
+// Mock all dependencies before importing the middleware
+jest.mock('@/modules', () => ({ rules: {} }))
 jest.mock('@/services/validationService', () => ({
-	validator: {
-		validate: jest.fn()
-	}
+	validator: { validate: jest.fn() }
 }))
-
 jest.mock('@/services/logger', () => ({
 	info: jest.fn(),
 	error: jest.fn(),
 	warn: jest.fn()
 }))
+jest.mock('@/core/dependencyContainer', () => ({
+	getContainer: jest.fn(() => ({}))
+}))
+
+import { Request, Response } from 'express'
+import { BadRequestError, UnauthorizedError } from '../../errors'
+import { rules } from '../../modules'
+import { validator } from '../../services/validationService'
+import { validationMiddleware } from './validationMiddleware'
 
 describe('validationMiddleware', () => {
 	let mockReq: Partial<Request>
@@ -35,7 +33,8 @@ describe('validationMiddleware', () => {
 			getAttempts: jest.fn().mockReturnValue(1),
 			getData: jest.fn().mockReturnValue({ foo: 'bar' }),
 			getRecaptchaResponse: jest.fn().mockReturnValue('token'),
-			getMeta: jest.fn().mockReturnValue({})
+			getMeta: jest.fn().mockReturnValue({}),
+			setData: jest.fn()
 		}
 
 		mockReq = {}

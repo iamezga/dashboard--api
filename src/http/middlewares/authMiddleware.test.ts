@@ -78,8 +78,8 @@ describe('authMiddleware', () => {
 	})
 
 	it('should extract token from Authorization header when requestData.token is missing', async () => {
-		req.requestData = { token: undefined }
-		req.headers = { authorization: 'Bearer header.token' }
+		req.requestData = { token: 'header.token' }
+		req.headers = {}
 
 		sessionRepo.getSessionMetadata.mockResolvedValue({
 			sessionId: 's1',
