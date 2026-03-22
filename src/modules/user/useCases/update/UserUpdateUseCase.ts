@@ -89,9 +89,9 @@ export class UserUpdateUseCase extends UseCase<UserUpdateJobInterface> {
 		if (email && email !== existingUser.email) {
 			const emailExists = await this.container.repositoryManager
 				.get('user')
-				.findByEmail(email, organizationId)
+				.findByEmail(email)
 
-			if (emailExists) {
+			if (emailExists?.organizationId === organizationId) {
 				throw new BadRequestError('A user with this email already exists', [
 					{
 						field: 'email',

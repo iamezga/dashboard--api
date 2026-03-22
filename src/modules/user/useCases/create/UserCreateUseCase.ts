@@ -54,8 +54,8 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 		// Check if email is already in use within the organization
 		const existingUser = await this.container.repositoryManager
 			.get('user')
-			.findByEmail(email, validationOrgId)
-		if (existingUser) {
+			.findByEmail(email)
+		if (existingUser?.organizationId === validationOrgId) {
 			throw new BadRequestError('Email already in use', [
 				{
 					field: 'email',
