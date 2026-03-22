@@ -70,9 +70,8 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 			const redisClient = this.container.databaseManager.get('redis')
 
 			// Resolve organization slug to organizationId
-			const organizationRecord = await organizationRepository.findBySlug(
-				organization
-			)
+			const organizationRecord =
+				await organizationRepository.findBySlug(organization)
 
 			// If organization doesn't exist, still return success (security: prevent enumeration)
 			if (!organizationRecord) {
@@ -92,10 +91,7 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 			}
 
 			// Find user by email and organization
-			const user = await userRepository.findByEmail(
-				email,
-				organizationRecord.id
-			)
+			const user = await userRepository.findByEmail(email)
 
 			// If user exists, is active, and not deleted, proceed with recovery
 			if (user && user.active && !user.deletedAt) {
