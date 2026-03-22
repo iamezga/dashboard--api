@@ -8,6 +8,24 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PermissionScope {
+  GLOBAL
+  MODULE
+  ORGANIZATION
+  USER
+  SYSTEM
+}
+
+enum OrganizationScope {
+  TENANT
+  SYSTEM
+}
+
+enum RoleScope {
+  TENANT
+  SYSTEM
+}
+
 model Organization {
   id        String            @id @default(uuid()) @db.Uuid
   name      String
@@ -96,7 +114,7 @@ model User {
   organizationId  String           @db.Uuid
   name            String
   surname         String?
-  email           String
+  email           String           @unique
   passwordHash    String
   active          Boolean          @default(true)
   lastLogin       DateTime?        @db.Timestamptz(6)
@@ -109,8 +127,6 @@ model User {
   role            Role             @relation(fields: [roleId], references: [id])
   modules         UserModule[]
   userPermissions UserPermission[]
-
-  @@unique([email, organizationId])
 }
 
 model UserModule {
@@ -158,22 +174,4 @@ model Audit {
 
   @@index([timestamp])
   @@index([jobId])
-}
-
-enum PermissionScope {
-  GLOBAL
-  MODULE
-  ORGANIZATION
-  USER
-  SYSTEM
-}
-
-enum OrganizationScope {
-  TENANT
-  SYSTEM
-}
-
-enum RoleScope {
-  TENANT
-  SYSTEM
 }
