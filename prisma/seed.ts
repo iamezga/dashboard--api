@@ -547,53 +547,50 @@ async function main(): Promise<void> {
 		console.log(`Permission config overrides applied for: ${org.name}`)
 	}
 
-	// --- CREATE USERS ---
-	console.log('\n--- Creating Users ---')
+	// --- CREATE USERS & MEMBERSHIPS ---
+	console.log('\n--- Creating Users & Memberships ---')
 	const password = await hash('password')
 
 	// System User
-	await prisma.user.upsert({
-		where: {
-			email_organizationId: {
-				email: 'superadmin@system.io',
-				organizationId: systemOrganization.id
-			}
-		},
-		update: {
-			passwordHash: password
-		},
+	const superAdminUser = await prisma.user.upsert({
+		where: { email: 'superadmin@system.io' },
+		update: { passwordHash: password, status: 'active' },
 		create: {
 			name: 'Super',
 			surname: 'Admin',
 			email: 'superadmin@system.io',
 			passwordHash: password,
+			status: 'active'
+		}
+	})
+	await prisma.membership.create({
+		data: {
+			userId: superAdminUser.id,
 			organizationId: systemOrganization.id,
-			roleId: superAdminRole.id
+			roleId: superAdminRole.id,
+			status: 'active',
+			isOwner: true,
+			joinedAt: new Date()
 		}
 	})
 	console.log(
-		`System user created: superadmin@system.io (Role: ${superAdminRole.name})`
+		`System user and membership created: superadmin@system.io (Role: ${superAdminRole.name})`
 	)
 
-	// Tenant Users
+	// Tenant Users & Memberships
 	for (const org of [tenantOrg1, tenantOrg2]) {
 		const roles = tenantRoles[org.id]
 		const orgSuffix = org.name.split(' ')[0].toLowerCase()
 
-		await prisma.user.upsert({
-			where: {
-				email_organizationId: {
-					email: `admin@${orgSuffix}.com`,
-					organizationId: org.id
-				}
-			},
-			update: {},
+		// Admin
+		const adminUser = await prisma.user.upsert({
+			where: { email: `admin@${orgSuffix}.com` },
+			update: { status: 'active' },
 			create: {
 				name: 'Org Admin',
 				email: `admin@${orgSuffix}.com`,
 				passwordHash: password,
-				organizationId: org.id,
-				roleId: roles.admin.id,
+				status: 'active',
 				config:
 					org.name === 'Tenant Organization 1'
 						? {
@@ -628,27 +625,33 @@ async function main(): Promise<void> {
 										apiAccess: true
 									}
 								}
-						  }
+							}
 						: {}
 			}
 		})
+		await prisma.membership.create({
+			data: {
+				userId: adminUser.id,
+				organizationId: org.id,
+				roleId: roles.admin.id,
+				status: 'active',
+				isOwner: true,
+				joinedAt: new Date()
+			}
+		})
 		console.log(
-			`Admin user created for ${org.name}: admin@${orgSuffix}.com (Role: ${roles.admin.name})`
+			`Admin user and membership created for ${org.name}: admin@${orgSuffix}.com (Role: ${roles.admin.name})`
 		)
-		await prisma.user.upsert({
-			where: {
-				email_organizationId: {
-					email: `editor@${orgSuffix}.com`,
-					organizationId: org.id
-				}
-			},
-			update: {},
+
+		// Editor
+		const editorUser = await prisma.user.upsert({
+			where: { email: `editor@${orgSuffix}.com` },
+			update: { status: 'active' },
 			create: {
 				name: 'Org Editor',
 				email: `editor@${orgSuffix}.com`,
 				passwordHash: password,
-				organizationId: org.id,
-				roleId: roles.editor.id,
+				status: 'active',
 				config:
 					org.name === 'Tenant Organization 1'
 						? {
@@ -683,31 +686,47 @@ async function main(): Promise<void> {
 										apiAccess: false
 									}
 								}
-						  }
+							}
 						: {}
 			}
 		})
+		await prisma.membership.create({
+			data: {
+				userId: editorUser.id,
+				organizationId: org.id,
+				roleId: roles.editor.id,
+				status: 'active',
+				isOwner: false,
+				joinedAt: new Date()
+			}
+		})
 		console.log(
-			`Editor user created for ${org.name}: editor@${orgSuffix}.com (Role: ${roles.editor.name})`
+			`Editor user and membership created for ${org.name}: editor@${orgSuffix}.com (Role: ${roles.editor.name})`
 		)
-		await prisma.user.upsert({
-			where: {
-				email_organizationId: {
-					email: `viewer@${orgSuffix}.com`,
-					organizationId: org.id
-				}
-			},
-			update: {},
+
+		// Viewer
+		const viewerUser = await prisma.user.upsert({
+			where: { email: `viewer@${orgSuffix}.com` },
+			update: { status: 'active' },
 			create: {
 				name: 'Org Viewer',
 				email: `viewer@${orgSuffix}.com`,
 				passwordHash: password,
+				status: 'active'
+			}
+		})
+		await prisma.membership.create({
+			data: {
+				userId: viewerUser.id,
 				organizationId: org.id,
-				roleId: roles.viewer.id
+				roleId: roles.viewer.id,
+				status: 'active',
+				isOwner: false,
+				joinedAt: new Date()
 			}
 		})
 		console.log(
-			`Viewer user created for ${org.name}: viewer@${orgSuffix}.com (Role: ${roles.viewer.name})`
+			`Viewer user and membership created for ${org.name}: viewer@${orgSuffix}.com (Role: ${roles.viewer.name})`
 		)
 	}
 

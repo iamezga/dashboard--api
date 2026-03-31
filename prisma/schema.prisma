@@ -27,137 +27,175 @@ enum RoleScope {
 }
 
 model Organization {
-  id        String            @id @default(uuid()) @db.Uuid
-  name      String
-  createdAt DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime          @updatedAt @db.Timestamptz(6)
-  deletedAt DateTime?         @db.Timestamptz(6)
-  address   String?
-  email     String?
-  phone     String?
-  scope     OrganizationScope @default(TENANT)
-  config    Json              @default("{}")
-  timezone  String            @default("UTC")
-  slug      String            @unique
-  roles     Role[]
-  users     User[]
+  id       String            @id @default(uuid()) @db.Uuid
+  name     String
+  address  String?
+  email    String?
+  phone    String?
+  scope    OrganizationScope @default(TENANT)
+  config   Json              @default("{}")
+  timezone String            @default("UTC")
+  slug     String            @unique
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  roles   Role[]
+  members Membership[]
 
   @@index([scope])
 }
 
 model Module {
-  id          String       @id @default(uuid()) @db.Uuid
-  key         String       @unique
-  label       String
-  active      Boolean      @default(true)
-  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
-  deletedAt   DateTime?    @db.Timestamptz(6)
-  permissions Permission[]
-  userModules UserModule[]
+  id     String  @id @default(uuid()) @db.Uuid
+  key    String  @unique
+  label  String
+  active Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  permissions       Permission[]
+  membershipModules MembershipModule[]
 }
 
 model Permission {
-  id              String           @id @default(uuid()) @db.Uuid
-  key             String           @unique
-  label           String
-  description     String?
-  scope           PermissionScope  @default(GLOBAL)
-  moduleId        String?          @db.Uuid
-  config          Json             @default("{}")
-  active          Boolean          @default(true)
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
-  deletedAt       DateTime?        @db.Timestamptz(6)
-  module          Module?          @relation(fields: [moduleId], references: [id])
-  rolePermissions RolePermission[]
-  userPermissions UserPermission[]
+  id          String          @id @default(uuid()) @db.Uuid
+  key         String          @unique
+  label       String
+  description String?
+  scope       PermissionScope @default(GLOBAL)
+  moduleId    String?         @db.Uuid
+  config      Json            @default("{}")
+  active      Boolean         @default(true)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  module                Module?                @relation(fields: [moduleId], references: [id])
+  rolePermissions       RolePermission[]
+  membershipPermissions MembershipPermission[]
 }
 
 model Role {
-  id              String           @id @default(uuid()) @db.Uuid
-  organizationId  String           @db.Uuid
-  name            String
-  label           String
-  description     String?
-  active          Boolean          @default(true)
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
-  deletedAt       DateTime?        @db.Timestamptz(6)
-  config          Json             @default("{}")
-  scope           RoleScope        @default(TENANT)
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  rolePermissions RolePermission[]
-  users           User[]
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String
+  label          String
+  description    String?
+  active         Boolean   @default(true)
+  config         Json      @default("{}")
+  scope          RoleScope @default(TENANT)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  permissions  RolePermission[]
+  members      Membership[]
 
   @@unique([organizationId, name])
   @@index([scope])
 }
 
 model RolePermission {
-  roleId       String     @db.Uuid
-  permissionId String     @db.Uuid
-  config       Json       @default("{}")
-  assignedAt   DateTime   @default(now()) @db.Timestamptz(6)
-  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
-  deletedAt    DateTime?  @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
-  permission   Permission @relation(fields: [permissionId], references: [id])
-  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  config       Json     @default("{}")
+  assignedAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+  role       Role       @relation(fields: [roleId], references: [id])
 
   @@id([roleId, permissionId])
   @@index([permissionId])
 }
 
 model User {
-  id              String           @id @default(uuid()) @db.Uuid
-  organizationId  String           @db.Uuid
-  name            String
-  surname         String?
-  email           String           @unique
-  passwordHash    String
-  active          Boolean          @default(true)
-  lastLogin       DateTime?        @db.Timestamptz(6)
-  roleId          String           @db.Uuid
-  config          Json             @default("{}")
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
-  deletedAt       DateTime?        @db.Timestamptz(6)
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  role            Role             @relation(fields: [roleId], references: [id])
-  modules         UserModule[]
-  userPermissions UserPermission[]
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  surname      String?
+  email        String    @unique
+  passwordHash String
+  status       String    @default("pending")
+  lastLogin    DateTime? @db.Timestamptz(6)
+  config       Json      @default("{}")
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  memberships Membership[]
 }
 
-model UserModule {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  moduleId  String    @db.Uuid
-  enabled   Boolean   @default(true)
-  config    Json      @default("{}")
+model Membership {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  organizationId String    @db.Uuid
+  roleId         String    @db.Uuid
+  status         String    @default("pending")
+  invitedBy      String?   @db.Uuid
+  config         Json      @default("{}")
+  isOwner        Boolean   @default(false)
+  invitedAt      DateTime? @db.Timestamptz(6)
+  joinedAt       DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  modules     MembershipModule[]
+  permissions MembershipPermission[]
+
+  @@unique([userId, organizationId]) // Un usuario no puede estar dos veces en el mismo tenant
+  @@index([organizationId])
+}
+
+model MembershipModule {
+  id       String  @id @default(uuid()) @db.Uuid
+  memberId String  @db.Uuid
+  moduleId String  @db.Uuid
+  enabled  Boolean @default(true)
+  config   Json    @default("{}")
+
   createdAt DateTime  @default(now()) @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
-  module    Module    @relation(fields: [moduleId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
 
-  @@unique([userId, moduleId])
+  module Module     @relation(fields: [moduleId], references: [id])
+  member Membership @relation(fields: [memberId], references: [id])
+
+  @@unique([memberId, moduleId])
   @@index([moduleId])
 }
 
-model UserPermission {
-  userId       String     @db.Uuid
-  permissionId String     @db.Uuid
-  disabled     Boolean    @default(false)
-  config       Json       @default("{}")
-  assignedAt   DateTime   @default(now()) @db.Timestamptz(6)
-  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
-  deletedAt    DateTime?  @db.Timestamptz(6)
-  permission   Permission @relation(fields: [permissionId], references: [id])
-  user         User       @relation(fields: [userId], references: [id])
+model MembershipPermission {
+  memberId     String   @db.Uuid
+  permissionId String   @db.Uuid
+  disabled     Boolean  @default(false)
+  config       Json     @default("{}")
+  assignedAt   DateTime @default(now()) @db.Timestamptz(6)
 
-  @@id([userId, permissionId])
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+  member     Membership @relation(fields: [memberId], references: [id])
+
+  @@id([memberId, permissionId])
   @@index([permissionId])
 }
 
@@ -170,6 +208,7 @@ model Audit {
   resource  Json
   payload   Json?
   ip        String?
+
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([timestamp])
