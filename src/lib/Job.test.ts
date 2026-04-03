@@ -31,13 +31,12 @@ describe('Job', () => {
 			meta: { status: 'pending' } as any,
 			user: {
 				id: 'user-1',
-				organizationId: 'org-1',
 				email: 'test@example.com',
 				name: 'Test',
 				surname: 'User',
-				roleId: 'role-1',
-				active: true,
-				config: { theme: 'dark' }
+				status: 'active',
+				config: { theme: 'dark' },
+				memberships: []
 			},
 			logger
 		}) as any
@@ -102,13 +101,12 @@ describe('Job', () => {
 		const job = new Job(baseOptions(logger))
 		expect(job.getPublicUser()).toEqual({
 			id: 'user-1',
-			organizationId: 'org-1',
 			email: 'test@example.com',
 			name: 'Test',
 			surname: 'User',
-			roleId: 'role-1',
-			active: true,
-			config: { theme: 'dark' }
+			status: 'active',
+			config: { theme: 'dark' },
+			memberships: []
 		})
 	})
 

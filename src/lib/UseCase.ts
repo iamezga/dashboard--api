@@ -18,23 +18,28 @@ import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterfa
  * constructor for all use cases, a dependency container (`dependencyContainer`) for services
  * and dependencies was defined.
  */
-export abstract class UseCase<J extends JobInterface = JobInterface>
-	implements UseCaseInterface<J>
-{
+export abstract class UseCase<
+	J extends JobInterface = JobInterface
+> implements UseCaseInterface<J> {
 	static readonly permission?: string
 	constructor(protected container: DependencyContainer) {}
 
 	/**
-	 *  Builds the permission validation schema and data for a given permission key.
-	 * @param permissionKey
-	 * @param job
-	 * @returns
+	 * Builds the permission validation schema and data for a given permission key.
+	 * Used by `getPermissionValidationData` in each use case to populate the
+	 * validator with the current user's active membership permissions.
+	 * @param {string} permissionKey - The permission key required by the use case (e.g. 'user.create').
+	 * @param {JobInterface} job - The current job containing the authenticated user context.
+	 * @returns {{ schema: Record<string, any>, data: Record<string, any> }}
 	 */
-	static buildPermissionSchema(permissionKey: string, job: JobInterface) {
+	static buildPermissionSchema(
+		permissionKey: string,
+		job: JobInterface
+	): { schema: Record<string, any>; data: Record<string, any> } {
 		const schema: Record<string, any> = {
 			permission: {
 				type: 'enum',
-				values: Object.keys(job.getUser().permissions)
+				values: Object.keys(job.getUser().membership?.permissions || {})
 			}
 		}
 		const data: Record<string, any> = { permission: permissionKey }

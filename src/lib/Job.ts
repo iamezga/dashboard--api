@@ -121,22 +121,21 @@ export class Job implements JobInterface {
 	}
 
 	/**
-	 * Returns a public-safe DTO of the authenticated user, suitable for API responses.
-	 * It omits sensitive data.
+	 * Returns a public-safe representation of the authenticated user.
+	 * Includes identity fields and memberships but excludes passwordHash and internal metadata.
+	 * Used primarily for audit logging and API response context.
 	 * @returns {UserLoginDetails | undefined}
 	 */
 	getPublicUser(): UserLoginDetails | undefined {
 		if (!this.user) return undefined
-		// Map the User to the public UserLoginDetails DTO
-		// This ensures no sensitive internal data leaks and matches API response structure.
+		// Map to UserLoginDetails DTO — excludes passwordHash and internal job state.
 		return {
 			id: this.user.id,
-			organizationId: this.user.organizationId,
 			email: this.user.email,
 			name: (this.user as any).name,
 			surname: (this.user as any).surname,
-			roleId: this.user.roleId,
-			active: this.user.active,
+			memberships: (this.user as any).memberships,
+			status: this.user.status,
 			config: this.user.config
 		}
 	}
@@ -241,7 +240,7 @@ export class Job implements JobInterface {
 			updatedAt: new Date().toISOString()
 		})
 
-		console.info(`[Job ${this.id}] Progress: ${this.progress}%`)
+		this.logger.info(`[Job ${this.id}] Progress: ${this.progress}%`)
 
 		this.onProgressCallback?.(this.progress, this)
 	}
