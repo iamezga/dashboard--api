@@ -28,6 +28,7 @@ export class RoleMapper extends BaseMapper<PrismaRoleModel, Role> {
 			label: prismaRole.label,
 			description: prismaRole.description,
 			active: prismaRole.active,
+			scope: prismaRole.scope,
 			config: prismaRole.config as Record<string, any>,
 			createdAt: prismaRole.createdAt,
 			updatedAt: prismaRole.updatedAt,

@@ -34,10 +34,10 @@ export class RoleWithPermissionsMapper extends BaseMapper<
 	mapToDomain(
 		prismaRoleWithPermissions: RoleWithPermissionsPayload
 	): RoleWithPermissions {
-		const { rolePermissions, ...roleData } = prismaRoleWithPermissions
+		const { permissions, ...roleData } = prismaRoleWithPermissions
 
 		// Only active and non-deleted permissions
-		const mappedRolePermissions = rolePermissions
+		const mappedRolePermissions = permissions
 			.filter(rp => !rp.permission.deletedAt && rp.permission.active)
 			.map(rp => ({
 				permission: {

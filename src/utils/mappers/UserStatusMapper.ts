@@ -5,7 +5,7 @@ import { BaseMapper } from './BaseMapper'
 // Type for the partial Prisma user object with only status fields
 type PrismaUserStatusPayload = Pick<
 	PrismaUserModel,
-	'active' | 'config' | 'lastLogin' | 'createdAt' | 'updatedAt' | 'deletedAt'
+	'status' | 'config' | 'lastLogin' | 'createdAt' | 'updatedAt' | 'deletedAt'
 >
 
 /**
@@ -32,7 +32,7 @@ export class UserStatusMapper extends BaseMapper<
 	 */
 	mapToDomain(prismaUserStatus: PrismaUserStatusPayload): UserStatus {
 		return {
-			active: prismaUserStatus.active,
+			status: prismaUserStatus.status,
 			config: prismaUserStatus.config as Record<string, any>,
 			lastLogin: prismaUserStatus.lastLogin,
 			createdAt: prismaUserStatus.createdAt,
