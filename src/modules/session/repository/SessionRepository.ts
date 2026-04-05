@@ -3,60 +3,50 @@ import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { randomUUID } from 'node:crypto'
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
-import { SessionData, SessionDataInput, SessionUser } from '../entities/Session'
+import {
+	SessionContext,
+	SessionMetadata,
+	SessionMetadataInput
+} from '../entities/Session'
 import { SessionRepositoryInterface } from '../entities/SessionRepositoryInterface'
 
 /**
  * @class SessionRepository
- * @description Implements SessionRepositoryInterface for Redis, managing user data
- * and multiple concurrent sessions.
- *
- * Constructor Injection:
- * - Receives DependencyContainer in constructor
- * - Extracts only needed dependencies (repositoryManager, logger)
- * - 100% ready to use immediately after instantiation
- * - No two-phase initialization required
+ * @description Implements SessionRepositoryInterface for Redis, managing
+ * session metadata and session context per sessionId, plus user session indexes.
  */
 export class SessionRepository implements SessionRepositoryInterface {
 	static name = 'session' as const
 	static provider: keyof DatabaseClientsMap = 'redis'
-	// Key prefixes for different data types in Redis
-	private static readonly USER_DATA_KEY_PREFIX = 'user:data:'
+
+	// Redis key prefixes
+	private static readonly SESSION_CONTEXT_KEY_PREFIX = 'session:context:'
 	private static readonly SESSION_METADATA_KEY_PREFIX = 'session:metadata:'
 	private static readonly USER_SESSIONS_SET_KEY_PREFIX = 'user:sessions:'
 
 	private readonly logger: Logger
 
-	/**
-	 * Creates a new SessionRepository instance.
-	 *
-	 * @param {RedisClientType} db - The Redis client for session storage
-	 * @param {DependencyContainer} container - The dependency container with services and other repositories
-	 *
-	 * Architecture:
-	 * - Extract only required dependencies from container
-	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
-	 * - Makes dependencies explicit and testable
-	 */
-	constructor(readonly db: RedisClientType, container: DependencyContainer) {
+	constructor(
+		readonly db: RedisClientType,
+		container: DependencyContainer
+	) {
 		this.logger = container.logger
-
-		this.logger.info(`Repository initialized: ${SessionRepository.name}`)
+		this.logger.info('Repository initialized: session')
 	}
 
 	/**
-	 * Serializes a data object to a JSON string for Redis storage.
-	 * @param data - The data to serialize.
-	 * @returns The JSON string.
+	 * Serializes data to a JSON string for storage in Redis.
+	 * @param data The data to serialize
+	 * @returns The serialized JSON string
 	 */
 	private serialize<T>(data: T): string {
 		return JSON.stringify(data)
 	}
 
 	/**
-	 * Deserializes a JSON string from Redis back to an object.
-	 * @param dataString - The JSON string to deserialize.
-	 * @returns The deserialized object or null on failure.
+	 * Deserializes a JSON string from Redis into a JavaScript object.
+	 * @param dataString The JSON string to deserialize
+	 * @returns The deserialized object, or null if parsing fails
 	 */
 	private deserialize<T>(dataString: string | null): T | null {
 		if (!dataString) return null
@@ -67,83 +57,76 @@ export class SessionRepository implements SessionRepositoryInterface {
 			return null
 		}
 	}
-
 	/**
-	 * Saves user's merged permissions and a snapshot of their data.
-	 * This is a convenience method for authentication workflows to cache user session data.
-	 *
-	 * Used to avoid repeated database queries during request authentication.
-	 * The cached data includes pre-computed permissions merged from role + user overrides.
-	 *
-	 * @param userId - The user's unique ID.
-	 * @param data - The user's permissions and data snapshot (pre-filtered and merged).
-	 * @param expiresInSeconds - Time-to-live for the user's data key.
-	 * @returns True if the data was saved successfully, false otherwise.
+	 * Generates the Redis key for storing session metadata.
+	 * @param sessionId The session ID
+	 * @returns The Redis key for session metadata
 	 */
-	async saveUserData(
-		userId: string,
-		data: SessionUser,
-		expiresInSeconds: number
-	): Promise<boolean> {
-		const key = SessionRepository.USER_DATA_KEY_PREFIX + userId
-		const serializedData = this.serialize(data)
-		const result = await this.db.set(key, serializedData, {
-			EX: expiresInSeconds
-		})
-		return result === 'OK'
+	private getSessionMetadataKey(sessionId: string): string {
+		return SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 	}
 
 	/**
-	 * Retrieves the user's merged permissions and data snapshot from cache.
-	 * This is a convenience method for authentication workflows.
-	 *
-	 * Returns pre-computed session data saved during login to avoid database queries.
-	 *
-	 * @param userId - The user's unique ID.
-	 * @returns The cached user data with merged permissions, or null if not found/expired.
+	 * Generates the Redis key for storing session context.
+	 * @param sessionId The session ID
+	 * @returns The Redis key for session context
 	 */
-	async getUserData(userId: string): Promise<SessionUser | null> {
-		const key = SessionRepository.USER_DATA_KEY_PREFIX + userId
-		const dataString = await this.db.get(key)
-		return this.deserialize<SessionUser>(dataString)
+	private getSessionContextKey(sessionId: string): string {
+		return SessionRepository.SESSION_CONTEXT_KEY_PREFIX + sessionId
 	}
 
 	/**
-	 * Creates a new unique session entry for a user, adding it to the user's
-	 * list of active sessions.
-	 * @param userId - The unique ID of the user.
-	 * @param data - The session metadata to store.
-	 * @param expiresInSeconds - Time-to-live for the session in seconds.
-	 * @returns The new unique sessionId or null on failure.
+	 * Generates the Redis key for storing user session indexes.
+	 * @param userId The user ID
+	 * @returns The Redis key for user session indexes
+	 */
+	private getUserSessionsKey(userId: string): string {
+		return SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+	}
+
+	/**
+	 * Creates a new session for a user, storing metadata and context in Redis.
+	 * @param userId The user ID
+	 * @param metadata The session metadata
+	 * @param context The session context
+	 * @param expiresInSeconds The session expiration time in seconds
+	 * @returns The session ID if creation is successful, otherwise null
 	 */
 	async createSession(
 		userId: string,
-		data: SessionDataInput,
+		metadata: SessionMetadataInput,
+		context: SessionContext,
 		expiresInSeconds: number
 	): Promise<string | null> {
 		const sessionId = randomUUID()
-		const sessionMetadataKey =
-			SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
-		const userSessionsKey =
-			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const sessionMetadataKey = this.getSessionMetadataKey(sessionId)
+		const sessionContextKey = this.getSessionContextKey(sessionId)
+		const userSessionsKey = this.getUserSessionsKey(userId)
 
-		const sessionData: SessionData = {
-			...data,
+		const sessionMetadata: SessionMetadata = {
+			...metadata,
 			sessionId
 		}
 
-		const serializedData = this.serialize(sessionData)
+		const serializedMetadata = this.serialize(sessionMetadata)
+		const serializedContext = this.serialize(context)
 
-		// Use a transaction to ensure both operations succeed or fail together.
+		// Atomic write for user index + metadata + context
 		const result = await this.db
 			.multi()
 			.sAdd(userSessionsKey, sessionId)
-			.set(sessionMetadataKey, serializedData, { EX: expiresInSeconds })
+			.set(sessionMetadataKey, serializedMetadata, { EX: expiresInSeconds })
+			.set(sessionContextKey, serializedContext, { EX: expiresInSeconds })
 			.exec()
 
-		const [sAddResult, setResult] = result as unknown as [number, string]
+		const [sAddResult, setMetadataResult, setContextResult] =
+			result as unknown as [number, string, string]
 
-		if (sAddResult === 1 && setResult === 'OK') {
+		if (
+			sAddResult === 1 &&
+			setMetadataResult === 'OK' &&
+			setContextResult === 'OK'
+		) {
 			return sessionId
 		}
 
@@ -151,114 +134,155 @@ export class SessionRepository implements SessionRepositoryInterface {
 	}
 
 	/**
-	 * Retrieves all active session IDs for a given user.
-	 * @param userId - The unique ID of the user.
-	 * @returns An array of session IDs.
+	 * Retrieves the metadata for a specific session.
+	 * @param sessionId The session ID
+	 * @returns The session metadata, or null if not found
+	 */
+	async getSessionMetadata(sessionId: string): Promise<SessionMetadata | null> {
+		const key = this.getSessionMetadataKey(sessionId)
+		const dataString = await this.db.get(key)
+		return this.deserialize<SessionMetadata>(dataString)
+	}
+
+	/**
+	 * Retrieves the context for a specific session.
+	 * @param sessionId The session ID
+	 * @returns The session context, or null if not found
+	 */
+	async getSessionContext(sessionId: string): Promise<SessionContext | null> {
+		const key = this.getSessionContextKey(sessionId)
+		const dataString = await this.db.get(key)
+		return this.deserialize<SessionContext>(dataString)
+	}
+
+	/**
+	 * Updates the context for a specific session.
+	 * @param sessionId The session ID
+	 * @param context The new session context
+	 * @param expiresInSeconds The session expiration time in seconds
+	 * @returns True if the update is successful, otherwise false
+	 */
+	async updateSessionContext(
+		sessionId: string,
+		context: SessionContext,
+		expiresInSeconds: number
+	): Promise<boolean> {
+		const key = this.getSessionContextKey(sessionId)
+		const serializedContext = this.serialize(context)
+
+		const result = await this.db.set(key, serializedContext, {
+			EX: expiresInSeconds
+		})
+
+		return result === 'OK'
+	}
+
+	/**
+	 * Retrieves the session IDs for a specific user.
+	 * @param userId The user ID
+	 * @returns An array of session IDs
 	 */
 	async getUserSessionIds(userId: string): Promise<string[]> {
-		const key = SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const key = this.getUserSessionsKey(userId)
 		return this.db.sMembers(key)
 	}
 
 	/**
-	 * Retrieves the metadata for a specific session.
-	 * @param sessionId - The unique ID of the session.
-	 * @returns The session metadata or null if not found.
-	 */
-	async getSessionMetadata(sessionId: string): Promise<SessionData | null> {
-		const key = SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
-		const dataString = await this.db.get(key)
-		return this.deserialize<SessionData>(dataString)
-	}
-
-	/**
 	 * Checks if a user has any active sessions.
-	 * @param userId - The user's unique ID.
-	 * @returns True if the user has one or more active sessions, false otherwise.
+	 * @param userId The user ID
+	 * @returns True if the user has active sessions, otherwise false
 	 */
 	async hasActiveSessions(userId: string): Promise<boolean> {
-		const key = SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
+		const key = this.getUserSessionsKey(userId)
 		const count = await this.db.sCard(key)
 		return count > 0
 	}
 
 	/**
-	 * Deletes a specific session entry and removes it from the user's list of sessions.
-	 * @param sessionId - The unique ID of the session to delete.
-	 * @returns True if the session was deleted, false otherwise.
+	 * Deletes a specific session.
+	 * @param sessionId The session ID
+	 * @returns True if the session was deleted, otherwise false
 	 */
 	async deleteSession(sessionId: string): Promise<boolean> {
-		// Need to find userId first to remove from the SET
 		const sessionMetadata = await this.getSessionMetadata(sessionId)
 		if (!sessionMetadata) {
 			return false
 		}
-		const { userId } = sessionMetadata
-		const userSessionsKey =
-			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
-		const sessionMetadataKey =
-			SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
 
-		// Use a transaction for atomicity
+		const userSessionsKey = this.getUserSessionsKey(sessionMetadata.userId)
+		const sessionMetadataKey = this.getSessionMetadataKey(sessionId)
+		const sessionContextKey = this.getSessionContextKey(sessionId)
+
+		// Delete metadata/context and unlink session from user index
 		const result = await this.db
 			.multi()
 			.del(sessionMetadataKey)
+			.del(sessionContextKey)
 			.sRem(userSessionsKey, sessionId)
 			.exec()
 
-		// Check if both operations were successful
-		const [delResult, sRemResult] = result as unknown as [number, number]
-		return delResult === 1 && sRemResult === 1
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const [delMetadataResult, _delContextResult, sRemResult] =
+			result as unknown as [number, number, number]
+
+		return delMetadataResult === 1 && sRemResult === 1 // Context deletion is best-effort, so we don't check its result
 	}
 
 	/**
-	 * Deletes all active sessions for a user, as well as their main user data.
-	 * @param userId - The unique ID of the user.
-	 * @returns Promise<void>
+	 * Deletes all sessions for a specific user.
+	 * @param userId The user ID
 	 */
 	async deleteAllUserSessions(userId: string): Promise<void> {
-		const userSessionsKey =
-			SessionRepository.USER_SESSIONS_SET_KEY_PREFIX + userId
-		const userDataKey = SessionRepository.USER_DATA_KEY_PREFIX + userId
-
-		// Get all session IDs for the user
+		const userSessionsKey = this.getUserSessionsKey(userId)
 		const sessionIds = await this.db.sMembers(userSessionsKey)
+
 		if (sessionIds.length === 0) return
 
-		// Use a transaction to delete all related keys
 		const pipeline = this.db.multi()
-		pipeline.del(userDataKey)
 		pipeline.del(userSessionsKey)
+
 		for (const sessionId of sessionIds) {
-			pipeline.del(SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId)
+			pipeline.del(this.getSessionMetadataKey(sessionId))
+			pipeline.del(this.getSessionContextKey(sessionId))
 		}
+
 		await pipeline.exec()
 	}
 
 	/**
-	 * Updates the 'lastActivity' timestamp of a session and refreshes its TTL.
-	 * @param sessionId - The unique ID of the session.
-	 * @param expiresInSeconds - New TTL for the session in seconds.
-	 * @returns True if updated, false if session not found or update failed.
+	 * Updates the last activity timestamp for a specific session.
+	 * @param sessionId The session ID
+	 * @param expiresInSeconds The session expiration time in seconds
+	 * @returns True if the update is successful, otherwise false
 	 */
 	async updateLastActivity(
 		sessionId: string,
 		expiresInSeconds: number
 	): Promise<boolean> {
-		const key = SessionRepository.SESSION_METADATA_KEY_PREFIX + sessionId
-		const dataString = await this.db.get(key)
+		const sessionMetadataKey = this.getSessionMetadataKey(sessionId)
+		const sessionContextKey = this.getSessionContextKey(sessionId)
+		const dataString = await this.db.get(sessionMetadataKey)
 		if (!dataString) return false
 
-		const sessionData = this.deserialize<SessionData>(dataString)
-		if (!sessionData) return false
+		const sessionMetadata = this.deserialize<SessionMetadata>(dataString)
+		if (!sessionMetadata) return false
 
-		sessionData.lastActivity = Date.now()
-		const serializedData = this.serialize(sessionData)
+		sessionMetadata.lastActivity = Date.now()
+		const serializedMetadata = this.serialize(sessionMetadata)
 
-		const result = await this.db.set(key, serializedData, {
-			EX: expiresInSeconds
-		})
+		// Keep metadata and context TTL in sync
+		const result = await this.db
+			.multi()
+			.set(sessionMetadataKey, serializedMetadata, { EX: expiresInSeconds })
+			.expire(sessionContextKey, expiresInSeconds)
+			.exec()
 
-		return result === 'OK'
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const [setMetadataResult, _expireContextResult] = result as unknown as [
+			string,
+			number
+		]
+
+		return setMetadataResult === 'OK'
 	}
 }

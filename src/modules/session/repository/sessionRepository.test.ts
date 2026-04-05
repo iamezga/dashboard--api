@@ -1,16 +1,40 @@
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
-import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
-import { SessionUser } from '../entities/Session'
+import { SessionContext, SessionMetadataInput } from '../entities/Session'
 import { SessionRepository } from '../repository/SessionRepository'
+
+jest.mock('node:crypto', () => ({
+	randomUUID: jest.fn(() => 'session-uuid-123')
+}))
 
 describe('SessionRepository', () => {
 	let repository: SessionRepository
 	let dbMock: jest.Mocked<RedisClientType>
-	let repositoryManagerMock: jest.Mocked<RepositoryManager>
 	let multiMock: any
 	let loggerMock: jest.Mocked<Logger>
+
+	const baseSessionMetadata: SessionMetadataInput = {
+		userId: 'u1',
+		sessionStartTime: 1000,
+		lastActivity: 1000,
+		maxSessionTime: 3600,
+		maxInactiveTime: 1800
+	}
+
+	const baseSessionContext: SessionContext = {
+		user: {
+			id: 'u1',
+			email: 'test@test.com',
+			name: 'Test',
+			surname: 'User',
+			status: 'active',
+			config: {},
+			lastLogin: null
+		},
+		memberships: [],
+		activeMembership: null
+	}
 
 	beforeEach(() => {
 		multiMock = {
@@ -18,6 +42,7 @@ describe('SessionRepository', () => {
 			set: jest.fn().mockReturnThis(),
 			del: jest.fn().mockReturnThis(),
 			sRem: jest.fn().mockReturnThis(),
+			expire: jest.fn().mockReturnThis(),
 			exec: jest.fn()
 		}
 
@@ -32,127 +57,54 @@ describe('SessionRepository', () => {
 			multi: jest.fn().mockReturnValue(multiMock)
 		} as unknown as jest.Mocked<RedisClientType>
 
-		repositoryManagerMock = {
-			getUserRepository: jest.fn(),
-			getSessionRepository: jest.fn(),
-			getPermissionRepository: jest.fn(),
-			getRoleRepository: jest.fn()
-		} as unknown as jest.Mocked<RepositoryManager>
 		loggerMock = {
 			info: jest.fn(),
 			error: jest.fn(),
 			warn: jest.fn(),
 			debug: jest.fn()
 		} as any
+
 		const containerMock = {
-			repositoryManager: repositoryManagerMock,
 			logger: loggerMock
 		} as unknown as DependencyContainer
 
-		// Use constructor injection instead of setContext
 		repository = new SessionRepository(dbMock as any, containerMock)
 	})
 
-	it('should save user data successfully', async () => {
-		const userData: SessionUser = {
-			id: 'u1',
-			name: 'name',
-			surname: 'surname',
-			email: 'test@test.com',
-			permissions: {},
-			organizationId: 'org1',
-			roleId: 'r1',
-			organization: {
-				id: 'org1',
-				name: 'Test Org',
-				timezone: 'UTC',
-				scope: 'TENANT'
-			}
-		}
-		;(dbMock.set as jest.Mock).mockResolvedValue('OK')
-
-		const result = await repository.saveUserData('u1', userData, 3600)
-		expect(dbMock.set).toHaveBeenCalledWith(
-			'user:data:u1',
-			JSON.stringify(userData),
-			{ EX: 3600 }
-		)
-		expect(result).toBe(true)
-	})
-
-	it('should return false if saveUserData fails', async () => {
-		const userData: SessionUser = {
-			id: 'u1',
-			name: 'name',
-			surname: 'surname',
-			email: 'test@test.com',
-			permissions: {},
-			organizationId: 'org1',
-			roleId: 'r1',
-			organization: {
-				id: 'org1',
-				name: 'Test Org',
-				timezone: 'UTC',
-				scope: 'TENANT'
-			}
-		}
-		;(dbMock.set as jest.Mock).mockResolvedValue('FAIL')
-
-		const result = await repository.saveUserData('u1', userData, 3600)
-		expect(result).toBe(false)
-	})
-
-	it('should return user data from getUserData', async () => {
-		const serialized = JSON.stringify({ userId: 'u1', email: 'test@test.com' })
-		;(dbMock.get as jest.Mock).mockResolvedValue(serialized)
-
-		const result = await repository.getUserData('u1')
-		expect(result).toEqual({ userId: 'u1', email: 'test@test.com' })
-	})
-
-	it('should return null from getUserData if not found', async () => {
-		;(dbMock.get as jest.Mock).mockResolvedValue(null)
-
-		const result = await repository.getUserData('u1')
-		expect(result).toBeNull()
-	})
-
 	it('should create a session and return sessionId', async () => {
-		const sessionData = {
-			userId: 'u1',
-			lastActivity: Date.now(),
-			maxInactiveTime: Date.now(),
-			maxSessionTime: Date.now(),
-			sessionStartTime: Date.now()
-		}
-
-		multiMock.exec.mockResolvedValue([1, 'OK'])
-		const result = await repository.createSession('u1', sessionData, 3600)
+		multiMock.exec.mockResolvedValue([1, 'OK', 'OK'])
+		const result = await repository.createSession(
+			'u1',
+			baseSessionMetadata,
+			baseSessionContext,
+			3600
+		)
 
 		expect(dbMock.multi).toHaveBeenCalled()
 		expect(multiMock.sAdd).toHaveBeenCalledWith(
 			'user:sessions:u1',
-			expect.any(String)
+			'session-uuid-123'
 		)
 		expect(multiMock.set).toHaveBeenCalledWith(
-			expect.stringContaining('session:metadata:'),
+			'session:metadata:session-uuid-123',
 			expect.any(String),
 			{ EX: 3600 }
 		)
-		expect(result).toHaveLength(36)
+		expect(multiMock.set).toHaveBeenCalledWith(
+			'session:context:session-uuid-123',
+			expect.any(String),
+			{ EX: 3600 }
+		)
+		expect(result).toBe('session-uuid-123')
 	})
 
 	it('should return null from createSession if transaction fails', async () => {
-		const sessionData = {
-			userId: 'u1',
-			lastActivity: Date.now(),
-			token: 'abc123'
-		}
-		multiMock.exec.mockResolvedValue([0, 'ERR'])
+		multiMock.exec.mockResolvedValue([0, 'ERR', 'ERR'])
 
 		const result = await repository.createSession(
 			'u1',
-			sessionData as any,
+			baseSessionMetadata,
+			baseSessionContext,
 			3600
 		)
 		expect(result).toBeNull()
@@ -179,7 +131,7 @@ describe('SessionRepository', () => {
 	})
 
 	it('should return session metadata or null', async () => {
-		const metadata = { sessionId: 's1', userId: 'u1' }
+		const metadata = { ...baseSessionMetadata, sessionId: 's1' }
 		dbMock.get.mockResolvedValue(JSON.stringify(metadata))
 		const result = await repository.getSessionMetadata('s1')
 		expect(result).toEqual(metadata)
@@ -187,6 +139,32 @@ describe('SessionRepository', () => {
 		dbMock.get.mockResolvedValue(null)
 		const nullResult = await repository.getSessionMetadata('s2')
 		expect(nullResult).toBeNull()
+	})
+
+	it('should return session context or null', async () => {
+		dbMock.get.mockResolvedValue(JSON.stringify(baseSessionContext))
+		const result = await repository.getSessionContext('s1')
+		expect(result).toEqual(baseSessionContext)
+
+		dbMock.get.mockResolvedValue(null)
+		const nullResult = await repository.getSessionContext('s2')
+		expect(nullResult).toBeNull()
+	})
+
+	it('should update session context', async () => {
+		dbMock.set.mockResolvedValue('OK')
+		const result = await repository.updateSessionContext(
+			's1',
+			baseSessionContext,
+			1800
+		)
+
+		expect(dbMock.set).toHaveBeenCalledWith(
+			'session:context:s1',
+			expect.any(String),
+			{ EX: 1800 }
+		)
+		expect(result).toBe(true)
 	})
 
 	it('should return boolean for active sessions', async () => {
@@ -200,14 +178,17 @@ describe('SessionRepository', () => {
 	})
 
 	it('should delete a session and return boolean', async () => {
-		const sessionMetadata = { sessionId: 's1', userId: 'u1' }
+		const sessionMetadata = { ...baseSessionMetadata, sessionId: 's1' }
 		jest
 			.spyOn(repository, 'getSessionMetadata')
 			.mockResolvedValue(sessionMetadata as any)
 
-		multiMock.exec.mockResolvedValue([1, 1])
+		multiMock.exec.mockResolvedValue([1, 1, 1])
 		const result = await repository.deleteSession('s1')
 		expect(result).toBe(true)
+		expect(multiMock.del).toHaveBeenCalledWith('session:metadata:s1')
+		expect(multiMock.del).toHaveBeenCalledWith('session:context:s1')
+		expect(multiMock.sRem).toHaveBeenCalledWith('user:sessions:u1', 's1')
 
 		jest.spyOn(repository, 'getSessionMetadata').mockResolvedValue(null)
 		const failResult = await repository.deleteSession('s2')
@@ -219,26 +200,36 @@ describe('SessionRepository', () => {
 		multiMock.exec.mockResolvedValue([])
 		await repository.deleteAllUserSessions('u1')
 		expect(dbMock.multi).toHaveBeenCalled()
-		expect(multiMock.del).toHaveBeenCalledWith('user:data:u1')
 		expect(multiMock.del).toHaveBeenCalledWith('user:sessions:u1')
 		expect(multiMock.del).toHaveBeenCalledWith('session:metadata:s1')
+		expect(multiMock.del).toHaveBeenCalledWith('session:context:s1')
 		expect(multiMock.del).toHaveBeenCalledWith('session:metadata:s2')
+		expect(multiMock.del).toHaveBeenCalledWith('session:context:s2')
 
 		dbMock.sMembers.mockResolvedValue([])
 		await repository.deleteAllUserSessions('u2')
 	})
 
 	it('should update last activity successfully and return false if session not found', async () => {
-		const sessionMetadata = { sessionId: 's1', userId: 'u1', lastActivity: 0 }
+		const sessionMetadata = {
+			...baseSessionMetadata,
+			sessionId: 's1',
+			lastActivity: 0
+		}
 		const spyDeserialize = jest.spyOn(repository as any, 'deserialize')
 		spyDeserialize.mockReturnValue(sessionMetadata)
 
 		dbMock.get.mockResolvedValue(JSON.stringify(sessionMetadata))
-		dbMock.set.mockResolvedValue('OK')
+		multiMock.exec.mockResolvedValue(['OK', 1])
 
 		const result = await repository.updateLastActivity('s1', 3600)
 		expect(result).toBe(true)
-		expect(dbMock.set).toHaveBeenCalled()
+		expect(multiMock.set).toHaveBeenCalledWith(
+			'session:metadata:s1',
+			expect.any(String),
+			{ EX: 3600 }
+		)
+		expect(multiMock.expire).toHaveBeenCalledWith('session:context:s1', 3600)
 
 		dbMock.get.mockResolvedValue(null)
 		const notFound = await repository.updateLastActivity('s2', 3600)

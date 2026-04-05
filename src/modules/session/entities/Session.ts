@@ -1,28 +1,39 @@
+import { Membership } from '@/modules/membership/entities/Membership'
 import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
+import { Role } from '@/modules/role/entities/Role'
 import { UserMergedPermissions } from '@/modules/user/entities/User'
 
 /**
- * @interface SessionUser
+ * @interface SessionContextUser
  * @description Represents a snapshot of user data stored within the session.
  * Contains frequently needed but less volatile user information.
  * Includes minimal organization info for permission validation.
  */
-export interface SessionUser {
+export interface SessionContextUser {
 	id: string
-	organizationId: string
-	roleId: string
+	email: string
 	name: string
 	surname: string | null
-	email: string
-	permissions: UserMergedPermissions
-	organization: OrganizationBasicInfo
+	status: string
+	config: Record<string, any>
+	lastLogin: Date | null
 }
 
-/**
- * @interface SessionDataInput
- * @description Represents the structure of data to create a session in Redis.
- */
-export interface SessionDataInput {
+export interface SessionActiveMembership {
+	id: string
+	organization: OrganizationBasicInfo
+	role: Pick<Role, 'id' | 'name' | 'label' | 'scope'>
+	permissions: UserMergedPermissions
+	selectedAt: number
+}
+
+export interface SessionContext {
+	user: SessionContextUser
+	memberships: Membership[]
+	activeMembership: SessionActiveMembership | null
+}
+
+export interface SessionMetadataInput {
 	userId: string
 	sessionStartTime: number
 	lastActivity: number
@@ -30,10 +41,6 @@ export interface SessionDataInput {
 	maxInactiveTime: number
 }
 
-/**
- * @interface SessionData
- * @description Represents the structure of session data stored in Redis.
- */
-export interface SessionData extends SessionDataInput {
+export interface SessionMetadata extends SessionMetadataInput {
 	sessionId: string
 }
