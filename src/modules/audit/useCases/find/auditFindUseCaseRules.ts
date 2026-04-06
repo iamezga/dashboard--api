@@ -3,6 +3,21 @@ import { PAGINATION_DEFAULTS } from '@/utils/pagination'
 
 export const auditFindUseCaseRules: UseCaseRules = {
 	data: {
+		category: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
+		severity: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
+		resultStatus: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
 		id: {
 			type: 'string',
 			optional: true,
@@ -27,7 +42,27 @@ export const auditFindUseCaseRules: UseCaseRules = {
 			type: 'email',
 			optional: true
 		},
+		actorType: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
+		sessionId: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
+		membershipId: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
 		organizationId: {
+			type: 'string',
+			optional: true,
+			empty: false
+		},
+		roleId: {
 			type: 'string',
 			optional: true,
 			empty: false

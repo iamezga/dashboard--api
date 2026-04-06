@@ -28,12 +28,52 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 
 	private readonly logger: Logger
 
+	private extractClassificationAndPayload(rawPayload: any) {
+		const defaultClassification = {
+			category: 'operational' as const,
+			severity: 'info' as const,
+			result: { status: 'success' as const },
+			tags: [] as string[]
+		}
+
+		if (!rawPayload || typeof rawPayload !== 'object') {
+			return {
+				classification: defaultClassification,
+				payload: rawPayload
+			}
+		}
+
+		const meta = (rawPayload as any).__auditMeta
+		if (!meta || typeof meta !== 'object') {
+			return {
+				classification: defaultClassification,
+				payload: rawPayload
+			}
+		}
+
+		return {
+			classification: {
+				category: meta.category || defaultClassification.category,
+				severity: meta.severity || defaultClassification.severity,
+				result: {
+					status: meta.resultStatus || defaultClassification.result.status,
+					errorCode: meta.resultErrorCode,
+					message: meta.resultMessage
+				},
+				tags: Array.isArray(meta.tags) ? meta.tags : []
+			},
+			payload: (rawPayload as any).data
+		}
+	}
+
 	/**
 	 * Creates a new PostgresAuditRepository instance.
 	 *
 	 * @param {PrismaClient} prisma - The Prisma client for Postgres
 	 * @param {DependencyContainer} container - The dependency container with services and other repositories
 	 *
+	 * The constructor initializes the Prisma client and logger. It is designed
+	 * for immediate use without any additional setup.
 	 * Architecture:
 	 * - Extract only required dependencies from container
 	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
@@ -50,6 +90,18 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 
 	async insert(auditLog: AuditInput): Promise<void> {
 		try {
+			const persistedPayload = {
+				__auditMeta: {
+					category: auditLog.classification.category,
+					severity: auditLog.classification.severity,
+					resultStatus: auditLog.classification.result.status,
+					resultErrorCode: auditLog.classification.result.errorCode,
+					resultMessage: auditLog.classification.result.message,
+					tags: auditLog.classification.tags || []
+				},
+				data: auditLog.payload || null
+			}
+
 			await this.prisma.audit.create({
 				data: {
 					action: auditLog.action,
@@ -57,7 +109,7 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 					timestamp: auditLog.timestamp,
 					user: auditLog.user as any,
 					resource: auditLog.resource as any,
-					payload: auditLog.payload as any,
+					payload: persistedPayload as any,
 					ip: auditLog.ip
 				}
 			})
@@ -74,15 +126,19 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 			})
 
 			if (!record) return null
+			const { classification, payload } = this.extractClassificationAndPayload(
+				record.payload
+			)
 
 			return {
 				_id: record.id,
 				action: record.action as any,
 				jobId: record.jobId,
 				timestamp: record.timestamp,
+				classification,
 				user: record.user as any,
 				resource: record.resource as any,
-				payload: record.payload as any,
+				payload: payload as any,
 				ip: record.ip || undefined
 			}
 		} catch (error: any) {
@@ -101,35 +157,84 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 		try {
 			// Build where clause from filters
 			const where: any = {}
+			const andClauses: any[] = []
 
 			if (filters.id) where.id = filters.id
 			if (filters.action) where.action = filters.action
 			if (filters.jobId) where.jobId = filters.jobId
 			if (filters.ip) where.ip = filters.ip
+			if (filters.category) {
+				andClauses.push({
+					payload: {
+						path: ['__auditMeta', 'category'],
+						equals: filters.category
+					}
+				})
+			}
+			if (filters.severity) {
+				andClauses.push({
+					payload: {
+						path: ['__auditMeta', 'severity'],
+						equals: filters.severity
+					}
+				})
+			}
+			if (filters.resultStatus) {
+				andClauses.push({
+					payload: {
+						path: ['__auditMeta', 'resultStatus'],
+						equals: filters.resultStatus
+					}
+				})
+			}
 
 			// JSON path filtering for nested user fields
 			if (filters.userId) {
-				where.user = { path: ['userId'], equals: filters.userId }
+				andClauses.push({
+					user: { path: ['userId'], equals: filters.userId }
+				})
 			}
 			if (filters.userEmail) {
-				where.user = { path: ['userEmail'], equals: filters.userEmail }
+				andClauses.push({
+					user: { path: ['userEmail'], equals: filters.userEmail }
+				})
+			}
+			if (filters.sessionId) {
+				andClauses.push({
+					user: { path: ['sessionId'], equals: filters.sessionId }
+				})
+			}
+			if (filters.membershipId) {
+				andClauses.push({
+					user: { path: ['membershipId'], equals: filters.membershipId }
+				})
 			}
 			if (filters.organizationId) {
-				where.user = {
-					path: ['organizationId'],
-					equals: filters.organizationId
-				}
+				andClauses.push({
+					user: { path: ['organizationId'], equals: filters.organizationId }
+				})
+			}
+			if (filters.roleId) {
+				andClauses.push({
+					user: { path: ['roleId'], equals: filters.roleId }
+				})
+			}
+			if (filters.actorType) {
+				andClauses.push({
+					user: { path: ['actorType'], equals: filters.actorType }
+				})
 			}
 
 			// JSON path filtering for nested resource fields
 			if (filters.resourceType) {
-				where.resource = {
-					path: ['resourceType'],
-					equals: filters.resourceType
-				}
+				andClauses.push({
+					resource: { path: ['resourceType'], equals: filters.resourceType }
+				})
 			}
 			if (filters.resourceId) {
-				where.resource = { path: ['resourceId'], equals: filters.resourceId }
+				andClauses.push({
+					resource: { path: ['resourceId'], equals: filters.resourceId }
+				})
 			}
 
 			// Date range filtering
@@ -141,6 +246,10 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 				if (filters.endDate) {
 					where.timestamp.lte = filters.endDate
 				}
+			}
+
+			if (andClauses.length > 0) {
+				where.AND = andClauses
 			}
 
 			// Get total count for pagination
@@ -157,16 +266,22 @@ export class PostgresAuditRepository implements AuditRepositoryInterface {
 			})
 
 			// Map to Audit type
-			const items: Audit[] = records.map(record => ({
-				_id: record.id,
-				action: record.action as any,
-				jobId: record.jobId,
-				timestamp: record.timestamp,
-				user: record.user as any,
-				resource: record.resource as any,
-				payload: record.payload as any,
-				ip: record.ip || undefined
-			}))
+			const items: Audit[] = records.map(record => {
+				const { classification, payload } =
+					this.extractClassificationAndPayload(record.payload)
+
+				return {
+					_id: record.id,
+					action: record.action as any,
+					jobId: record.jobId,
+					timestamp: record.timestamp,
+					classification,
+					user: record.user as any,
+					resource: record.resource as any,
+					payload: payload as any,
+					ip: record.ip || undefined
+				}
+			})
 
 			return {
 				items,

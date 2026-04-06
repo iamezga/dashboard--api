@@ -29,9 +29,17 @@ describe('PostgresAuditRepository', () => {
 			action: 'auth.login',
 			jobId: 'job-1',
 			timestamp: new Date(),
+			classification: {
+				category: 'security',
+				severity: 'info',
+				result: { status: 'success' }
+			},
 			user: {
+				actorType: 'user',
 				userId: 'u1',
 				userEmail: 'a@b.com',
+				sessionId: 's1',
+				membershipId: 'm1',
 				organizationId: 'org1',
 				roleId: 'r1'
 			},
@@ -53,9 +61,17 @@ describe('PostgresAuditRepository', () => {
 			action: 'auth.login',
 			jobId: 'job-2',
 			timestamp: new Date(),
+			classification: {
+				category: 'security',
+				severity: 'warning',
+				result: { status: 'failed' }
+			},
 			user: {
+				actorType: 'user',
 				userId: 'u2',
 				userEmail: 'b@c.com',
+				sessionId: 's2',
+				membershipId: 'm2',
 				organizationId: 'org2',
 				roleId: 'r2'
 			},
@@ -183,7 +199,10 @@ describe('PostgresAuditRepository', () => {
 				ip: '192.168.1.1',
 				userId: 'user-456',
 				userEmail: 'test@example.com',
+				sessionId: 'session-321',
+				membershipId: 'membership-654',
 				organizationId: 'org-789',
+				roleId: 'role-987',
 				resourceType: 'user',
 				resourceId: 'res-999'
 			}
@@ -207,8 +226,16 @@ describe('PostgresAuditRepository', () => {
 						action: 'user.create',
 						jobId: 'job-123',
 						ip: '192.168.1.1',
-						user: { path: ['organizationId'], equals: 'org-789' },
-						resource: { path: ['resourceId'], equals: 'res-999' }
+						AND: [
+							{ user: { path: ['userId'], equals: 'user-456' } },
+							{ user: { path: ['userEmail'], equals: 'test@example.com' } },
+							{ user: { path: ['sessionId'], equals: 'session-321' } },
+							{ user: { path: ['membershipId'], equals: 'membership-654' } },
+							{ user: { path: ['organizationId'], equals: 'org-789' } },
+							{ user: { path: ['roleId'], equals: 'role-987' } },
+							{ resource: { path: ['resourceType'], equals: 'user' } },
+							{ resource: { path: ['resourceId'], equals: 'res-999' } }
+						]
 					}
 				})
 			)
@@ -334,7 +361,7 @@ describe('PostgresAuditRepository', () => {
 			expect(mockPrisma.audit.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: {
-						user: { path: ['userEmail'], equals: 'test@example.com' }
+						AND: [{ user: { path: ['userEmail'], equals: 'test@example.com' } }]
 					}
 				})
 			)
@@ -358,7 +385,7 @@ describe('PostgresAuditRepository', () => {
 			expect(mockPrisma.audit.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: {
-						user: { path: ['organizationId'], equals: 'org-123' }
+						AND: [{ user: { path: ['organizationId'], equals: 'org-123' } }]
 					}
 				})
 			)
@@ -382,7 +409,7 @@ describe('PostgresAuditRepository', () => {
 			expect(mockPrisma.audit.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: {
-						resource: { path: ['resourceType'], equals: 'user' }
+						AND: [{ resource: { path: ['resourceType'], equals: 'user' } }]
 					}
 				})
 			)
@@ -406,7 +433,7 @@ describe('PostgresAuditRepository', () => {
 			expect(mockPrisma.audit.findMany).toHaveBeenCalledWith(
 				expect.objectContaining({
 					where: {
-						resource: { path: ['resourceId'], equals: 'res-456' }
+						AND: [{ resource: { path: ['resourceId'], equals: 'res-456' } }]
 					}
 				})
 			)

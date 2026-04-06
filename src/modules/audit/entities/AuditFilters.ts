@@ -15,6 +15,24 @@
  */
 export interface AuditFilters {
 	/**
+	 * Filter by category.
+	 * @example 'security', 'operational', 'compliance'
+	 */
+	category?: string
+
+	/**
+	 * Filter by severity.
+	 * @example 'info', 'warning', 'critical'
+	 */
+	severity?: string
+
+	/**
+	 * Filter by result status.
+	 * @example 'success', 'failed', 'denied'
+	 */
+	resultStatus?: string
+
+	/**
 	 * Filter by audit ID (exact match).
 	 * Useful when searching for a specific audit record.
 	 */
@@ -45,10 +63,34 @@ export interface AuditFilters {
 	userEmail?: string
 
 	/**
+	 * Filter by session ID.
+	 * Useful for reconstructing actions taken in a specific login session.
+	 */
+	sessionId?: string
+
+	/**
+	 * Filter by membership ID.
+	 * Useful when the same user can act under different memberships.
+	 */
+	membershipId?: string
+
+	/**
 	 * Filter by organization ID.
 	 * Shows all actions within a specific organization.
 	 */
 	organizationId?: string
+
+	/**
+	 * Filter by role ID.
+	 * Useful for inspecting actions executed under a specific role.
+	 */
+	roleId?: string
+
+	/**
+	 * Filter by actor type.
+	 * @example 'user', 'anonymous', 'system'
+	 */
+	actorType?: string
 
 	/**
 	 * Filter by resource type.

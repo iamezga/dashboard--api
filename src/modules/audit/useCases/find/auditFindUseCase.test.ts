@@ -23,8 +23,23 @@ const makeJob = (
 		getAttempts: () => options.attempts ?? 1,
 		getUser: () => ({
 			id: 'user-id',
-			organizationId: 'user-org',
-			permissions: {},
+			membership: {
+				id: 'membership-id',
+				organization: {
+					id: 'org-id',
+					name: 'Org',
+					timezone: 'UTC',
+					scope: 'TENANT'
+				},
+				role: {
+					id: 'role-id',
+					name: 'admin',
+					label: 'Admin',
+					scope: 'TENANT'
+				},
+				permissions: {},
+				...((options.user?.membership as object | undefined) || {})
+			},
 			...options.user
 		}),
 		getPublicUser: () => options.publicUser ?? true,
@@ -34,7 +49,7 @@ const makeJob = (
 			error: jest.fn(),
 			child: jest.fn().mockReturnThis()
 		} as unknown as Logger
-	} as unknown as AuditFindJobInterface & JobInterface & { logger: Logger })
+	}) as unknown as AuditFindJobInterface & JobInterface & { logger: Logger }
 
 describe('AuditFindUseCase', () => {
 	const auditRepo = {
@@ -59,16 +74,24 @@ describe('AuditFindUseCase', () => {
 				}
 			},
 			logger: globalLogger
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const mockAudit1: Audit = {
 		_id: 'audit-1',
 		action: 'auth.login',
 		timestamp: new Date('2026-01-04T10:00:00Z'),
 		jobId: 'job-1',
+		classification: {
+			category: 'security',
+			severity: 'info',
+			result: { status: 'success' }
+		},
 		user: {
+			actorType: 'user',
 			userId: 'user-1',
 			userEmail: 'user1@example.com',
+			sessionId: 'session-1',
+			membershipId: 'membership-1',
 			organizationId: 'org-1',
 			roleId: 'role-1'
 		},
@@ -85,9 +108,17 @@ describe('AuditFindUseCase', () => {
 		action: 'auth.login',
 		timestamp: new Date('2026-01-04T11:00:00Z'),
 		jobId: 'job-2',
+		classification: {
+			category: 'security',
+			severity: 'info',
+			result: { status: 'success' }
+		},
 		user: {
+			actorType: 'user',
 			userId: 'user-1',
 			userEmail: 'user1@example.com',
+			sessionId: 'session-2',
+			membershipId: 'membership-1',
 			organizationId: 'org-1',
 			roleId: 'role-1'
 		},
@@ -104,9 +135,17 @@ describe('AuditFindUseCase', () => {
 		action: 'auth.login',
 		timestamp: new Date('2026-01-04T12:00:00Z'),
 		jobId: 'job-3',
+		classification: {
+			category: 'security',
+			severity: 'warning',
+			result: { status: 'failed' }
+		},
 		user: {
+			actorType: 'user',
 			userId: 'user-2',
 			userEmail: 'user2@example.com',
+			sessionId: 'session-3',
+			membershipId: 'membership-2',
 			organizationId: 'org-2',
 			roleId: 'role-2'
 		},
@@ -131,9 +170,24 @@ describe('AuditFindUseCase', () => {
 			{},
 			{
 				user: {
-					permissions: {
-						'audit.get': {} as Permission,
-						'audit.find': {} as Permission
+					membership: {
+						id: 'membership-id',
+						organization: {
+							id: 'org-id',
+							name: 'Org',
+							timezone: 'UTC',
+							scope: 'TENANT'
+						},
+						role: {
+							id: 'role-id',
+							name: 'admin',
+							label: 'Admin',
+							scope: 'TENANT'
+						},
+						permissions: {
+							'audit.get': {} as Permission,
+							'audit.find': {} as Permission
+						}
 					}
 				}
 			}
@@ -179,12 +233,19 @@ describe('AuditFindUseCase', () => {
 
 		expect(auditRepo.find).toHaveBeenCalledWith(
 			{
+				category: undefined,
+				severity: undefined,
+				resultStatus: undefined,
 				id: undefined,
 				action: undefined,
 				jobId: undefined,
 				userId: undefined,
 				userEmail: undefined,
+				actorType: undefined,
+				sessionId: undefined,
+				membershipId: undefined,
 				organizationId: undefined,
+				roleId: undefined,
 				resourceType: undefined,
 				resourceId: undefined,
 				ip: undefined,

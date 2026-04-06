@@ -3,7 +3,7 @@ import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { AuditInput } from '../entities/Audit'
 import { AuditFilters } from '../entities/AuditFilters'
-import { MongoAuditRepository } from '../repository/MongoAuditRepository'
+import { MongoAuditRepository } from './MongoAuditRepository'
 
 describe('MongoAuditRepository', () => {
 	let repository: MongoAuditRepository
@@ -57,19 +57,40 @@ describe('MongoAuditRepository', () => {
 				userId: 'u1',
 				userEmail: 'user@example.com',
 				organizationId: 'org1',
-				roleId: 'role1'
+				roleId: 'role1',
+				actorType: 'user'
 			},
 			resource: {
 				resourceType: 'User',
 				resourceId: '123'
 			},
 			payload: { extra: 'data' },
-			ip: '127.0.0.1'
+			ip: '127.0.0.1',
+			classification: {
+				category: 'access' as any,
+				severity: 'medium' as any,
+				result: {
+					status: 'success' as any
+				}
+			}
 		}
 
 		await repository.insert(auditInput)
 
-		expect(collectionMock.insertOne).toHaveBeenCalledWith(auditInput)
+		expect(collectionMock.insertOne).toHaveBeenCalledWith({
+			...auditInput,
+			payload: {
+				__auditMeta: {
+					category: 'access',
+					severity: 'medium',
+					resultStatus: 'success',
+					resultErrorCode: undefined,
+					resultMessage: undefined,
+					tags: []
+				},
+				data: { extra: 'data' }
+			}
+		})
 	})
 
 	it('should log error if insertOne fails', async () => {
@@ -81,12 +102,24 @@ describe('MongoAuditRepository', () => {
 				userId: 'u2',
 				userEmail: 'admin@example.com',
 				organizationId: 'org2',
-				roleId: 'role2'
+				roleId: 'role2',
+				actorType: 'user'
 			},
 			resource: {
 				resourceType: 'User',
 				resourceId: '456'
-			}
+			},
+			classification: {
+				category: 'security' as any,
+				severity: 'high' as any,
+				result: {
+					status: 'failure' as any,
+					errorCode: 'ERR_DELETE',
+					message: 'Failed to delete user'
+				}
+			},
+			payload: { reason: 'violation of terms' },
+			ip: '127.0.0.1'
 		}
 
 		const error = new Error('insert failed')

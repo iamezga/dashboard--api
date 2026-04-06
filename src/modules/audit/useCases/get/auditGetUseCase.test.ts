@@ -23,8 +23,23 @@ const makeJob = (
 		getAttempts: () => options.attempts ?? 1,
 		getUser: () => ({
 			id: 'user-id',
-			organizationId: 'user-org',
-			permissions: {},
+			membership: {
+				id: 'membership-id',
+				organization: {
+					id: 'org-id',
+					name: 'Org',
+					timezone: 'UTC',
+					scope: 'TENANT'
+				},
+				role: {
+					id: 'role-id',
+					name: 'admin',
+					label: 'Admin',
+					scope: 'TENANT'
+				},
+				permissions: {},
+				...((options.user?.membership as object | undefined) || {})
+			},
 			...options.user
 		}),
 		getPublicUser: () => options.publicUser ?? true,
@@ -34,7 +49,7 @@ const makeJob = (
 			error: jest.fn(),
 			child: jest.fn().mockReturnThis()
 		} as unknown as Logger
-	} as unknown as AuditGetJobInterface & JobInterface & { logger: Logger })
+	}) as unknown as AuditGetJobInterface & JobInterface & { logger: Logger }
 
 describe('AuditGetUseCase', () => {
 	const auditRepo = {
@@ -59,7 +74,7 @@ describe('AuditGetUseCase', () => {
 				}
 			},
 			logger: globalLogger
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const mockAudit: Audit = {
 		_id: 'audit-123',
@@ -67,10 +82,18 @@ describe('AuditGetUseCase', () => {
 		timestamp: new Date('2026-01-04T10:00:00Z'),
 		jobId: 'job-123',
 		user: {
+			actorType: 'user',
 			userId: 'user-456',
 			userEmail: 'user@example.com',
+			sessionId: 'session-123',
+			membershipId: 'membership-123',
 			organizationId: 'org-789',
 			roleId: 'role-123'
+		},
+		classification: {
+			category: 'security',
+			severity: 'info',
+			result: { status: 'success' }
 		},
 		resource: {
 			resourceType: 'session',
@@ -93,9 +116,24 @@ describe('AuditGetUseCase', () => {
 			{ id: 'audit-123' },
 			{
 				user: {
-					permissions: {
-						'audit.get': {} as Permission,
-						'audit.find': {} as Permission
+					membership: {
+						id: 'membership-id',
+						organization: {
+							id: 'org-id',
+							name: 'Org',
+							timezone: 'UTC',
+							scope: 'TENANT'
+						},
+						role: {
+							id: 'role-id',
+							name: 'admin',
+							label: 'Admin',
+							scope: 'TENANT'
+						},
+						permissions: {
+							'audit.get': {} as Permission,
+							'audit.find': {} as Permission
+						}
 					}
 				}
 			}

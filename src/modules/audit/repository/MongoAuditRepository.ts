@@ -36,10 +36,8 @@ export class MongoAuditRepository implements AuditRepositoryInterface {
 	 * @param {DatabaseClientsMap['mongo']} db - The MongoDB client for audit logs
 	 * @param {DependencyContainer} container - The dependency container with services and other repositories
 	 *
-	 * Architecture:
-	 * - Extract only required dependencies from container
-	 * - Allows flexible dependency changes in future (no breaking changes to constructor)
-	 * - Makes dependencies explicit and testable
+	 * The constructor initializes the MongoDB collection and logger. It is designed
+	 * for immediate use without any additional setup.
 	 */
 	constructor(db: DatabaseClientsMap['mongo'], container: DependencyContainer) {
 		this.db = db
@@ -58,7 +56,22 @@ export class MongoAuditRepository implements AuditRepositoryInterface {
 	 */
 	public async insert(data: AuditInput): Promise<void> {
 		try {
-			await this.collection.insertOne(data as any)
+			const payload = {
+				__auditMeta: {
+					category: data.classification.category,
+					severity: data.classification.severity,
+					resultStatus: data.classification.result.status,
+					resultErrorCode: data.classification.result.errorCode,
+					resultMessage: data.classification.result.message,
+					tags: data.classification.tags || []
+				},
+				data: data.payload || null
+			}
+
+			await this.collection.insertOne({
+				...data,
+				payload
+			} as any)
 		} catch (error: any) {
 			// It's crucial not to throw an error here. A failed audit log should not block the main user action.
 			this.logger.error({ error }, 'Failed to insert audit record (Mongo).')
@@ -90,13 +103,26 @@ export class MongoAuditRepository implements AuditRepositoryInterface {
 			if (filters.action) query.action = filters.action as any
 			if (filters.jobId) query.jobId = filters.jobId
 			if (filters.ip) query.ip = filters.ip
+			if (filters.category)
+				query['payload.__auditMeta.category'] = filters.category
+			if (filters.severity)
+				query['payload.__auditMeta.severity'] = filters.severity
+			if (filters.resultStatus) {
+				query['payload.__auditMeta.resultStatus'] = filters.resultStatus
+			}
 
 			// Nested user fields
 			if (filters.userId) query['user.userId'] = filters.userId
 			if (filters.userEmail) query['user.userEmail'] = filters.userEmail
+			if (filters.sessionId) query['user.sessionId'] = filters.sessionId
+			if (filters.membershipId) {
+				query['user.membershipId'] = filters.membershipId
+			}
 			if (filters.organizationId) {
 				query['user.organizationId'] = filters.organizationId
 			}
+			if (filters.roleId) query['user.roleId'] = filters.roleId
+			if (filters.actorType) query['user.actorType'] = filters.actorType
 
 			// Nested resource fields
 			if (filters.resourceType) {

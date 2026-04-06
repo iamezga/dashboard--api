@@ -40,7 +40,8 @@ export class AuditFindUseCase extends UseCase<AuditFindJobInterface> {
 	}
 
 	/**
-	 * Provides the validation schema and data for the `audit.find` permission check.
+	 * Generates the permission validation data for this use case. It uses the static `buildPermissionSchema`
+	 * method from the base `UseCase` class to create a schema based on the defined permission and the job context.
 	 * @param {JobInterface} job - The job object containing the user context and request metadata.
 	 * @param {DependencyContainer} container - The application's dependency container.
 	 * @returns {Promise<UseCasePermissionValidationData>} A promise that resolves to the schema and data for validation.
@@ -53,7 +54,8 @@ export class AuditFindUseCase extends UseCase<AuditFindJobInterface> {
 	}
 
 	/**
-	 * Executes the business logic for finding audit records.
+	 * Executes the use case to find audit records based on provided filters and pagination options.
+	 * It interacts with the audit repository to retrieve the data and returns it along with metadata about the query.
 	 * @param {AuditFindJobInterface} job - The Job object containing filter criteria and pagination options.
 	 * @returns {Promise<UseCaseResponseInterface<Audit[]>>} A promise that resolves to an array of audit records with metadata.
 	 */
@@ -65,12 +67,19 @@ export class AuditFindUseCase extends UseCase<AuditFindJobInterface> {
 		job.logger.info({ filters: data }, 'Finding audit records')
 
 		const filters: AuditFilters = {
+			category: data.category,
+			severity: data.severity,
+			resultStatus: data.resultStatus,
 			id: data.id,
 			action: data.action,
 			jobId: data.jobId,
 			userId: data.userId,
 			userEmail: data.userEmail,
+			actorType: data.actorType,
+			sessionId: data.sessionId,
+			membershipId: data.membershipId,
 			organizationId: data.organizationId,
+			roleId: data.roleId,
 			resourceType: data.resourceType,
 			resourceId: data.resourceId,
 			ip: data.ip,
