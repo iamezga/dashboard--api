@@ -1,5 +1,4 @@
-import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
-import { UserPermission } from '@/modules/user/entities/User'
+import { Membership } from '@/modules/membership/entities/Membership'
 
 /**
  * @interface UserLoginDetails
@@ -7,12 +6,11 @@ import { UserPermission } from '@/modules/user/entities/User'
  */
 export interface UserLoginDetails {
 	id: string
-	organizationId: string
 	email: string
 	name: string
 	surname: string | null
-	roleId: string
-	active: boolean
+	status: string
+	memberships: Membership[]
 	config: Record<string, any>
 }
 
@@ -28,20 +26,17 @@ export interface LoginOutput {
 /**
  * @interface UserAuthDetails
  * @description Defines the essential user data required for authentication processing,
- * including minimal organization information for permission validation.
+ * now includes all memberships for multi-tenant architecture.
  */
 export interface UserAuthDetails {
 	id: string
-	organizationId: string
 	email: string
 	passwordHash: string
-	active: boolean
+	status: string
 	name: string
 	surname: string | null
-	roleId: string
 	config: Record<string, any>
-	userPermissions: UserPermission[]
-	organization: OrganizationBasicInfo
+	memberships: Membership[]
 	lastLogin: Date | null
 	createdAt: Date
 	updatedAt: Date
@@ -54,8 +49,6 @@ export interface UserAuthDetails {
  */
 export interface JwtUserPayload {
 	userId: string
-	organizationId: string
-	roleId: string
 	sessionId: string
 }
 
@@ -64,11 +57,7 @@ export interface JwtUserPayload {
  * @description Defines the expected payload structure after decoding a JWT.
  * This should match what is put into the token during login, plus standard JWT claims.
  */
-export interface DecodedUserToken {
-	userId: string
-	organizationId: string
-	roleId: string
-	sessionId: string
-	iat: number // Issued at (timestamp)
-	exp: number // Expiration time (timestamp)
+export interface DecodedUserToken extends JwtUserPayload {
+	iat: number
+	exp: number
 }

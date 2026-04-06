@@ -1,9 +1,9 @@
 import { UseCase } from '@/lib/UseCase'
+import { PasswordRecoveryTokenRepositoryInterface } from '@/modules/auth/entities/PasswordRecoveryTokenRepositoryInterface'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
 import { UseCaseResponseInterface } from '@/types/useCase/UseCaseResponseInterface'
-import { randomBytes } from 'crypto'
 import { AuthPasswordRecoveryRequestJobInterface } from './AuthPasswordRecoveryRequestJobInterface'
 
 /**
@@ -12,18 +12,17 @@ import { AuthPasswordRecoveryRequestJobInterface } from './AuthPasswordRecoveryR
  * and sending recovery email to the user.
  *
  * Use Case Flow:
- * 1. Validate email format
+ * 1. Validate email and organization
  * 2. Check if user exists and is active
- * 3. Generate secure recovery token
- * 4. Store token in Redis with expiration (15 minutes)
- * 5. Send recovery email with token link
- * 6. Return success response (always, even if user doesn't exist - security)
+ * 3. Generate secure token and store in Redis with expiry
+ * 4. Dispatch email sending to background queue
+ * 5. Return generic success message (prevent enumeration)
  *
  * Security Notes:
- * - Always returns success to prevent email enumeration
- * - Token expires after 15 minutes
- * - Token can only be used once
- * - Rate limiting should be applied at endpoint level
+ * - Always return success message to prevent email enumeration
+ * - Token is securely generated and stored with expiry
+ * - Email sending is dispatched to background queue for reliability
+ * - Logs important events for monitoring and security auditing
  *
  * @permission Public (no authentication required)
  */
@@ -32,8 +31,6 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 
 	// Recovery token configuration
 	private static readonly TOKEN_EXPIRY_SECONDS = 900 // 15 minutes
-	private static readonly TOKEN_LENGTH_BYTES = 32 // 256 bits
-	private static readonly REDIS_KEY_PREFIX = 'password_recovery:'
 
 	constructor(container: DependencyContainer) {
 		super(container)
@@ -67,7 +64,6 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 			const userRepository = this.container.repositoryManager.get('user')
 			const organizationRepository =
 				this.container.repositoryManager.get('organization')
-			const redisClient = this.container.databaseManager.get('redis')
 
 			// Resolve organization slug to organizationId
 			const organizationRecord =
@@ -90,27 +86,23 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 				}
 			}
 
-			// Find user by email and organization
+			// Find user by email
 			const user = await userRepository.findByEmail(email)
 
 			// If user exists, is active, and not deleted, proceed with recovery
-			if (user && user.active && !user.deletedAt) {
-				// Generate secure random token
-				const token = randomBytes(
-					AuthPasswordRecoveryRequestUseCase.TOKEN_LENGTH_BYTES
-				).toString('hex')
+			if (user && user.status === 'active' && !user.deletedAt) {
+				// Create recovery token via repository
+				const passwordRecoveryTokenRepository: PasswordRecoveryTokenRepositoryInterface =
+					this.container.repositoryManager.get('passwordRecoveryToken')
 
-				// Store token in Redis with user ID
-				const redisKey = `${AuthPasswordRecoveryRequestUseCase.REDIS_KEY_PREFIX}${token}`
-				await redisClient.setEx(
-					redisKey,
-					AuthPasswordRecoveryRequestUseCase.TOKEN_EXPIRY_SECONDS,
-					user.id
+				const token = await passwordRecoveryTokenRepository.createToken(
+					user.id,
+					AuthPasswordRecoveryRequestUseCase.TOKEN_EXPIRY_SECONDS
 				)
 
 				job.logger.info(
 					{ userId: user.id, tokenLength: token.length },
-					'Recovery token generated and stored'
+					'Password recovery token created'
 				)
 
 				// Dispatch email sending to background queue
@@ -143,7 +135,7 @@ export class AuthPasswordRecoveryRequestUseCase extends UseCase<AuthPasswordReco
 				// User doesn't exist or is inactive
 				// Don't reveal this information - log it securely
 				job.logger.warn(
-					{ email, userExists: !!user, userActive: user?.active },
+					{ email, userExists: !!user, userStatus: user?.status },
 					'Password recovery requested for non-existent or inactive user'
 				)
 			}

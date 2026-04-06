@@ -1,5 +1,6 @@
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
+import { PasswordRecoveryTokenRepositoryInterface } from '@/modules/auth/entities/PasswordRecoveryTokenRepositoryInterface'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
@@ -11,29 +12,26 @@ import { AuthPasswordResetJobInterface } from './AuthPasswordResetJobInterface'
  * @description Resets user password using a valid recovery token.
  *
  * Use Case Flow:
- * 1. Validate token and password
- * 2. Retrieve user ID from Redis token
- * 3. Verify user exists and is active
- * 4. Hash new password
- * 5. Update user password
- * 6. Delete token from Redis (one-time use)
- * 7. Invalidate all user sessions (force re-login)
- * 8. Send confirmation email
- * 9. Return success
+ * 1. Validate token and new password
+ * 2. Verify token exists and get associated user ID
+ * 3. Check user is active and not deleted
+ * 4. Hash new password and update user record
+ * 5. Delete used token (enforce one-time use)
+ * 6. Invalidate all user sessions (force re-login)
+ * 7. Dispatch confirmation email to background queue
+ * 8. Return success message
  *
  * Security Notes:
- * - Token is deleted after use (one-time only)
- * - All existing sessions are invalidated
- * - Password is hashed with argon2
- * - Confirmation email is sent
+ * - Token is one-time use and securely generated
+ * - All user sessions are invalidated after password reset
+ * - Confirmation email is sent to user for security awareness
+ * - Logs important events for monitoring and auditing
+ *
  *
  * @permission Public (no authentication required)
  */
 export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterface> {
 	static readonly permission: string | undefined = undefined // Public use case
-
-	private static readonly REDIS_KEY_PREFIX = 'password_recovery:'
-	private static readonly SESSION_KEY_PREFIX = 'session:'
 
 	constructor(container: DependencyContainer) {
 		super(container)
@@ -59,22 +57,21 @@ export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterf
 
 		job.logger.info('Processing password reset')
 
-		// Get Redis client
-		const redisClient = this.container.databaseManager.get('redis')
-		const redisKey = `${AuthPasswordResetUseCase.REDIS_KEY_PREFIX}${token}`
-
-		// Check if token exists in Redis
-		const userId = await redisClient.get(redisKey)
+		// Verify token and get user ID
+		const passwordRecoveryTokenRepository: PasswordRecoveryTokenRepositoryInterface =
+			this.container.repositoryManager.get('passwordRecoveryToken')
+		const userId =
+			await passwordRecoveryTokenRepository.verifyAndGetUserId(token)
 
 		if (!userId) {
 			job.logger.warn(
 				{ token: token.substring(0, 10) },
-				'Invalid or expired token for password reset'
+				'Invalid or expired recovery token'
 			)
 			throw new BadRequestError('Invalid or expired recovery token', [
 				{
 					field: 'token',
-					message: 'The recovery token is invalid or has expired.',
+					message: 'The recovery token is invalid or has expired',
 					type: 'invalidToken'
 				}
 			])
@@ -82,13 +79,14 @@ export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterf
 
 		// Get user repository
 		const userRepository = this.container.repositoryManager.get('user')
+		const sessionRepository = this.container.repositoryManager.get('session')
 
 		// Verify user still exists and is active
 		const user = await userRepository.findById(userId)
 
-		if (!user || !user.active || user.deletedAt) {
+		if (!user || user.status != 'active' || user.deletedAt) {
 			job.logger.warn(
-				{ userId, userActive: user?.active },
+				{ userId, userStatus: user?.status },
 				'Password reset attempted for inactive or deleted user'
 			)
 			throw new BadRequestError('User account is not active', [
@@ -109,22 +107,15 @@ export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterf
 		job.logger.info({ userId }, 'Password updated successfully')
 
 		// Delete recovery token (one-time use)
-		await redisClient.del(redisKey)
+		// Delete recovery token (enforces one-time use)
+		await passwordRecoveryTokenRepository.deleteToken(token)
 
 		job.logger.info({ userId }, 'Recovery token deleted')
+		// Delete all user recovery tokens (security: invalidate other recovery requests)
+		await passwordRecoveryTokenRepository.deleteAllUserTokens(userId)
 
 		// Invalidate all user sessions (force re-login for security)
-		const sessionKeys = await redisClient.keys(
-			`${AuthPasswordResetUseCase.SESSION_KEY_PREFIX}*:${userId}`
-		)
-
-		if (sessionKeys.length > 0) {
-			await redisClient.del(sessionKeys)
-			job.logger.info(
-				{ userId, sessionsInvalidated: sessionKeys.length },
-				'User sessions invalidated'
-			)
-		}
+		await sessionRepository.deleteAllUserSessions(userId)
 
 		// Dispatch confirmation email to background queue
 		job.setData({
@@ -154,7 +145,7 @@ export class AuthPasswordResetUseCase extends UseCase<AuthPasswordResetJobInterf
 			},
 			metadata: {
 				resetAt: new Date().toISOString(),
-				sessionsInvalidated: sessionKeys.length
+				sessionsInvalidated: true
 			}
 		}
 	}

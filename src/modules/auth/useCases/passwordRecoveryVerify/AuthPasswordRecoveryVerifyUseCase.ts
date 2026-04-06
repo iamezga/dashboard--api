@@ -1,5 +1,6 @@
 import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
+import { PasswordRecoveryTokenRepositoryInterface } from '@/modules/auth/entities/PasswordRecoveryTokenRepositoryInterface'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
 import { UseCasePermissionValidationData } from '@/types/useCase/UseCasePermissionValidationData'
@@ -27,8 +28,6 @@ import { AuthPasswordRecoveryVerifyJobInterface } from './AuthPasswordRecoveryVe
 export class AuthPasswordRecoveryVerifyUseCase extends UseCase<AuthPasswordRecoveryVerifyJobInterface> {
 	static readonly permission: string | undefined = undefined // Public use case
 
-	private static readonly REDIS_KEY_PREFIX = 'password_recovery:'
-
 	constructor(container: DependencyContainer) {
 		super(container)
 	}
@@ -55,12 +54,11 @@ export class AuthPasswordRecoveryVerifyUseCase extends UseCase<AuthPasswordRecov
 
 		job.logger.info('Verifying password recovery token')
 
-		// Get Redis client
-		const redisClient = this.container.databaseManager.get('redis')
-		const redisKey = `${AuthPasswordRecoveryVerifyUseCase.REDIS_KEY_PREFIX}${token}`
-
-		// Check if token exists in Redis
-		const userId = await redisClient.get(redisKey)
+		// Verify token via repository (abstracts Redis key management)
+		const passwordRecoveryTokenRepository: PasswordRecoveryTokenRepositoryInterface =
+			this.container.repositoryManager.get('passwordRecoveryToken')
+		const userId =
+			await passwordRecoveryTokenRepository.verifyAndGetUserId(token)
 
 		if (!userId) {
 			job.logger.warn(
@@ -82,9 +80,9 @@ export class AuthPasswordRecoveryVerifyUseCase extends UseCase<AuthPasswordRecov
 		// Verify user still exists and is active
 		const user = await userRepository.findById(userId)
 
-		if (!user || !user.active || user.deletedAt) {
+		if (!user || user.status !== 'active' || user.deletedAt) {
 			job.logger.warn(
-				{ userId, userActive: user?.active },
+				{ userId, userActive: user?.status },
 				'Token valid but user inactive or deleted'
 			)
 			throw new BadRequestError('User account is not active', [

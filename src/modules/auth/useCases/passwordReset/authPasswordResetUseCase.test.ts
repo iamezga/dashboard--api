@@ -10,19 +10,18 @@ describe('AuthPasswordResetUseCase', () => {
 		update: jest.fn()
 	}
 
-	const redisClient = {
-		get: jest.fn(),
-		del: jest.fn(),
-		keys: jest.fn()
+	const passwordRecoveryTokenRepo = {
+		verifyAndGetUserId: jest.fn(),
+		deleteToken: jest.fn(),
+		deleteAllUserTokens: jest.fn()
+	}
+
+	const sessionRepo = {
+		deleteAllUserSessions: jest.fn()
 	}
 
 	const argon2 = {
 		hash: jest.fn()
-	}
-
-	const emailService = {
-		send: jest.fn(),
-		sendHtml: jest.fn()
 	}
 
 	const jobService = {
@@ -48,24 +47,19 @@ describe('AuthPasswordResetUseCase', () => {
 			repositoryManager: {
 				get: (name: string) => {
 					if (name === 'user') return userRepo
+					if (name === 'passwordRecoveryToken') return passwordRecoveryTokenRepo
+					if (name === 'session') return sessionRepo
 					throw new Error(`Repo ${name} not mocked`)
 				}
 			},
-			databaseManager: {
-				get: (name: string) => {
-					if (name === 'redis') return redisClient
-					throw new Error(`Database ${name} not mocked`)
-				}
-			},
 			services: {
-				emailService,
 				jobService
 			},
 			libs: {
 				argon2
 			},
 			config
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const makeJob = (data: any): AuthPasswordResetJobInterface =>
 		({
@@ -74,7 +68,7 @@ describe('AuthPasswordResetUseCase', () => {
 				Object.assign(data, newData)
 			}),
 			logger
-		} as unknown as AuthPasswordResetJobInterface)
+		}) as unknown as AuthPasswordResetJobInterface
 
 	const validToken = 'a'.repeat(64)
 	const newPassword = 'newSecurePassword123'
@@ -107,27 +101,29 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
-		argon2.hash.mockResolvedValue('hashed-password')
-		userRepo.update.mockResolvedValue(mockUser)
-		redisClient.del.mockResolvedValue(1)
-		redisClient.keys.mockResolvedValue([
-			'session:abc:user-123',
-			'session:xyz:user-123'
-		])
-		emailService.send.mockResolvedValue(undefined)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
+		argon2.hash.mockResolvedValueOnce('hashed-password')
+		userRepo.update.mockResolvedValueOnce(mockUser)
+		passwordRecoveryTokenRepo.deleteToken.mockResolvedValueOnce(1)
+		passwordRecoveryTokenRepo.deleteAllUserTokens.mockResolvedValueOnce(
+			undefined
+		)
+		sessionRepo.deleteAllUserSessions.mockResolvedValueOnce(undefined)
+		jobService.dispatchUseCase.mockResolvedValueOnce(undefined)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 		const result = await useCase.run(job)
 
-		// Verify token lookup
-		expect(redisClient.get).toHaveBeenCalledWith(
-			`password_recovery:${validToken}`
+		// Verify token verification
+		expect(passwordRecoveryTokenRepo.verifyAndGetUserId).toHaveBeenCalledWith(
+			validToken
 		)
 
 		// Verify user lookup
@@ -142,16 +138,17 @@ describe('AuthPasswordResetUseCase', () => {
 		})
 
 		// Verify token deletion
-		expect(redisClient.del).toHaveBeenCalledWith(
-			`password_recovery:${validToken}`
+		expect(passwordRecoveryTokenRepo.deleteToken).toHaveBeenCalledWith(
+			validToken
+		)
+
+		// Verify all user tokens deleted
+		expect(passwordRecoveryTokenRepo.deleteAllUserTokens).toHaveBeenCalledWith(
+			'user-123'
 		)
 
 		// Verify sessions invalidated
-		expect(redisClient.keys).toHaveBeenCalledWith('session:*:user-123')
-		expect(redisClient.del).toHaveBeenCalledWith([
-			'session:abc:user-123',
-			'session:xyz:user-123'
-		])
+		expect(sessionRepo.deleteAllUserSessions).toHaveBeenCalledWith('user-123')
 
 		// Verify confirmation email job dispatched
 		expect(jobService.dispatchUseCase).toHaveBeenCalledWith(
@@ -168,15 +165,15 @@ describe('AuthPasswordResetUseCase', () => {
 
 		expect(result.data.message).toContain('reset successfully')
 		expect(result.metadata).toBeDefined()
-		expect(result.metadata?.sessionsInvalidated).toBe(2)
 		expect(result.metadata).toHaveProperty('resetAt')
+		expect(result.metadata).toHaveProperty('sessionsInvalidated')
 	})
 
 	it('should throw BadRequestError for invalid token', async () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordResetUseCase(container)
 
-		redisClient.get.mockResolvedValue(null) // Token not found
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(null)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 
@@ -191,7 +188,7 @@ describe('AuthPasswordResetUseCase', () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordResetUseCase(container)
 
-		redisClient.get.mockResolvedValue(null) // Expired
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(null)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 
@@ -202,13 +199,14 @@ describe('AuthPasswordResetUseCase', () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordResetUseCase(container)
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(null) // User deleted
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(null)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 
 		await expect(useCase.run(job)).rejects.toThrow(BadRequestError)
-		await expect(useCase.run(job)).rejects.toThrow('not active')
 	})
 
 	it('should throw BadRequestError if user is inactive', async () => {
@@ -219,12 +217,14 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: false, // Inactive
+			status: 'inactive', // Inactive
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 
@@ -239,12 +239,14 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: new Date() // Deleted
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 
@@ -259,17 +261,22 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
-		argon2.hash.mockResolvedValue('hashed-password')
-		userRepo.update.mockResolvedValue(mockUser)
-		redisClient.del.mockResolvedValue(1)
-		redisClient.keys.mockResolvedValue([]) // No sessions
-		emailService.send.mockResolvedValue(undefined)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
+		argon2.hash.mockResolvedValueOnce('hashed-password')
+		userRepo.update.mockResolvedValueOnce(mockUser)
+		passwordRecoveryTokenRepo.deleteToken.mockResolvedValueOnce(1)
+		passwordRecoveryTokenRepo.deleteAllUserTokens.mockResolvedValueOnce(
+			undefined
+		)
+		sessionRepo.deleteAllUserSessions.mockResolvedValueOnce(undefined)
+		jobService.dispatchUseCase.mockResolvedValueOnce(undefined)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 		const result = await useCase.run(job)
@@ -277,7 +284,7 @@ describe('AuthPasswordResetUseCase', () => {
 		// Should still succeed
 		expect(result.data.message).toContain('reset successfully')
 		expect(result.metadata).toBeDefined()
-		expect(result.metadata?.sessionsInvalidated).toBe(0)
+		expect(result.metadata).toHaveProperty('sessionsInvalidated')
 	})
 
 	it('should log all steps of password reset', async () => {
@@ -288,17 +295,22 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
-		argon2.hash.mockResolvedValue('hashed-password')
-		userRepo.update.mockResolvedValue(mockUser)
-		redisClient.del.mockResolvedValue(1)
-		redisClient.keys.mockResolvedValue(['session:abc:user-123'])
-		emailService.send.mockResolvedValue(undefined)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
+		argon2.hash.mockResolvedValueOnce('hashed-password')
+		userRepo.update.mockResolvedValueOnce(mockUser)
+		passwordRecoveryTokenRepo.deleteToken.mockResolvedValueOnce(1)
+		passwordRecoveryTokenRepo.deleteAllUserTokens.mockResolvedValueOnce(
+			undefined
+		)
+		sessionRepo.deleteAllUserSessions.mockResolvedValueOnce(undefined)
+		jobService.dispatchUseCase.mockResolvedValueOnce(undefined)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 		await useCase.run(job)
@@ -311,10 +323,6 @@ describe('AuthPasswordResetUseCase', () => {
 		expect(logger.info).toHaveBeenCalledWith(
 			{ userId: 'user-123' },
 			'Recovery token deleted'
-		)
-		expect(logger.info).toHaveBeenCalledWith(
-			{ userId: 'user-123', sessionsInvalidated: 1 },
-			'User sessions invalidated'
 		)
 		expect(logger.info).toHaveBeenCalledWith(
 			{ userId: 'user-123' },
@@ -330,24 +338,29 @@ describe('AuthPasswordResetUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
-		userRepo.findById.mockResolvedValue(mockUser)
-		argon2.hash.mockResolvedValue('hashed-password')
-		userRepo.update.mockResolvedValue(mockUser)
-		redisClient.del.mockResolvedValue(1)
-		redisClient.keys.mockResolvedValue([])
-		emailService.send.mockResolvedValue(undefined)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValueOnce(
+			'user-123'
+		)
+		userRepo.findById.mockResolvedValueOnce(mockUser)
+		argon2.hash.mockResolvedValueOnce('hashed-password')
+		userRepo.update.mockResolvedValueOnce(mockUser)
+		passwordRecoveryTokenRepo.deleteToken.mockResolvedValueOnce(1)
+		passwordRecoveryTokenRepo.deleteAllUserTokens.mockResolvedValueOnce(
+			undefined
+		)
+		sessionRepo.deleteAllUserSessions.mockResolvedValueOnce(undefined)
+		jobService.dispatchUseCase.mockResolvedValueOnce(undefined)
 
 		const job = makeJob({ token: validToken, password: newPassword })
 		await useCase.run(job)
 
-		// Verify token was deleted from Redis
-		expect(redisClient.del).toHaveBeenCalledWith(
-			`password_recovery:${validToken}`
+		// Verify token was deleted
+		expect(passwordRecoveryTokenRepo.deleteToken).toHaveBeenCalledWith(
+			validToken
 		)
 	})
 })

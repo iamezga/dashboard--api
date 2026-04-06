@@ -9,10 +9,8 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 		findById: jest.fn()
 	}
 
-	const redisClient = {
-		get: jest.fn(),
-		setEx: jest.fn(),
-		del: jest.fn()
+	const passwordRecoveryTokenRepo = {
+		verifyAndGetUserId: jest.fn()
 	}
 
 	const logger = {
@@ -26,23 +24,18 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 			repositoryManager: {
 				get: (name: string) => {
 					if (name === 'user') return userRepo
+					if (name === 'passwordRecoveryToken') return passwordRecoveryTokenRepo
 					throw new Error(`Repo ${name} not mocked`)
 				}
 			},
-			databaseManager: {
-				get: (name: string) => {
-					if (name === 'redis') return redisClient
-					throw new Error(`Database ${name} not mocked`)
-				}
-			},
 			logger
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const makeJob = (data: any): AuthPasswordRecoveryVerifyJobInterface =>
 		({
 			getData: () => data,
 			logger
-		} as unknown as AuthPasswordRecoveryVerifyJobInterface)
+		}) as unknown as AuthPasswordRecoveryVerifyJobInterface
 
 	const validToken = 'a'.repeat(64) // 64 char hex token
 
@@ -75,19 +68,19 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 			id: 'user-123',
 			email: 'john.doe@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 		userRepo.findById.mockResolvedValue(mockUser)
 
 		const job = makeJob({ token: validToken })
 		const result = await useCase.run(job)
 
-		// Verify Redis lookup
-		expect(redisClient.get).toHaveBeenCalledWith(
-			`password_recovery:${validToken}`
+		// Verify token lookup via repository
+		expect(passwordRecoveryTokenRepo.verifyAndGetUserId).toHaveBeenCalledWith(
+			validToken
 		)
 
 		// Verify user lookup
@@ -103,7 +96,7 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordRecoveryVerifyUseCase(container)
 
-		redisClient.get.mockResolvedValue(null) // Token not found
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue(null) // Token not found
 
 		const job = makeJob({ token: validToken })
 
@@ -121,7 +114,7 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordRecoveryVerifyUseCase(container)
 
-		redisClient.get.mockResolvedValue(null) // Expired (deleted from Redis)
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue(null) // Expired
 
 		const job = makeJob({ token: validToken })
 
@@ -132,7 +125,7 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 		const container = makeContainer()
 		const useCase = new AuthPasswordRecoveryVerifyUseCase(container)
 
-		redisClient.get.mockResolvedValue('user-123')
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 		userRepo.findById.mockResolvedValue(null) // User deleted
 
 		const job = makeJob({ token: validToken })
@@ -149,11 +142,11 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: false, // Inactive
+			status: 'inactive', // Inactive
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 		userRepo.findById.mockResolvedValue(mockUser)
 
 		const job = makeJob({ token: validToken })
@@ -170,11 +163,11 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: new Date() // Deleted
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 		userRepo.findById.mockResolvedValue(mockUser)
 
 		const job = makeJob({ token: validToken })
@@ -201,11 +194,11 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 				id: 'user-123',
 				email: testCase.email,
 				name: 'Test User',
-				active: true,
+				status: 'active',
 				deletedAt: null
 			}
 
-			redisClient.get.mockResolvedValue('user-123')
+			passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 			userRepo.findById.mockResolvedValue(mockUser)
 
 			const job = makeJob({ token: validToken })
@@ -225,11 +218,11 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 			id: 'user-123',
 			email: 'user@example.com',
 			name: 'John Doe',
-			active: true,
+			status: 'active',
 			deletedAt: null
 		}
 
-		redisClient.get.mockResolvedValue('user-123')
+		passwordRecoveryTokenRepo.verifyAndGetUserId.mockResolvedValue('user-123')
 		userRepo.findById.mockResolvedValue(mockUser)
 
 		const job = makeJob({ token: validToken })
