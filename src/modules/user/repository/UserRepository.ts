@@ -18,16 +18,17 @@ import {
 
 // This type ensures that the permissions and the related permission data are loaded.
 const userAuthDetailsInclude = {
-	userPermissions: {
-		where: { deletedAt: null },
-		include: { permission: true }
-	},
-	organization: {
-		select: {
-			id: true,
-			name: true,
-			timezone: true,
-			scope: true
+	memberships: {
+		include: {
+			organization: {
+				select: {
+					id: true,
+					name: true,
+					timezone: true,
+					scope: true
+				}
+			},
+			role: true
 		}
 	}
 } as const
@@ -53,7 +54,6 @@ export class UserRepository implements UserRepositoryInterface {
 	private userMapper = new UserMapper()
 	private userAuthDetailsMapper = new UserAuthDetailsMapper()
 	private userStatusMapper = new UserStatusMapper()
-
 	private readonly logger: Logger
 
 	/**
@@ -79,39 +79,23 @@ export class UserRepository implements UserRepositoryInterface {
 	/**
 	 * Finds a user by id.
 	 * @param id - The ID of the user.
-	 * @param organizationId - The ID of the organization to scope the search.
 	 * @returns {Promise<User | null>}
 	 */
-	async findById(id: string, organizationId?: string): Promise<User | null> {
+	async findById(id: string): Promise<User | null> {
 		const prismaUser = await this.db.user.findUnique({
-			where: {
-				id,
-				deletedAt: null, // Only retrieve active users
-				organizationId: organizationId || undefined
-			}
+			where: { id, deletedAt: null }
 		})
 		return this.userMapper.mapOrNull(prismaUser)
 	}
 
 	/**
-	 * Creates a new user.
+	 * Creates a new user
+	 * Memberships should be created separately (invitation or organization creation flow).
 	 * @param data - The data for the new user.
 	 * @returns {Promise<User>} The created user entity.
 	 */
 	async create(data: UserCreateInput): Promise<User> {
-		const { organizationId, roleId, ...restData } = data
-
-		const prismaUser = await this.db.user.create({
-			data: {
-				...restData,
-				organization: {
-					connect: { id: organizationId }
-				},
-				role: {
-					connect: { id: roleId }
-				}
-			}
-		})
+		const prismaUser = await this.db.user.create({ data })
 		return this.userMapper.mapToDomain(prismaUser)
 	}
 
@@ -119,22 +103,12 @@ export class UserRepository implements UserRepositoryInterface {
 	 * Updates an existing user.
 	 * @param id - The ID of the user to update.
 	 * @param data - The partial data to update.
-	 * @param organizationId - Optional organization ID for multi-tenancy validation.
 	 * @returns {Promise<User>} The updated user entity.
 	 * @throws {Error} If the user is not found (Prisma throws PrismaClientKnownRequestError with code P2025).
 	 */
-	async update(
-		id: string,
-		data: UserUpdateInput,
-		organizationId?: string
-	): Promise<User> {
-		const whereClause: Prisma.UserWhereUniqueInput = { id }
-		if (organizationId) {
-			whereClause.organizationId = organizationId
-		}
-
+	async update(id: string, data: UserUpdateInput): Promise<User> {
 		const prismaUser = await this.db.user.update({
-			where: whereClause,
+			where: { id },
 			data: data as Prisma.UserUpdateInput
 		})
 		return this.userMapper.mapToDomain(prismaUser)
@@ -145,14 +119,9 @@ export class UserRepository implements UserRepositoryInterface {
 	 * @param id - The ID of the user to delete.
 	 * @returns {Promise<boolean>} True if the user was marked as deleted.
 	 */
-	async delete(id: string, organizationId?: string): Promise<boolean> {
-		const whereClause: Prisma.UserWhereUniqueInput = { id }
-		if (organizationId) {
-			whereClause.organizationId = organizationId
-		}
-
+	async delete(id: string): Promise<boolean> {
 		const user = await this.db.user.update({
-			where: whereClause,
+			where: { id },
 			data: { deletedAt: new Date() },
 			select: { id: true }
 		})
@@ -163,24 +132,16 @@ export class UserRepository implements UserRepositoryInterface {
 	 * Retrieves all active users (where `deletedAt` is null).
 	 * @returns {Promise<User[]>} An array of user entities.
 	 */
-	async findAll(organizationId?: string): Promise<User[]> {
-		const whereClause: Prisma.UserWhereInput = { deletedAt: null }
-		if (organizationId) {
-			whereClause.organizationId = organizationId
-		}
-
+	async findAll(): Promise<User[]> {
 		const prismaUsers = await this.db.user.findMany({
-			where: whereClause
+			where: { deletedAt: null }
 		})
 		return this.userMapper.mapArrayToDomain(prismaUsers)
 	}
 
 	/**
-	 * Finds a user by their email address within a specific organization.
-	 * Email uniqueness is enforced per organization (multi-tenancy).
-	 *
+	 * Finds a user by their email address.
 	 * @param email - The email address of the user.
-	 * @param organizationId - The organization ID to scope the search.
 	 * @returns {Promise<User | null>}
 	 */
 	async findByEmail(email: string): Promise<User | null> {
@@ -202,9 +163,7 @@ export class UserRepository implements UserRepositoryInterface {
 		email: string
 	): Promise<UserAuthDetails | null> {
 		const prismaUser = await this.db.user.findUnique({
-			where: {
-				email
-			},
+			where: { email },
 			include: userAuthDetailsInclude
 		})
 		return this.userAuthDetailsMapper.mapOrNull(prismaUser)
@@ -219,7 +178,7 @@ export class UserRepository implements UserRepositoryInterface {
 		const user = await this.db.user.findUnique({
 			where: { id },
 			select: {
-				active: true,
+				status: true,
 				lastLogin: true,
 				config: true,
 				createdAt: true,

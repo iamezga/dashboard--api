@@ -1,4 +1,4 @@
-import { OrganizationBasicInfo } from '@/modules/organization/entities/Organization'
+import { Membership } from '@/modules/membership/entities/Membership'
 import { Permission } from '@/modules/permission/entities/Permission'
 
 /**
@@ -34,13 +34,11 @@ export interface UserMergedPermissions {
  */
 export interface User {
 	id: string
-	organizationId: string
 	name: string
 	surname: string | null
 	email: string
-	active: boolean
+	status: string
 	lastLogin: Date | null
-	roleId: string
 	config: Record<string, any>
 	createdAt: Date
 	updatedAt: Date
@@ -54,8 +52,10 @@ export interface User {
  * Includes minimal organization information needed for permission validation.
  */
 export interface AuthenticatedUser extends User {
-	permissions: UserMergedPermissions
-	organization: OrganizationBasicInfo
+	memberships: Membership[]
+	membership:
+		| Pick<Membership, 'id' | 'organization' | 'role' | 'permissions'>
+		| undefined
 }
 
 /**
@@ -64,13 +64,11 @@ export interface AuthenticatedUser extends User {
  * This input includes the raw password that will be hashed by the UseCase.
  */
 export interface UserCreateInput {
-	organizationId: string
 	name: string
 	surname?: string | null
 	email: string
 	passwordHash: string
-	active?: boolean
-	roleId: string
+	status?: string
 	config?: Record<string, any>
 }
 
@@ -80,13 +78,11 @@ export interface UserCreateInput {
  * This input includes the passwordHash which has already been processed by the UseCase.
  */
 export interface UserCreateInput {
-	organizationId: string
 	name: string
 	surname?: string | null
 	email: string
 	passwordHash: string
-	active?: boolean
-	roleId: string
+	status?: string
 	config?: Record<string, any>
 }
 /**
@@ -94,20 +90,18 @@ export interface UserCreateInput {
  * @description Defines the input structure for updating an existing User.
  */
 export interface UserUpdateInput {
-	organizationId?: string | null
 	name?: string
 	surname?: string | null
 	email?: string
 	passwordHash?: string
-	active?: boolean
+	status?: string
 	lastLogin?: Date | null
-	roleId?: string | null
 	config?: Record<string, any>
 	deletedAt?: Date | null
 }
 
 export interface UserStatus {
-	active: boolean
+	status: string
 	config: Record<string, any>
 	lastLogin: Date | null
 	createdAt: Date

@@ -13,7 +13,7 @@ import {
 import { RoleRepositoryInterface } from '../entities/RoleRepositoryInterface'
 
 const roleWithPermissionsInclude = {
-	rolePermissions: {
+	permissions: {
 		where: { deletedAt: null },
 		include: {
 			permission: true
@@ -113,7 +113,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 			if (permissions.length !== permissionKeys.length) {
 				throw new Error('One or more permission keys are invalid or not found.')
 			}
-			createData.rolePermissions = {
+			createData.permissions = {
 				create: permissions.map(p => ({
 					permissionId: p.id,
 					config: {} // Default configuration for the RolePermission relationship
@@ -163,7 +163,7 @@ export class RoleRepository implements RoleRepositoryInterface {
 				)
 			}
 			// Connect permissions to the role (Prisma automatically handles creation if the relationship doesn't exist)
-			updateData.rolePermissions = {
+			updateData.permissions = {
 				upsert: permissions.map(p => ({
 					where: { roleId_permissionId: { roleId: id, permissionId: p.id } },
 					update: { deletedAt: null }, // If it existed, reactivate it

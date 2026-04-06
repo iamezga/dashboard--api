@@ -13,6 +13,7 @@ export interface Role {
 	label: string // Human-readable name for UI (e.g., 'Super Administrador')
 	description: string | null
 	active: boolean
+	scope: 'TENANT' | 'SYSTEM'
 	config: Record<string, any> // Role-specific configurations (e.g., default dashboard, theme)
 	createdAt: Date
 	updatedAt: Date

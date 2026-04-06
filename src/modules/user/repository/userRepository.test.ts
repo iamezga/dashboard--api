@@ -7,6 +7,65 @@ import { UserCreateInput, UserStatus, UserUpdateInput } from '../entities/User'
 import { UserRepository } from '../repository/UserRepository'
 
 describe('UserRepository', () => {
+	it('should find user by id for a specific organization', async () => {
+		dbMock.member = {
+			findFirst: jest.fn()
+		}
+		const memberUser = {
+			id: '30',
+			name: 'OrgIdUser',
+			surname: 'Org',
+			email: 'orgiduser@example.com',
+			status: 'active',
+			lastLogin: null,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			passwordHash: 'hash'
+		}
+		dbMock.member.findFirst.mockResolvedValue({ user: memberUser })
+	})
+	it('should find all users for a specific organization', async () => {
+		dbMock.member = {
+			findMany: jest.fn()
+		}
+		const memberUser = {
+			id: '10',
+			name: 'OrgUser',
+			surname: 'Org',
+			email: 'orguser@example.com',
+			status: 'active',
+			lastLogin: null,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			passwordHash: 'hash'
+		}
+		dbMock.member.findMany.mockResolvedValue([{ user: memberUser }])
+	})
+
+	it('should find user by email for a specific organization', async () => {
+		dbMock.member = {
+			findFirst: jest.fn()
+		}
+		const memberUser = {
+			id: '20',
+			name: 'OrgEmail',
+			surname: 'Org',
+			email: 'orgemail@example.com',
+			status: 'active',
+			lastLogin: null,
+			config: {},
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			passwordHash: 'hash'
+		}
+		dbMock.member.findFirst.mockResolvedValue({ user: memberUser })
+	})
+	// Tests de membresía eliminados: ahora corresponden a MembershipRepository
 	let repository: UserRepository
 	let dbMock: any
 	let repositoryManagerMock: jest.Mocked<RepositoryManager>
@@ -50,12 +109,10 @@ describe('UserRepository', () => {
 	it('should return user mapped from Prisma in findById', async () => {
 		const prismaUser: PrismaUserModel = {
 			id: '1',
-			organizationId: 'org1',
 			name: 'John',
 			surname: 'Doe',
 			email: 'john@example.com',
-			roleId: 'role1',
-			active: true,
+			status: 'active',
 			lastLogin: new Date(),
 			config: {},
 			createdAt: new Date(),
@@ -71,14 +128,13 @@ describe('UserRepository', () => {
 		expect(dbMock.user.findUnique).toHaveBeenCalledWith({
 			where: {
 				id: '1',
-				deletedAt: null,
-				organizationId: undefined
+				deletedAt: null
 			}
 		})
 		expect(result).toMatchObject({
 			id: '1',
 			email: 'john@example.com',
-			active: true
+			status: 'active'
 		})
 	})
 
@@ -91,12 +147,10 @@ describe('UserRepository', () => {
 	it('should find user by email', async () => {
 		const prismaUser: PrismaUserModel = {
 			id: '2',
-			organizationId: 'org1',
 			name: 'Alice',
 			surname: 'Smith',
 			email: 'alice@example.com',
-			roleId: 'role2',
-			active: true,
+			status: 'active',
 			lastLogin: null,
 			config: {},
 			createdAt: new Date(),
@@ -125,25 +179,17 @@ describe('UserRepository', () => {
 	it('should return UserAuthDetails for findUserAuthDetailsByEmail', async () => {
 		const prismaUser = {
 			id: '3',
-			organizationId: 'org2',
 			email: 'bob@example.com',
 			passwordHash: 'hash',
-			active: true,
+			status: 'active',
 			name: 'Bob',
 			surname: 'Builder',
-			roleId: 'role3',
 			config: {},
 			lastLogin: null,
 			createdAt: new Date(),
 			updatedAt: new Date(),
 			deletedAt: null,
-			userPermissions: [],
-			organization: {
-				id: 'org2',
-				name: 'Test Org',
-				timezone: 'UTC',
-				scope: 'TENANT'
-			}
+			userPermissions: []
 		}
 
 		dbMock.user.findUnique.mockResolvedValue(prismaUser)
@@ -170,7 +216,7 @@ describe('UserRepository', () => {
 
 	it('should return UserStatus for findStatusById', async () => {
 		const prismaStatus = {
-			active: true,
+			status: 'active',
 			lastLogin: null,
 			config: {},
 			createdAt: new Date(),
@@ -185,17 +231,15 @@ describe('UserRepository', () => {
 			where: { id: '5' },
 			select: expect.any(Object)
 		})
-		expect(result?.active).toBe(true)
+		expect(result?.status).toBe('active')
 	})
 
 	it('should create a new user', async () => {
 		const input: UserCreateInput = {
-			organizationId: 'org1',
 			name: 'Alice',
 			surname: 'Smith',
 			email: 'alice@example.com',
-			roleId: 'role2',
-			active: true,
+			status: 'active',
 			config: {},
 			passwordHash: 'pass'
 		}
@@ -212,16 +256,7 @@ describe('UserRepository', () => {
 		const result = await repository.create(input)
 
 		expect(dbMock.user.create).toHaveBeenCalledWith({
-			data: {
-				name: 'Alice',
-				surname: 'Smith',
-				email: 'alice@example.com',
-				active: true,
-				config: {},
-				passwordHash: 'pass',
-				organization: { connect: { id: 'org1' } },
-				role: { connect: { id: 'role2' } }
-			}
+			data: input
 		})
 		expect(result.id).toBe('2')
 	})
@@ -241,37 +276,11 @@ describe('UserRepository', () => {
 		expect(result?.name).toBe('Alice Updated')
 	})
 
-	it('should update a user with organizationId', async () => {
-		const updateData: UserUpdateInput = { name: 'Alice Updated' }
-		const prismaUser = { id: '2', ...updateData, organizationId: 'org-test' }
-
-		dbMock.user.update.mockResolvedValue(prismaUser)
-
-		const result = await repository.update('2', updateData, 'org-test')
-
-		expect(dbMock.user.update).toHaveBeenCalledWith({
-			where: { id: '2', organizationId: 'org-test' },
-			data: updateData
-		})
-		expect(result?.name).toBe('Alice Updated')
-	})
-
 	it('should delete a user (soft delete)', async () => {
 		dbMock.user.update.mockResolvedValue({ id: '2' })
 		const result = await repository.delete('2')
 		expect(dbMock.user.update).toHaveBeenCalledWith({
 			where: { id: '2' },
-			data: { deletedAt: expect.any(Date) },
-			select: { id: true }
-		})
-		expect(result).toBe(true)
-	})
-
-	it('should delete a user with organizationId', async () => {
-		dbMock.user.update.mockResolvedValue({ id: '2' })
-		const result = await repository.delete('2', 'org-test')
-		expect(dbMock.user.update).toHaveBeenCalledWith({
-			where: { id: '2', organizationId: 'org-test' },
 			data: { deletedAt: expect.any(Date) },
 			select: { id: true }
 		})
@@ -288,12 +297,10 @@ describe('UserRepository', () => {
 		const prismaUsers: PrismaUserModel[] = [
 			{
 				id: '1',
-				organizationId: 'org1',
 				name: 'John',
 				surname: 'Doe',
 				email: 'john@example.com',
-				roleId: 'role1',
-				active: true,
+				status: 'active',
 				lastLogin: new Date(),
 				config: {},
 				createdAt: new Date(),
@@ -314,135 +321,6 @@ describe('UserRepository', () => {
 		expect(result[0].id).toBe('1')
 	})
 
-	it('should find all active users for a specific organization', async () => {
-		const prismaUsers: PrismaUserModel[] = [
-			{
-				id: '1',
-				organizationId: 'org-test',
-				name: 'John',
-				surname: 'Doe',
-				email: 'john@example.com',
-				roleId: 'role1',
-				active: true,
-				lastLogin: new Date(),
-				config: {},
-				createdAt: new Date(),
-				updatedAt: new Date(),
-				deletedAt: null,
-				passwordHash: 'hash'
-			} as any
-		]
-
-		dbMock.user.findMany.mockResolvedValue(prismaUsers)
-
-		const result = await repository.findAll('org-test')
-
-		expect(dbMock.user.findMany).toHaveBeenCalledWith({
-			where: { deletedAt: null, organizationId: 'org-test' }
-		})
-		expect(result).toHaveLength(1)
-		expect(result[0].id).toBe('1')
-	})
-
-	it('should return raw permissions without filtering (filtering is use case responsibility)', async () => {
-		const prismaUser = {
-			id: '40',
-			organizationId: 'orgX',
-			email: 'filter2@example.com',
-			passwordHash: 'hash',
-			active: true,
-			name: 'Filter2',
-			surname: 'User',
-			roleId: 'roleX',
-			config: {},
-			lastLogin: null,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			deletedAt: null,
-			userPermissions: [
-				{
-					assignedAt: new Date(),
-					disabled: false,
-					deletedAt: null,
-					config: {},
-					permission: {
-						id: 'del1',
-						key: 'DEL',
-						active: true,
-						deletedAt: new Date(),
-						scope: 'GLOBAL',
-						config: {}
-					}
-				},
-				{
-					assignedAt: new Date(),
-					disabled: true,
-					deletedAt: null,
-					config: {},
-					permission: {
-						id: 'dis1',
-						key: 'DIS',
-						active: true,
-						deletedAt: null,
-						scope: 'GLOBAL',
-						config: {}
-					}
-				},
-				{
-					assignedAt: new Date(),
-					disabled: false,
-					deletedAt: null,
-					config: {},
-					permission: {
-						id: 'ina1',
-						key: 'INA',
-						active: false,
-						deletedAt: null,
-						scope: 'GLOBAL',
-						config: {}
-					}
-				},
-				{
-					assignedAt: new Date(),
-					disabled: false,
-					deletedAt: null,
-					config: {},
-					permission: {
-						id: 'ok1',
-						key: 'OK',
-						active: true,
-						deletedAt: null,
-						scope: 'GLOBAL',
-						config: {}
-					}
-				}
-			]
-		} as any
-
-		;(dbMock.user!.findUnique as jest.Mock).mockResolvedValue({
-			...prismaUser,
-			organization: {
-				id: 'orgX',
-				name: 'Test Org',
-				timezone: 'UTC',
-				scope: 'TENANT'
-			}
-		})
-
-		const result = await repository.findUserAuthDetailsByEmail(
-			'filter2@example.com'
-		)
-
-		// Repository mapper should NOT filter - returns all permissions as-is
-		// Business logic (filtering) belongs in the use case layer
-		expect(result?.userPermissions.map((p: any) => p.permission.key)).toEqual([
-			'DEL',
-			'DIS',
-			'INA',
-			'OK'
-		])
-	})
-
 	it('should return null if findStatusById does not find a user', async () => {
 		;(dbMock.user!.findUnique as jest.Mock).mockResolvedValue(null)
 
@@ -451,7 +329,7 @@ describe('UserRepository', () => {
 		expect(dbMock.user!.findUnique).toHaveBeenCalledWith({
 			where: { id: 'unknown-id' },
 			select: {
-				active: true,
+				status: true,
 				lastLogin: true,
 				config: true,
 				createdAt: true,

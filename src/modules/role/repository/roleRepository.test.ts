@@ -118,7 +118,7 @@ describe('RoleRepository', () => {
 			updatedAt: new Date(),
 			deletedAt: null,
 			scope: 'TENANT',
-			rolePermissions: [
+			permissions: [
 				{
 					permission: {
 						id: 'p1',
@@ -161,7 +161,7 @@ describe('RoleRepository', () => {
 			updatedAt: new Date(),
 			deletedAt: null,
 			scope: 'TENANT',
-			rolePermissions: [
+			permissions: [
 				{
 					permission: {
 						id: 'p1',
@@ -500,7 +500,7 @@ describe('RoleRepository', () => {
 			data: {
 				label: 'Updated Role',
 				organization: undefined,
-				rolePermissions: {
+				permissions: {
 					upsert: [
 						{
 							where: {
