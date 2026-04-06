@@ -1,6 +1,13 @@
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
-import { BadRequestError, HttpStatusCode } from '../../errors'
+import { getContainer } from '../../core/dependencyContainer'
+import {
+	BadRequestError,
+	ForbiddenError,
+	HttpStatusCode,
+	TooManyRequestsError,
+	UnauthorizedError
+} from '../../errors'
 import { Job } from '../../lib/Job'
 import { config } from '../../services/config'
 import logger from '../../services/logger'
@@ -51,14 +58,26 @@ jest.mock('@sentry/node', () => ({
 	withScope: jest.fn(),
 	captureException: jest.fn()
 }))
+jest.mock('@/core/dependencyContainer', () => ({
+	getContainer: jest.fn()
+}))
 
 // ----------------- Tests -----------------
 describe('errorMiddleware', () => {
 	let mockRes: Response
+	let mockAuditRecord: jest.Mock
 
 	beforeEach(() => {
 		mockRes = createMockResponse(mockJob)
 		jest.clearAllMocks()
+		mockAuditRecord = jest.fn().mockResolvedValue(undefined)
+		;(getContainer as jest.Mock).mockReturnValue({
+			services: {
+				auditService: {
+					record: mockAuditRecord
+				}
+			}
+		})
 		;(config.get as jest.Mock) = jest.fn().mockImplementation((key: string) => {
 			if (key === 'env') return 'development'
 			if (key === 'sentry.dsn') return 'http://mock-sentry-dsn.com'
@@ -159,6 +178,22 @@ describe('errorMiddleware', () => {
 			}),
 			'An unexpected error has occurred.'
 		)
+		expect(mockAuditRecord).toHaveBeenCalledWith(
+			'endpoint.execution.failed',
+			mockJob,
+			'endpoint',
+			expect.any(String),
+			expect.objectContaining({
+				statusCode: HttpStatusCode.INTERNAL_SERVER_ERROR,
+				errorId: 'mock-error-id'
+			}),
+			undefined,
+			expect.objectContaining({
+				category: 'security',
+				severity: 'critical',
+				result: expect.objectContaining({ status: 'failed' })
+			})
+		)
 	})
 
 	it('should not assign stack in production environment', async () => {
@@ -228,6 +263,72 @@ describe('errorMiddleware', () => {
 		expect(mockJobLogger.error).toHaveBeenCalledWith(
 			expect.objectContaining({ errorId: 'mock-error-id' }),
 			expect.any(String)
+		)
+	})
+
+	it('should emit unauthorized access security audit for UnauthorizedError', async () => {
+		const error = new UnauthorizedError('Auth failed')
+
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+
+		expect(mockAuditRecord).toHaveBeenCalledWith(
+			'security.unauthorized_access',
+			mockJob,
+			'endpoint',
+			expect.any(String),
+			expect.objectContaining({
+				statusCode: HttpStatusCode.UNAUTHORIZED
+			}),
+			undefined,
+			expect.objectContaining({
+				category: 'security',
+				severity: 'warning',
+				result: expect.objectContaining({ status: 'denied' })
+			})
+		)
+	})
+
+	it('should emit forbidden access security audit for ForbiddenError', async () => {
+		const error = new ForbiddenError('Forbidden')
+
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+
+		expect(mockAuditRecord).toHaveBeenCalledWith(
+			'security.forbidden_access',
+			mockJob,
+			'endpoint',
+			expect.any(String),
+			expect.objectContaining({
+				statusCode: HttpStatusCode.FORBIDDEN
+			}),
+			undefined,
+			expect.objectContaining({
+				category: 'security',
+				severity: 'warning',
+				result: expect.objectContaining({ status: 'denied' })
+			})
+		)
+	})
+
+	it('should emit rate-limit security audit for TooManyRequestsError', async () => {
+		const error = new TooManyRequestsError('Too many requests')
+
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+
+		expect(mockAuditRecord).toHaveBeenCalledWith(
+			'security.rate_limit.triggered',
+			mockJob,
+			'endpoint',
+			expect.any(String),
+			expect.objectContaining({
+				statusCode: HttpStatusCode.TOO_MANY_REQUESTS
+			}),
+			undefined,
+			expect.objectContaining({
+				category: 'security',
+				severity: 'warning',
+				result: expect.objectContaining({ status: 'denied' })
+			})
 		)
 	})
 })

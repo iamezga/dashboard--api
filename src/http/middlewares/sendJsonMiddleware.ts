@@ -6,13 +6,16 @@ import { NextFunction, Request, Response } from 'express'
 export const sendJsonMiddleware = (
 	_req: Request,
 	res: Response,
-	_next: NextFunction
+	next: NextFunction
 ) => {
 	const { job, useCaseResponse } = res.locals
 
-	return res.status(200).json({
-		jobId: job.getId(),
-		data: useCaseResponse!.data,
-		metadata: useCaseResponse!.metadata
-	})
+	if (useCaseResponse) {
+		return res.status(200).json({
+			jobId: job.getId(),
+			data: useCaseResponse!.data,
+			metadata: useCaseResponse!.metadata
+		})
+	}
+	next()
 }

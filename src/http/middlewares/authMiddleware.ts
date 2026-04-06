@@ -2,7 +2,10 @@ import { getContainer } from '@/core/dependencyContainer'
 import { UnauthorizedError } from '@/errors'
 import { DecodedUserToken } from '@/modules/auth/entities/AuthDataTypes'
 import { SessionRepositoryInterface } from '@/modules/session'
-import { SessionData, SessionUser } from '@/modules/session/entities/Session'
+import {
+	SessionContext,
+	SessionMetadata
+} from '@/modules/session/entities/Session'
 import { UserRepositoryInterface } from '@/modules/user'
 import { AuthenticatedUser, UserStatus } from '@/modules/user/entities/User'
 import { NextFunction, Request, Response } from 'express'
@@ -49,7 +52,7 @@ export const authMiddleware = async (
 		) as DecodedUserToken
 
 		// Retrieve session metadata from Redis
-		const sessionMetadata: SessionData | null =
+		const sessionMetadata: SessionMetadata | null =
 			await sessionRepository.getSessionMetadata(sessionId)
 
 		if (!sessionMetadata) {
@@ -72,26 +75,41 @@ export const authMiddleware = async (
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
-		// Retrieve cached user session data (pre-filtered permissions from login)
-		// This avoids expensive database queries on every request
-		const sessionUser: SessionUser | null =
-			await sessionRepository.getUserData(userId)
-		if (!sessionUser) {
-			await sessionRepository.deleteAllUserSessions(userId)
+		const sessionContext: SessionContext | null =
+			await sessionRepository.getSessionContext(sessionId)
+		if (!sessionContext) {
+			await sessionRepository.deleteSession(sessionId)
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		// Verify user is still active (lightweight query, only status fields)
 		const userStatus: UserStatus | null =
 			await userRepository.findStatusById(userId)
-		if (!userStatus || !userStatus.active || userStatus.deletedAt) {
+		if (!userStatus || userStatus.status !== 'active' || userStatus.deletedAt) {
 			await sessionRepository.deleteAllUserSessions(userId)
 			throw new UnauthorizedError('Authentication failed.')
 		}
 
 		const authenticatedUser: AuthenticatedUser = {
-			...sessionUser,
-			...userStatus
+			id: sessionContext.user.id,
+			email: sessionContext.user.email,
+			name: sessionContext.user.name,
+			surname: sessionContext.user.surname,
+			status: userStatus.status,
+			config: userStatus.config,
+			lastLogin: userStatus.lastLogin,
+			createdAt: userStatus.createdAt,
+			updatedAt: userStatus.updatedAt,
+			deletedAt: userStatus.deletedAt,
+			memberships: sessionContext.memberships,
+			membership: sessionContext.activeMembership
+				? {
+						id: sessionContext.activeMembership.id,
+						organization: sessionContext.activeMembership.organization,
+						role: sessionContext.activeMembership.role,
+						permissions: sessionContext.activeMembership?.permissions ?? {}
+					}
+				: undefined
 		}
 
 		// Set authenticated user in the job

@@ -1,3 +1,4 @@
+import { getContainer } from '@/core/dependencyContainer'
 import { useCaseFactory } from '@/core/useCaseFactory'
 import { UseCaseKeys } from '@/modules' // Objeto que contiene las clases de los casos de uso
 import { NextFunction, Request, RequestHandler, Response } from 'express'
@@ -27,6 +28,27 @@ export const useCaseMiddleware = (useCaseName: UseCaseKeys): RequestHandler => {
 
 			const useCase = useCaseFactory(useCaseName)
 			const useCaseResponse = await useCase.run(job)
+
+			await getContainer().services.auditService.record(
+				`endpoint.${String(useCaseName)}.success`,
+				job,
+				'useCase',
+				String(useCaseName),
+				{
+					method: job.getMeta()?.method,
+					url: job.getMeta()?.url,
+					statusCode: 200
+				},
+				undefined,
+				{
+					category: 'operational',
+					severity: 'info',
+					result: {
+						status: 'success'
+					},
+					tags: ['http', 'endpoint']
+				}
+			)
 
 			res.locals.useCaseResponse = useCaseResponse
 

@@ -141,6 +141,13 @@ export const rateLimiterMiddleware = (
 				const identifier = user ? user.id : jobMeta?.ip || 'unknown'
 				const retryAfterSeconds = Math.ceil(error.msBeforeNext / 1000)
 
+				job.updateMeta({
+					rateLimitRetryAfterSeconds: retryAfterSeconds,
+					rateLimitIdentifier: identifier,
+					rateLimitPoints: points,
+					rateLimitDurationSeconds: duration
+				})
+
 				logger.warn(
 					`Rate limit exceeded for ${user ? 'user' : 'IP'}: ${identifier}. ` +
 						`Retry after ${retryAfterSeconds}s (${points} requests per ${duration}s)`

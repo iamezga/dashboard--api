@@ -28,8 +28,9 @@ export const authLoggerMiddleware = (
 		// This extends the previous logger with new properties.
 		const jobLoggerWithAuth = (job.logger as Logger).child({
 			userId: user.id,
-			organizationId: user.organizationId,
-			userRole: user.roleId
+			membershipId: user.membership?.id,
+			organizationId: user.membership?.organization.id,
+			userRole: user.membership?.role.id
 		})
 
 		// Replace the job's logger with the new, richer logger.

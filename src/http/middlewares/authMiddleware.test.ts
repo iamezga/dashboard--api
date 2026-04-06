@@ -25,9 +25,9 @@ describe('authMiddleware', () => {
 
 		sessionRepo = {
 			getSessionMetadata: jest.fn(),
+			getSessionContext: jest.fn(),
 			deleteSession: jest.fn(),
 			deleteAllUserSessions: jest.fn(),
-			getUserData: jest.fn(),
 			updateLastActivity: jest.fn()
 		}
 
@@ -89,8 +89,26 @@ describe('authMiddleware', () => {
 			sessionStartTime: Date.now(),
 			maxSessionTime: 60 * 60
 		})
-		sessionRepo.getUserData.mockResolvedValue({ id: 'u1', name: 'FromHeader' })
-		userRepo.findStatusById.mockResolvedValue({ active: true, deletedAt: null })
+		sessionRepo.getSessionContext.mockResolvedValue({
+			user: {
+				id: 'u1',
+				email: 'user@example.com',
+				name: 'FromHeader',
+				surname: 'Test',
+				status: 'active',
+				config: {}
+			},
+			memberships: [],
+			activeMembership: null
+		})
+		userRepo.findStatusById.mockResolvedValue({
+			status: 'active',
+			config: {},
+			lastLogin: null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null
+		})
 		sessionRepo.updateLastActivity.mockResolvedValue(true)
 
 		await authMiddleware(req as Request, res as Response, next)
@@ -130,11 +148,11 @@ describe('authMiddleware', () => {
 			sessionStartTime: Date.now(),
 			maxSessionTime: 60
 		})
-		sessionRepo.getUserData.mockResolvedValue(null)
+		sessionRepo.getSessionContext.mockResolvedValue(null)
 
 		await authMiddleware(req as Request, res as Response, next)
 
-		expect(sessionRepo.deleteAllUserSessions).toHaveBeenCalledWith('u1')
+		expect(sessionRepo.deleteSession).toHaveBeenCalledWith('s1')
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
 
@@ -147,7 +165,18 @@ describe('authMiddleware', () => {
 			sessionStartTime: Date.now(),
 			maxSessionTime: 60
 		})
-		sessionRepo.getUserData.mockResolvedValue({ id: 'u1' })
+		sessionRepo.getSessionContext.mockResolvedValue({
+			user: {
+				id: 'u1',
+				email: 'user@example.com',
+				name: 'Name',
+				surname: 'Test',
+				status: 'active',
+				config: {}
+			},
+			memberships: [],
+			activeMembership: null
+		})
 		userRepo.findStatusById.mockResolvedValue(null)
 
 		await authMiddleware(req as Request, res as Response, next)
@@ -165,12 +194,24 @@ describe('authMiddleware', () => {
 			sessionStartTime: Date.now(),
 			maxSessionTime: 60 * 60
 		})
-		sessionRepo.getUserData.mockResolvedValue({
-			id: 'u1',
-			name: 'Name'
+		sessionRepo.getSessionContext.mockResolvedValue({
+			user: {
+				id: 'u1',
+				email: 'user@example.com',
+				name: 'Name',
+				surname: 'Test',
+				status: 'active',
+				config: {}
+			},
+			memberships: [],
+			activeMembership: null
 		})
 		userRepo.findStatusById.mockResolvedValue({
-			active: true,
+			status: 'active',
+			config: {},
+			lastLogin: null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
 			deletedAt: null
 		})
 		sessionRepo.updateLastActivity.mockResolvedValue(true)
@@ -178,7 +219,7 @@ describe('authMiddleware', () => {
 		await authMiddleware(req as Request, res as Response, next)
 
 		expect(jobMock.setUser).toHaveBeenCalledWith(
-			expect.objectContaining({ id: 'u1', name: 'Name', active: true })
+			expect.objectContaining({ id: 'u1', name: 'Name', status: 'active' })
 		)
 		expect(sessionRepo.updateLastActivity).toHaveBeenCalledWith('s1', 60 * 60)
 		expect(next).toHaveBeenCalledWith()

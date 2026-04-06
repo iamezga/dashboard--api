@@ -54,8 +54,11 @@ describe('authLoggerMiddleware', () => {
 		)
 	})
 
-	it('should enrich logger with user details and call next()', () => {
-		const user = { id: 'u1', organizationId: 'org1', roleId: 'role1' }
+	it('should enrich logger with user details and call next() with a selected membership', () => {
+		const user = {
+			id: 'u1',
+			membership: { organization: { id: 'org1' }, role: { id: 'role1' } }
+		}
 		;(job.getUser as jest.Mock).mockReturnValue(user)
 
 		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
@@ -64,6 +67,20 @@ describe('authLoggerMiddleware', () => {
 			userId: 'u1',
 			organizationId: 'org1',
 			userRole: 'role1'
+		})
+		expect(job.logger).toHaveProperty('info')
+		expect(next).toHaveBeenCalledWith()
+	})
+	it('should enrich logger with user details and call next() without a selected membership', () => {
+		const user = { id: 'u1', membership: null }
+		;(job.getUser as jest.Mock).mockReturnValue(user)
+
+		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
+
+		expect(mockLogger.child).toHaveBeenCalledWith({
+			userId: 'u1',
+			organizationId: undefined,
+			userRole: undefined
 		})
 		expect(job.logger).toHaveProperty('info')
 		expect(next).toHaveBeenCalledWith()

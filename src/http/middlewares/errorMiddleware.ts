@@ -1,3 +1,4 @@
+import { getContainer } from '@/core/dependencyContainer'
 import {
 	BadRequestError,
 	ForbiddenError,
@@ -106,6 +107,56 @@ export const errorMiddleware = async (
 		logInstance.error(logData, err.message || message)
 	} else {
 		logInstance.warn(logData, message)
+	}
+
+	if (job) {
+		let action: `${string}.${string}` | undefined
+		let resultStatus: 'denied' | 'failed' | undefined
+		let severity: 'warning' | 'critical' = 'warning'
+
+		if (err instanceof ForbiddenError) {
+			action = 'security.forbidden_access'
+			resultStatus = 'denied'
+		} else if (err instanceof UnauthorizedError) {
+			action = 'security.unauthorized_access'
+			resultStatus = 'denied'
+		} else if (err instanceof TooManyRequestsError) {
+			action = 'security.rate_limit.triggered'
+			resultStatus = 'denied'
+		} else if (statusCode >= 500) {
+			action = 'endpoint.execution.failed'
+			resultStatus = 'failed'
+			severity = 'critical'
+		}
+
+		if (action && resultStatus) {
+			await getContainer().services.auditService.record(
+				action,
+				job,
+				'endpoint',
+				job.getMeta()?.url || 'unknown',
+				{
+					statusCode,
+					errorId,
+					errorName,
+					method: job.getMeta()?.method,
+					ip: job.getMeta()?.ip,
+					rateLimitRetryAfterSeconds: job.getMeta()?.rateLimitRetryAfterSeconds,
+					rateLimitIdentifier: job.getMeta()?.rateLimitIdentifier
+				},
+				undefined,
+				{
+					category: 'security',
+					severity,
+					result: {
+						status: resultStatus,
+						errorCode: errorName,
+						message
+					},
+					tags: ['http', 'error-middleware']
+				}
+			)
+		}
 	}
 
 	// Update Job status
