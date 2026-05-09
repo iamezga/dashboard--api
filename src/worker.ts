@@ -74,7 +74,11 @@ async function main() {
 								// Use the propagated correlation ID
 								id: jobData.id || job.id || 'unknown-job-id',
 								attempts: job.attemptsMade,
-								meta: jobData.meta as JobMetaInterface,
+								meta: {
+									...(jobData.meta as JobMetaInterface),
+									executionSource: 'worker',
+									initiatedBy: jobData.user ? 'user' : 'system'
+								},
 								user: jobData.user,
 								logger: logger.child({ jobId: job.id, useCase: useCaseName })
 							})

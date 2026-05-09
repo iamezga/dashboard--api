@@ -1,5 +1,7 @@
 import { MongoAuditRepository, PostgresAuditRepository } from './audit'
 import { AuditRepositoryInterface } from './audit/entities/AuditRepositoryInterface'
+import { PasswordRecoveryTokenRepository } from './auth/repository/PasswordRecoveryTokenRepository'
+import { MembershipRepository } from './membership'
 import { OrganizationRepository } from './organization'
 import { PermissionRepository } from './permission'
 import { RoleRepository } from './role'
@@ -13,7 +15,9 @@ export const repositories = {
 	PermissionRepository,
 	RoleRepository,
 	MongoAuditRepository,
-	PostgresAuditRepository
+	PostgresAuditRepository,
+	MembershipRepository,
+	PasswordRecoveryTokenRepository
 }
 
 /**

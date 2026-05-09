@@ -13,11 +13,5 @@ router.post(
 	permissionMiddleware('UserCreateUseCase'),
 	useCaseMiddleware('UserCreateUseCase')
 )
-router.get(
-	'/:id',
-	requestPayloadMiddleware(),
-	validationMiddleware('userGetUseCaseRules'),
-	useCaseMiddleware('UserGetUseCase')
-)
 
 export { router as userPrivateRoutes }

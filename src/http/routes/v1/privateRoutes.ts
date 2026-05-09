@@ -3,6 +3,7 @@ import { authMiddleware } from '@/http/middlewares/authMiddleware'
 import { rateLimiterMiddleware } from '@/http/middlewares/rateLimiterMiddleware'
 import { Router } from 'express'
 import { authPrivateRoutes } from './auth'
+import { membershipPrivateRoutes } from './membership'
 import { userPrivateRoutes } from './user'
 
 const router = Router()
@@ -23,5 +24,6 @@ router.use(
 
 router.use('/auth', authPrivateRoutes)
 router.use('/user', userPrivateRoutes)
+router.use('/membership', membershipPrivateRoutes)
 
 export { router as privateRoutes }

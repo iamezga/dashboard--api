@@ -1,4 +1,3 @@
-import { BadRequestError } from '@/errors'
 import { UseCase } from '@/lib/UseCase'
 import { DependencyContainer } from '@/types/core/dependencyContainer'
 import { JobInterface } from '@/types/job/JobInterface'
@@ -45,51 +44,17 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 	public async run(
 		job: UserCreateJobInterface
 	): Promise<UseCaseResponseInterface<User>> {
-		const { email, password, roleId, organizationId, ...rest } = job.getData()
+		const { email, password, ...rest } = job.getData()
 
 		// The context for validation is the organization of the user being created,
 		// or the organization of the user making the request if not specified.
-		const validationOrgId = organizationId || job.getUser().organizationId
 
 		// Check if email is already in use within the organization
 		const existingUser = await this.container.repositoryManager
 			.get('user')
 			.findByEmail(email)
-		if (existingUser?.organizationId === validationOrgId) {
-			throw new BadRequestError('Email already in use', [
-				{
-					field: 'email',
-					message: 'This email is already registered in this organization.',
-					type: 'emailExists'
-				}
-			])
-		}
-
-		// Validate if the roleId exists
-		const role = await this.container.repositoryManager
-			.get('role')
-			.findById(roleId, validationOrgId)
-		if (!role || !role.active) {
-			throw new BadRequestError('Invalid Role', [
-				{
-					field: 'roleId',
-					message: 'The provided role ID is invalid or inactive.',
-					type: 'invalidRole'
-				}
-			])
-		}
-
-		const organization = await this.container.repositoryManager
-			.get('organization')
-			.findById(validationOrgId)
-		if (!organization) {
-			throw new BadRequestError('Invalid Organization', [
-				{
-					field: 'organizationId',
-					message: 'The provided organization ID is invalid or inactive.',
-					type: 'invalidOrganization'
-				}
-			])
+		if (!existingUser) {
+			// to throw a validation error with details about the field and issue
 		}
 
 		// Hash password
@@ -100,12 +65,9 @@ export class UserCreateUseCase extends UseCase<UserCreateJobInterface> {
 			...rest,
 			email,
 			passwordHash,
-			roleId,
-			organizationId: validationOrgId,
 			active: rest.active ?? true, // Default to active if not provided
 			config: rest.config ?? {} // Default to empty object if not provided
 		}
-
 		//  Create user
 		const createdUser = await this.container.repositoryManager
 			.get('user')
