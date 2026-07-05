@@ -1,3 +1,4 @@
+import { Mock, vi } from 'vitest'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { UserSendWelcomeEmailUseCase } from './UserSendWelcomeEmailUseCase'
 
@@ -10,18 +11,18 @@ describe('UserSendWelcomeEmailUseCase', () => {
 
 	beforeEach(() => {
 		mockLogger = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		}
 
 		mockEmailService = {
-			send: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined)
 		}
 
 		mockJob = {
-			getData: jest.fn(),
+			getData: vi.fn(),
 			logger: mockLogger,
 			context: {
 				requestId: 'test-request-id',
@@ -32,7 +33,7 @@ describe('UserSendWelcomeEmailUseCase', () => {
 
 		container = {
 			config: {
-				get: jest.fn().mockReturnValue('MyApp')
+				get: vi.fn().mockReturnValue('MyApp')
 			} as any,
 			services: {
 				emailService: mockEmailService
@@ -103,7 +104,7 @@ describe('UserSendWelcomeEmailUseCase', () => {
 		})
 
 		it('should use appName from config', async () => {
-			;(container.config.get as jest.Mock).mockReturnValue('CustomAppName')
+			;(container.config.get as Mock).mockReturnValue('CustomAppName')
 			mockJob.getData.mockReturnValue({
 				email: 'user@example.com',
 				name: 'User'

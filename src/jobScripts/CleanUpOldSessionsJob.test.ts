@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { DependencyContainer } from '../types/core/dependencyContainer'
 import {
 	JobScriptContext,
@@ -12,22 +13,22 @@ describe('CleanUpOldSessionsJob', () => {
 	let context: JobScriptContext
 
 	beforeEach(() => {
-		jest.clearAllMocks()
-		jest.useFakeTimers()
+		vi.clearAllMocks()
+		vi.useFakeTimers()
 
 		mockLogger = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		}
 
 		mockContainer = {
 			repositoryManager: {
-				get: jest.fn()
+				get: vi.fn()
 			},
 			libs: {
-				dayjs: jest.fn().mockReturnValue('2026-01-04T12:00:00Z'),
+				dayjs: vi.fn().mockReturnValue('2026-01-04T12:00:00Z'),
 				argon2: {} as any,
 				jwt: {} as any,
 				ms: {} as any
@@ -45,7 +46,7 @@ describe('CleanUpOldSessionsJob', () => {
 	})
 
 	afterEach(() => {
-		jest.useRealTimers()
+		vi.useRealTimers()
 	})
 
 	describe('run', () => {
@@ -53,7 +54,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = {}
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			const result = await promise
 
 			expect(mockLogger.info).toHaveBeenCalledWith(
@@ -73,7 +74,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = { olderThanDays: 60 }
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			await promise
 
 			expect(mockLogger.info).toHaveBeenCalledWith(
@@ -85,7 +86,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = { olderThanDays: 90 }
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			await promise
 
 			expect(mockLogger.info).toHaveBeenCalledWith(
@@ -97,7 +98,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = {}
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			const result = await promise
 
 			expect(result.success).toBe(true)
@@ -110,7 +111,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const startTime = Date.now()
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			await promise
 
 			const endTime = Date.now()
@@ -121,7 +122,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = { olderThanDays: 15 }
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			await promise
 
 			expect(mockLogger.info).toHaveBeenCalledTimes(2)
@@ -139,7 +140,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = {}
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			const result = await promise
 
 			expect(mockContainer.libs.dayjs).toHaveBeenCalled()
@@ -150,7 +151,7 @@ describe('CleanUpOldSessionsJob', () => {
 			const payload: JobScriptPayload = { olderThanDays: 0 }
 
 			const promise = jobScript.run(payload, context)
-			jest.advanceTimersByTime(2000)
+			vi.advanceTimersByTime(2000)
 			await promise
 
 			expect(mockLogger.info).toHaveBeenCalledWith(

@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { NextFunction, Request, Response } from 'express'
 import { UnauthorizedError } from '../../errors'
 import { JobInterface } from '../../types/job/JobInterface'
@@ -6,7 +7,7 @@ import { requestPayloadMiddleware } from './requestPayloadMiddleware'
 describe('requestPayloadMiddleware', () => {
 	let req: Partial<Request>
 	let res: Partial<Response>
-	let next: jest.Mock
+	let next: ReturnType<typeof vi.fn>
 	let job: any
 
 	beforeEach(() => {
@@ -17,11 +18,11 @@ describe('requestPayloadMiddleware', () => {
 			files: { file: 'fileData' }
 		} as any
 		job = {
-			setData: jest.fn(),
-			setRecaptchaResponse: jest.fn()
+			setData: vi.fn(),
+			setRecaptchaResponse: vi.fn()
 		} as unknown as JobInterface
 		res = { locals: { job } }
-		next = jest.fn()
+		next = vi.fn()
 	})
 
 	it('should consolidate params, query, body, and files into job.setData', () => {

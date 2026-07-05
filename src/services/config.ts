@@ -135,6 +135,11 @@ export const config = convict({
 			env: 'SUPPORT_EMAIL'
 		},
 		nodemailer: {
+			runEmailIntegrationTests: {
+				format: Boolean,
+				default: false,
+				env: 'RUN_EMAIL_INTEGRATION_TESTS'
+			},
 			host: {
 				format: String,
 				default: '',

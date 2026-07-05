@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { NextFunction, Request, Response } from 'express'
 import { Logger } from 'pino'
 import { UnauthorizedError } from '../../errors'
@@ -7,23 +8,23 @@ import { authLoggerMiddleware } from './authLoggerMiddleware'
 describe('authLoggerMiddleware', () => {
 	let req: Partial<Request>
 	let res: Partial<Response>
-	let next: jest.Mock
+	let next: ReturnType<typeof vi.fn>
 	let job: Partial<Job>
 	let mockLogger: Partial<Logger>
 
 	beforeEach(() => {
 		req = {}
-		next = jest.fn()
+		next = vi.fn()
 
 		mockLogger = {
-			child: jest.fn().mockReturnValue({
-				info: jest.fn(),
-				error: jest.fn()
+			child: vi.fn().mockReturnValue({
+				info: vi.fn(),
+				error: vi.fn()
 			})
 		}
 
 		job = {
-			getUser: jest.fn(),
+			getUser: vi.fn(),
 			logger: mockLogger as Logger
 		}
 
@@ -44,7 +45,7 @@ describe('authLoggerMiddleware', () => {
 	})
 
 	it('should throw UnauthorizedError if user is missing', () => {
-		;(job.getUser as jest.Mock).mockReturnValue(null)
+		;(job.getUser as ReturnType<typeof vi.fn>).mockReturnValue(null)
 
 		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
 
@@ -59,7 +60,7 @@ describe('authLoggerMiddleware', () => {
 			id: 'u1',
 			membership: { organization: { id: 'org1' }, role: { id: 'role1' } }
 		}
-		;(job.getUser as jest.Mock).mockReturnValue(user)
+		;(job.getUser as ReturnType<typeof vi.fn>).mockReturnValue(user)
 
 		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
 
@@ -73,7 +74,7 @@ describe('authLoggerMiddleware', () => {
 	})
 	it('should enrich logger with user details and call next() without a selected membership', () => {
 		const user = { id: 'u1', membership: null }
-		;(job.getUser as jest.Mock).mockReturnValue(user)
+		;(job.getUser as ReturnType<typeof vi.fn>).mockReturnValue(user)
 
 		authLoggerMiddleware(req as Request, res as Response, next as NextFunction)
 

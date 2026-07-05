@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
+import { vi } from 'vitest'
 import { Job } from '../../lib/Job'
 import { jobMiddleware } from './jobMiddleware'
 
@@ -22,22 +23,22 @@ const mockRequest = () => {
 const mockResponse = () => {
 	return {
 		locals: {},
-		set: jest.fn()
+		set: vi.fn()
 	} as unknown as Response
 }
 
-const mockNext = jest.fn() as jest.Mock<NextFunction>
+const mockNext = vi.fn() as ReturnType<typeof vi.fn>
 
 describe('jobMiddleware', () => {
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	test('should call next() with an error if req.requestData is missing', () => {
 		const req = { requestData: undefined } as unknown as Request
 		const res = mockResponse()
 
-		jobMiddleware(req, res, mockNext)
+		jobMiddleware(req, res, mockNext as NextFunction)
 
 		expect(mockNext).toHaveBeenCalledTimes(1)
 		const errorArgument = mockNext.mock.calls[0][0]
@@ -51,7 +52,7 @@ describe('jobMiddleware', () => {
 		const req = mockRequest()
 		const res = mockResponse()
 
-		jobMiddleware(req, res, mockNext)
+		jobMiddleware(req, res, mockNext as NextFunction)
 
 		expect(res.locals.job).toBeInstanceOf(Job)
 		const jobInstance = res.locals.job as Job
@@ -69,7 +70,7 @@ describe('jobMiddleware', () => {
 		const req = mockRequest()
 		const res = mockResponse()
 
-		jobMiddleware(req, res, mockNext)
+		jobMiddleware(req, res, mockNext as NextFunction)
 
 		expect(res.set).toHaveBeenCalledWith({
 			'x-job-id': 'mock-uuid',
@@ -94,7 +95,7 @@ describe('jobMiddleware', () => {
 		} as unknown as Request
 		const res = mockResponse()
 
-		jobMiddleware(req, res, mockNext)
+		jobMiddleware(req, res, mockNext as NextFunction)
 
 		const jobInstance = res.locals.job as Job
 		expect(jobInstance.getRecaptchaResponse()).toBeUndefined()

@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { Mocked, vi } from 'vitest'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { AuditInput } from '../entities/Audit'
@@ -9,34 +10,34 @@ describe('MongoAuditRepository', () => {
 	let repository: MongoAuditRepository
 	let dbMock: any
 	let collectionMock: any
-	let repositoryManagerMock: jest.Mocked<RepositoryManager>
-	let loggerMock: jest.Mocked<Logger>
+	let repositoryManagerMock: Mocked<RepositoryManager>
+	let loggerMock: Mocked<Logger>
 	let containerMock: DependencyContainer
 
 	beforeEach(() => {
 		collectionMock = {
-			insertOne: jest.fn(),
-			findOne: jest.fn(),
-			find: jest.fn(),
-			countDocuments: jest.fn()
+			insertOne: vi.fn(),
+			findOne: vi.fn(),
+			find: vi.fn(),
+			countDocuments: vi.fn()
 		} as any
 
 		dbMock = {
-			collection: jest.fn().mockReturnValue(collectionMock)
+			collection: vi.fn().mockReturnValue(collectionMock)
 		}
 
 		repositoryManagerMock = {
-			getUserRepository: jest.fn(),
-			getSessionRepository: jest.fn(),
-			getPermissionRepository: jest.fn(),
-			getRoleRepository: jest.fn()
-		} as unknown as jest.Mocked<RepositoryManager>
+			getUserRepository: vi.fn(),
+			getSessionRepository: vi.fn(),
+			getPermissionRepository: vi.fn(),
+			getRoleRepository: vi.fn()
+		} as unknown as Mocked<RepositoryManager>
 
 		loggerMock = {
-			error: jest.fn(),
-			info: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			error: vi.fn(),
+			info: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		} as any
 
 		containerMock = {
@@ -173,10 +174,10 @@ describe('MongoAuditRepository', () => {
 
 	describe('find', () => {
 		const mockFindChain = {
-			skip: jest.fn().mockReturnThis(),
-			limit: jest.fn().mockReturnThis(),
-			sort: jest.fn().mockReturnThis(),
-			toArray: jest.fn()
+			skip: vi.fn().mockReturnThis(),
+			limit: vi.fn().mockReturnThis(),
+			sort: vi.fn().mockReturnThis(),
+			toArray: vi.fn()
 		}
 
 		beforeEach(() => {

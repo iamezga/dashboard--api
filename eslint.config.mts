@@ -41,7 +41,8 @@ export default [
 			},
 			globals: {
 				...globals.node,
-				jest: true
+				...globals.vitest,
+				vi: true
 			}
 		},
 		plugins: {

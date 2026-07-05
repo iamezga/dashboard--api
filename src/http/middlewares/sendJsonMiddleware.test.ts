@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { NextFunction, Request, Response } from 'express'
 import { JobInterface } from '../../types/job/JobInterface'
 import { UseCaseResponseInterface } from '../../types/useCase/UseCaseResponseInterface'
@@ -12,9 +13,8 @@ describe('sendJsonMiddleware', () => {
 
 	beforeEach(() => {
 		mockJob = {
-			getId: jest.fn().mockReturnValue('job-123'),
-			getPublicUser: jest
-				.fn()
+			getId: vi.fn().mockReturnValue('job-123'),
+			getPublicUser: vi.fn()
 				.mockReturnValue({ id: 'user-456', name: 'Test User' })
 		} as unknown as JobInterface
 
@@ -29,10 +29,10 @@ describe('sendJsonMiddleware', () => {
 				job: mockJob,
 				useCaseResponse: mockUseCaseResponse
 			},
-			status: jest.fn().mockReturnThis(),
-			json: jest.fn()
+			status: vi.fn().mockReturnThis(),
+			json: vi.fn()
 		}
-		mockNext = jest.fn()
+		mockNext = vi.fn()
 	})
 
 	it('should send a 200 JSON response with job and useCaseResponse data', () => {

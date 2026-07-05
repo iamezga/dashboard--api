@@ -1,27 +1,28 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthPasswordRecoveryRequestJobInterface } from './AuthPasswordRecoveryRequestJobInterface'
 import { AuthPasswordRecoveryRequestUseCase } from './AuthPasswordRecoveryRequestUseCase'
 
 describe('AuthPasswordRecoveryRequestUseCase', () => {
 	const userRepo = {
-		findByEmail: jest.fn()
+		findByEmail: vi.fn()
 	}
 
 	const organizationRepo = {
-		findBySlug: jest.fn()
+		findBySlug: vi.fn()
 	}
 
 	const passwordRecoveryTokenRepo = {
-		createToken: jest.fn()
+		createToken: vi.fn()
 	}
 
 	const jobService = {
-		dispatchUseCase: jest.fn().mockResolvedValue(undefined)
+		dispatchUseCase: vi.fn().mockResolvedValue(undefined)
 	}
 
 	const config = {
-		get: jest.fn((key: string) => {
+		get: vi.fn((key: string) => {
 			if (key === 'appName') return 'TestApp'
 			if (key === 'front.url') return 'https://example.com'
 			if (key === 'email.supportEmail') return 'support@example.com'
@@ -30,9 +31,9 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 	}
 
 	const logger = {
-		info: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn()
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn()
 	} as unknown as Logger
 
 	const makeContainer = (): DependencyContainer =>
@@ -55,14 +56,14 @@ describe('AuthPasswordRecoveryRequestUseCase', () => {
 	const makeJob = (data: any): AuthPasswordRecoveryRequestJobInterface =>
 		({
 			getData: () => data,
-			setData: jest.fn((newData: any) => {
+			setData: vi.fn((newData: any) => {
 				Object.assign(data, newData)
 			}),
 			logger
 		}) as unknown as AuthPasswordRecoveryRequestJobInterface
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		process.env.FRONT_URL = 'https://example.com'
 
 		// Mock organization repository to return valid organization by default

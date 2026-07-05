@@ -1,13 +1,14 @@
+import { Mocked, vi } from 'vitest'
 import { config } from '../services/config'
 import { validateConfig } from './configValidator'
 
-jest.mock('../services/config')
+vi.mock('../services/config')
 
 describe('configValidator', () => {
-	const mockConfig = config as jest.Mocked<typeof config>
+	const mockConfig = config as Mocked<typeof config>
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	describe('validateConfig', () => {

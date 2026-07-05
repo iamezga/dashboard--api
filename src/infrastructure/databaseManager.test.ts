@@ -1,232 +1,181 @@
-jest.mock('./providers/Postgres')
-jest.mock('./providers/Redis')
-jest.mock('./providers/Mongo')
-jest.mock('@/services/logger', () => ({
-	info: jest.fn(),
-	warn: jest.fn(),
-	error: jest.fn()
-}))
+import { Mock, vi } from 'vitest'
+
+type ProviderKey = 'postgres' | 'redis' | 'mongo'
+
+type SetupOptions = {
+	configuredProviders?: ProviderKey[] | undefined
+	failConnect?: ProviderKey
+	failDisconnect?: ProviderKey
+}
+
+const loggerMock = {
+	info: vi.fn(),
+	warn: vi.fn(),
+	error: vi.fn()
+}
+
+const defaultDbConfig = {
+	postgres: { url: 'postgres://localhost/test' },
+	redis: { host: 'localhost', port: 6379, db: 0, password: '' },
+	mongo: { url: 'mongodb://localhost:27017', db: 'test-db' }
+}
+
+const setupDatabaseManager = async (options: SetupOptions = {}) => {
+	vi.resetModules()
+	vi.clearAllMocks()
+
+	const connectMocks: Record<ProviderKey, Mock> = {
+		postgres: vi.fn().mockResolvedValue({ client: 'instance' }),
+		redis: vi.fn().mockResolvedValue({ client: 'instance' }),
+		mongo: vi.fn().mockResolvedValue({ client: 'instance' })
+	}
+
+	const disconnectMocks: Record<ProviderKey, Mock> = {
+		postgres: vi.fn().mockResolvedValue(undefined),
+		redis: vi.fn().mockResolvedValue(undefined),
+		mongo: vi.fn().mockResolvedValue(undefined)
+	}
+
+	if (options.failConnect) {
+		connectMocks[options.failConnect].mockRejectedValue(
+			new Error('connect-fail')
+		)
+	}
+
+	if (options.failDisconnect) {
+		disconnectMocks[options.failDisconnect].mockRejectedValue(
+			new Error('disconnect-fail')
+		)
+	}
+
+	vi.doMock('./providers/Postgres', () => ({
+		Postgres: vi.fn(function () {
+			return {
+				connect: connectMocks.postgres,
+				disconnect: disconnectMocks.postgres,
+				displayName: 'PostgreSQL'
+			}
+		})
+	}))
+
+	vi.doMock('./providers/Redis', () => ({
+		Redis: vi.fn(function () {
+			return {
+				connect: connectMocks.redis,
+				disconnect: disconnectMocks.redis,
+				displayName: 'Redis'
+			}
+		})
+	}))
+
+	vi.doMock('./providers/Mongo', () => ({
+		Mongo: vi.fn(function () {
+			return {
+				connect: connectMocks.mongo,
+				disconnect: disconnectMocks.mongo,
+				displayName: 'MongoDB'
+			}
+		})
+	}))
+
+	vi.doMock('@/services/logger', () => ({
+		__esModule: true,
+		default: loggerMock
+	}))
+
+	vi.doMock('@/services/config', () => ({
+		config: {
+			get: (key: string) => {
+				if (key === 'database.providers') return options.configuredProviders
+				if (key === 'database.postgres') return defaultDbConfig.postgres
+				if (key === 'database.redis') return defaultDbConfig.redis
+				if (key === 'database.mongo') return defaultDbConfig.mongo
+				return undefined
+			}
+		}
+	}))
+
+	const mod = await import('./databaseManager')
+
+	return {
+		databaseManager: mod.databaseManager,
+		resetDatabaseManager: mod.resetDatabaseManager,
+		connectMocks,
+		disconnectMocks
+	}
+}
 
 describe('databaseManager', () => {
-	let databaseManager: any
-	let Postgres: any
-	let Redis: any
-	let Mongo: any
-	let connectMock: jest.Mock
-	let disconnectMock: jest.Mock
-	let resetDatabaseManager: () => Promise<void>
-
-	beforeEach(() => {
-		jest.clearAllMocks()
-		jest.resetModules() // Crucial: Resets module cache before each test
-		connectMock = jest.fn().mockResolvedValue({ client: 'instance' })
-		disconnectMock = jest.fn().mockResolvedValue(undefined)
-
-		// Re-import mocked classes
-		Postgres = require('./providers/Postgres').Postgres
-		Redis = require('./providers/Redis').Redis
-		Mongo = require('./providers/Mongo').Mongo
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'PostgreSQL'
-		}))
-		;(Redis as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'Redis'
-		}))
-		;(Mongo as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'MongoDB'
-		}))
-
-		// Import the module under test AFTER mocks are set up
-		const dbmModule = require('./databaseManager')
-		databaseManager = dbmModule.databaseManager
-		resetDatabaseManager = dbmModule.resetDatabaseManager
-	})
-
 	afterEach(async () => {
-		if (resetDatabaseManager) {
-			await resetDatabaseManager()
+		try {
+			const mod = await import('./databaseManager')
+			await mod.resetDatabaseManager()
+		} catch {
+			// Ignore cleanup errors when module was not loaded in the test.
 		}
 	})
 
 	it('falls back to PROVIDERS when config.database.providers is undefined', async () => {
-		jest.clearAllMocks()
-		jest.resetModules()
+		const { databaseManager, connectMocks } = await setupDatabaseManager({
+			configuredProviders: undefined
+		})
 
-		// Spy on the real config.get to return undefined for database.providers
-		const cfg = require('@/services/config').config
-		const originalGet = cfg.get.bind(cfg)
-		;(jest.spyOn as any)(cfg, 'get').mockImplementation((key: string) =>
-			key === 'database.providers' ? undefined : originalGet(key)
-		)
+		await databaseManager.initialize()
+		expect(connectMocks.postgres).toHaveBeenCalledTimes(1)
+		expect(connectMocks.redis).toHaveBeenCalledTimes(1)
+		expect(connectMocks.mongo).toHaveBeenCalledTimes(1)
 
-		const connectMock = jest.fn().mockResolvedValue({ client: 'instance' })
-		const disconnectMock = jest.fn().mockResolvedValue(undefined)
-
-		const Postgres = require('./providers/Postgres').Postgres
-		const Redis = require('./providers/Redis').Redis
-		const Mongo = require('./providers/Mongo').Mongo
-
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'PostgreSQL'
-		}))
-		;(Redis as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'Redis'
-		}))
-		;(Mongo as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'MongoDB'
-		}))
-
-		const { databaseManager: dbm } = require('./databaseManager')
-
-		await dbm.initialize()
-		expect(connectMock).toHaveBeenCalledTimes(3)
-		const all = dbm.getAll()
+		const all = databaseManager.getAll()
 		expect(Object.keys(all).sort()).toEqual(
 			['postgres', 'redis', 'mongo'].sort()
 		)
 	})
 
 	it('respects configured providers when config.database.providers is set', async () => {
-		jest.clearAllMocks()
-		jest.resetModules()
+		const { databaseManager, connectMocks } = await setupDatabaseManager({
+			configuredProviders: ['postgres', 'mongo']
+		})
 
-		// Spy on the real config.get to return a subset for database.providers
-		const cfg = require('@/services/config').config
-		const originalGet = cfg.get.bind(cfg)
-		;(jest.spyOn as any)(cfg, 'get').mockImplementation((key: string) =>
-			key === 'database.providers'
-				? (['postgres', 'mongo'] as any)
-				: originalGet(key)
-		)
+		await databaseManager.initialize()
+		expect(connectMocks.postgres).toHaveBeenCalledTimes(1)
+		expect(connectMocks.mongo).toHaveBeenCalledTimes(1)
+		expect(connectMocks.redis).not.toHaveBeenCalled()
 
-		const connectMock = jest.fn().mockResolvedValue({ client: 'instance' })
-		const disconnectMock = jest.fn().mockResolvedValue(undefined)
-
-		const Postgres = require('./providers/Postgres').Postgres
-		const Redis = require('./providers/Redis').Redis
-		const Mongo = require('./providers/Mongo').Mongo
-
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'PostgreSQL'
-		}))
-		;(Redis as jest.Mock).mockImplementation(() => ({
-			connect: jest.fn().mockResolvedValue({}),
-			disconnect: disconnectMock,
-			displayName: 'Redis'
-		}))
-		;(Mongo as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectMock,
-			displayName: 'MongoDB'
-		}))
-
-		const { databaseManager: dbm } = require('./databaseManager')
-
-		await dbm.initialize()
-		expect(connectMock).toHaveBeenCalledTimes(2)
-		const all = dbm.getAll()
+		const all = databaseManager.getAll()
 		expect(Object.keys(all).sort()).toEqual(['postgres', 'mongo'].sort())
 	})
 
 	it('shutdown logs a warning when disconnect throws', async () => {
-		jest.clearAllMocks()
-		jest.resetModules()
+		const { databaseManager, disconnectMocks } = await setupDatabaseManager({
+			failDisconnect: 'postgres'
+		})
 
-		const connectMock = jest.fn().mockResolvedValue({ client: 'instance' })
-		const disconnectOk = jest.fn().mockResolvedValue(undefined)
-		const disconnectThrow = jest
-			.fn()
-			.mockRejectedValue(new Error('disconnect-fail'))
+		await databaseManager.initialize()
+		await databaseManager.shutdown()
 
-		const Postgres = require('./providers/Postgres').Postgres
-		const Redis = require('./providers/Redis').Redis
-		const Mongo = require('./providers/Mongo').Mongo
-
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectThrow,
-			displayName: 'PostgreSQL'
-		}))
-		;(Redis as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectOk,
-			displayName: 'Redis'
-		}))
-		;(Mongo as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: disconnectOk,
-			displayName: 'MongoDB'
-		}))
-
-		const { databaseManager: dbm } = require('./databaseManager')
-
-		await dbm.initialize()
-		await dbm.shutdown()
-
-		const logger = require('@/services/logger')
-		expect(disconnectThrow).toHaveBeenCalled()
-		expect(logger.warn).toHaveBeenCalled()
-		expect(String(logger.warn.mock.calls[0][0])).toContain(
+		expect(disconnectMocks.postgres).toHaveBeenCalled()
+		expect(loggerMock.warn).toHaveBeenCalled()
+		expect(String(loggerMock.warn.mock.calls[0][0])).toContain(
 			'error disconnecting postgres'
 		)
 	})
 
 	it('should cleanup started providers and ignore disconnect errors on init failure', async () => {
-		jest.clearAllMocks()
-		jest.resetModules()
+		const { databaseManager, disconnectMocks } = await setupDatabaseManager({
+			failConnect: 'redis',
+			failDisconnect: 'postgres'
+		})
 
-		const connectOk = jest.fn().mockResolvedValue({ client: 'instance' })
-		const connectFail = jest.fn().mockRejectedValue(new Error('connect-fail'))
-		const disconnectThrow = jest
-			.fn()
-			.mockRejectedValue(new Error('disconnect-fail'))
-
-		// Re-import mocked classes with specific behavior
-		const Postgres = require('./providers/Postgres').Postgres
-		const Redis = require('./providers/Redis').Redis
-		const Mongo = require('./providers/Mongo').Mongo
-
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectOk,
-			disconnect: disconnectThrow,
-			displayName: 'PostgreSQL'
-		}))
-		;(Redis as jest.Mock).mockImplementation(() => ({
-			connect: connectFail,
-			disconnect: jest.fn(),
-			displayName: 'Redis'
-		}))
-		;(Mongo as jest.Mock).mockImplementation(() => ({
-			connect: connectOk,
-			disconnect: jest.fn(),
-			displayName: 'MongoDB'
-		}))
-
-		const { databaseManager: failingManager } = require('./databaseManager')
-
-		await expect(failingManager.initialize()).rejects.toThrow(
+		await expect(databaseManager.initialize()).rejects.toThrow(
 			/Failed to initialize providers:/
 		)
 
-		// Ensure disconnect was attempted for the started provider (Postgres)
-		expect(disconnectThrow).toHaveBeenCalled()
+		expect(disconnectMocks.postgres).toHaveBeenCalled()
 	})
 
 	it('should initialize providers and store instances', async () => {
+		const { databaseManager } = await setupDatabaseManager()
+
 		await databaseManager.initialize()
 		expect(databaseManager.get('postgres')).toEqual({ client: 'instance' })
 		expect(databaseManager.get('redis')).toEqual({ client: 'instance' })
@@ -234,54 +183,64 @@ describe('databaseManager', () => {
 	})
 
 	it('should not re-initialize providers if already connected', async () => {
-		await databaseManager.initialize() // First call
-		expect(connectMock).toHaveBeenCalledTimes(3)
+		const { databaseManager, connectMocks } = await setupDatabaseManager()
 
-		await databaseManager.initialize() // Second call
-		// The connect mock should NOT be called again
-		expect(connectMock).toHaveBeenCalledTimes(3)
+		await databaseManager.initialize()
+		expect(connectMocks.postgres).toHaveBeenCalledTimes(1)
+		expect(connectMocks.redis).toHaveBeenCalledTimes(1)
+		expect(connectMocks.mongo).toHaveBeenCalledTimes(1)
+
+		await databaseManager.initialize()
+		expect(connectMocks.postgres).toHaveBeenCalledTimes(1)
+		expect(connectMocks.redis).toHaveBeenCalledTimes(1)
+		expect(connectMocks.mongo).toHaveBeenCalledTimes(1)
 	})
 
 	it('should throw if provider connect fails', async () => {
-		// Override the mock for this specific test
-		connectMock.mockRejectedValue(new Error('fail'))
-		;(Postgres as jest.Mock).mockImplementation(() => ({
-			connect: connectMock,
-			disconnect: jest.fn(),
-			displayName: 'PostgreSQL'
-		}))
+		const { databaseManager } = await setupDatabaseManager({
+			failConnect: 'postgres'
+		})
 
-		// Re-import with the failing mock
-		const { databaseManager: failingManager } = require('./databaseManager')
-
-		await expect(failingManager.initialize()).rejects.toThrow(
+		await expect(databaseManager.initialize()).rejects.toThrow(
 			/DatabaseManager: Failed to initialize providers:/
 		)
 	})
 
 	it('should shutdown providers and clear instances', async () => {
+		const { databaseManager, disconnectMocks } = await setupDatabaseManager()
+
 		await databaseManager.initialize()
 		await databaseManager.shutdown()
-		expect(disconnectMock).toHaveBeenCalledTimes(3)
+		expect(disconnectMocks.postgres).toHaveBeenCalledTimes(1)
+		expect(disconnectMocks.redis).toHaveBeenCalledTimes(1)
+		expect(disconnectMocks.mongo).toHaveBeenCalledTimes(1)
 		expect(() => databaseManager.get('postgres')).toThrow(/not initialized/)
 	})
 
 	it('should do nothing on shutdown if providers are not initialized', async () => {
+		const { databaseManager, disconnectMocks } = await setupDatabaseManager()
+
 		await databaseManager.shutdown()
-		expect(disconnectMock).not.toHaveBeenCalled()
+		expect(disconnectMocks.postgres).not.toHaveBeenCalled()
+		expect(disconnectMocks.redis).not.toHaveBeenCalled()
+		expect(disconnectMocks.mongo).not.toHaveBeenCalled()
 	})
 
-	it('get should throw if provider not initialized', () => {
-		// No initialize() called, so it should fail
+	it('get should throw if provider not initialized', async () => {
+		const { databaseManager } = await setupDatabaseManager()
+
 		expect(() => databaseManager.get('postgres')).toThrow(/not initialized/)
 	})
 
 	it('getAll should throw if any provider not initialized', async () => {
-		// No initialize() called, so it should fail
+		const { databaseManager } = await setupDatabaseManager()
+
 		expect(() => databaseManager.getAll()).toThrow(/not initialized/)
 	})
 
 	it('getAll should return all instances', async () => {
+		const { databaseManager } = await setupDatabaseManager()
+
 		await databaseManager.initialize()
 		const all = databaseManager.getAll()
 		expect(Object.keys(all).sort()).toEqual(
@@ -291,7 +250,8 @@ describe('databaseManager', () => {
 	})
 
 	it('getInitialized and getStatus reflect state before/after initialize', async () => {
-		// Before init: none initialized
+		const { databaseManager } = await setupDatabaseManager()
+
 		const statusBefore = databaseManager.getStatus()
 		expect(statusBefore.postgres.initialized).toBe(false)
 		expect(statusBefore.redis.initialized).toBe(false)
@@ -299,7 +259,6 @@ describe('databaseManager', () => {
 
 		expect(databaseManager.getInitialized()).toEqual({})
 
-		// After init: all initialized
 		await databaseManager.initialize()
 		const statusAfter = databaseManager.getStatus()
 		expect(statusAfter.postgres.initialized).toBe(true)

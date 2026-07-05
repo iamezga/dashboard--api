@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { Mocked, vi } from 'vitest'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import {
@@ -11,33 +12,33 @@ import { OrganizationRepository } from '../repository/OrganizationRepository'
 describe('OrganizationRepository', () => {
 	let repository: OrganizationRepository
 	let dbMock: any
-	let repositoryManagerMock: jest.Mocked<RepositoryManager>
-	let loggerMock: jest.Mocked<Logger>
+	let repositoryManagerMock: Mocked<RepositoryManager>
+	let loggerMock: Mocked<Logger>
 	let containerMock: DependencyContainer
 
 	beforeEach(() => {
 		dbMock = {
 			organization: {
-				findUnique: jest.fn(),
-				findFirst: jest.fn(),
-				findMany: jest.fn(),
-				create: jest.fn(),
-				update: jest.fn()
+				findUnique: vi.fn(),
+				findFirst: vi.fn(),
+				findMany: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn()
 			}
 		}
 
 		repositoryManagerMock = {
-			getUserRepository: jest.fn(),
-			getSessionRepository: jest.fn(),
-			getPermissionRepository: jest.fn(),
-			getRoleRepository: jest.fn()
-		} as unknown as jest.Mocked<RepositoryManager>
+			getUserRepository: vi.fn(),
+			getSessionRepository: vi.fn(),
+			getPermissionRepository: vi.fn(),
+			getRoleRepository: vi.fn()
+		} as unknown as Mocked<RepositoryManager>
 
 		loggerMock = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		} as any
 
 		containerMock = {

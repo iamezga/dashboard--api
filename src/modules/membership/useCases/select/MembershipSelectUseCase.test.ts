@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { ForbiddenError, UnauthorizedError } from '../../../../errors'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { MembershipSelectJobInterface } from './MembershipSelectJobInterface'
@@ -5,19 +6,19 @@ import { MembershipSelectUseCase } from './MembershipSelectUseCase'
 
 describe('MembershipSelectUseCase', () => {
 	const membershipRepository = {
-		findById: jest.fn(),
-		getPermissions: jest.fn()
+		findById: vi.fn(),
+		getPermissions: vi.fn()
 	}
 
 	const sessionRepository = {
-		getSessionMetadata: jest.fn(),
-		getSessionContext: jest.fn(),
-		updateSessionContext: jest.fn(),
-		deleteSession: jest.fn()
+		getSessionMetadata: vi.fn(),
+		getSessionContext: vi.fn(),
+		updateSessionContext: vi.fn(),
+		deleteSession: vi.fn()
 	}
 
 	const auditService = {
-		record: jest.fn()
+		record: vi.fn()
 	}
 
 	const makeContainer = (): DependencyContainer =>
@@ -42,12 +43,12 @@ describe('MembershipSelectUseCase', () => {
 				id: 'user-1',
 				memberships: [{ id: 'membership-1' }]
 			}),
-			setUser: jest.fn(),
+			setUser: vi.fn(),
 			...overrides
 		}) as unknown as MembershipSelectJobInterface
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		auditService.record.mockResolvedValue(undefined)
 	})
 
@@ -97,7 +98,7 @@ describe('MembershipSelectUseCase', () => {
 
 	it('should select membership and emit membership.selected audit event', async () => {
 		const useCase = new MembershipSelectUseCase(makeContainer())
-		const setUser = jest.fn()
+		const setUser = vi.fn()
 		const job = makeJob({ setUser } as Partial<MembershipSelectJobInterface>)
 
 		const membership = {

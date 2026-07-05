@@ -1,18 +1,19 @@
 import { Logger } from 'pino'
 import { RedisClientType } from 'redis'
+import { Mocked, vi } from 'vitest'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { SessionContext, SessionMetadataInput } from '../entities/Session'
 import { SessionRepository } from '../repository/SessionRepository'
 
-jest.mock('node:crypto', () => ({
-	randomUUID: jest.fn(() => 'session-uuid-123')
+vi.mock('node:crypto', () => ({
+	randomUUID: vi.fn(() => 'session-uuid-123')
 }))
 
 describe('SessionRepository', () => {
 	let repository: SessionRepository
-	let dbMock: jest.Mocked<RedisClientType>
+	let dbMock: Mocked<RedisClientType>
 	let multiMock: any
-	let loggerMock: jest.Mocked<Logger>
+	let loggerMock: Mocked<Logger>
 
 	const baseSessionMetadata: SessionMetadataInput = {
 		userId: 'u1',
@@ -38,30 +39,30 @@ describe('SessionRepository', () => {
 
 	beforeEach(() => {
 		multiMock = {
-			sAdd: jest.fn().mockReturnThis(),
-			set: jest.fn().mockReturnThis(),
-			del: jest.fn().mockReturnThis(),
-			sRem: jest.fn().mockReturnThis(),
-			expire: jest.fn().mockReturnThis(),
-			exec: jest.fn()
+			sAdd: vi.fn().mockReturnThis(),
+			set: vi.fn().mockReturnThis(),
+			del: vi.fn().mockReturnThis(),
+			sRem: vi.fn().mockReturnThis(),
+			expire: vi.fn().mockReturnThis(),
+			exec: vi.fn()
 		}
 
 		dbMock = {
-			set: jest.fn(),
-			get: jest.fn(),
-			sAdd: jest.fn(),
-			sRem: jest.fn(),
-			del: jest.fn(),
-			sMembers: jest.fn(),
-			sCard: jest.fn(),
-			multi: jest.fn().mockReturnValue(multiMock)
-		} as unknown as jest.Mocked<RedisClientType>
+			set: vi.fn(),
+			get: vi.fn(),
+			sAdd: vi.fn(),
+			sRem: vi.fn(),
+			del: vi.fn(),
+			sMembers: vi.fn(),
+			sCard: vi.fn(),
+			multi: vi.fn().mockReturnValue(multiMock)
+		} as unknown as Mocked<RedisClientType>
 
 		loggerMock = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		} as any
 
 		const containerMock = {
@@ -179,9 +180,9 @@ describe('SessionRepository', () => {
 
 	it('should delete a session and return boolean', async () => {
 		const sessionMetadata = { ...baseSessionMetadata, sessionId: 's1' }
-		jest
-			.spyOn(repository, 'getSessionMetadata')
-			.mockResolvedValue(sessionMetadata as any)
+		vi.spyOn(repository, 'getSessionMetadata').mockResolvedValue(
+			sessionMetadata as any
+		)
 
 		multiMock.exec.mockResolvedValue([1, 1, 1])
 		const result = await repository.deleteSession('s1')
@@ -190,7 +191,7 @@ describe('SessionRepository', () => {
 		expect(multiMock.del).toHaveBeenCalledWith('session:context:s1')
 		expect(multiMock.sRem).toHaveBeenCalledWith('user:sessions:u1', 's1')
 
-		jest.spyOn(repository, 'getSessionMetadata').mockResolvedValue(null)
+		vi.spyOn(repository, 'getSessionMetadata').mockResolvedValue(null)
 		const failResult = await repository.deleteSession('s2')
 		expect(failResult).toBe(false)
 	})
@@ -216,7 +217,7 @@ describe('SessionRepository', () => {
 			sessionId: 's1',
 			lastActivity: 0
 		}
-		const spyDeserialize = jest.spyOn(repository as any, 'deserialize')
+		const spyDeserialize = vi.spyOn(repository as any, 'deserialize')
 		spyDeserialize.mockReturnValue(sessionMetadata)
 
 		dbMock.get.mockResolvedValue(JSON.stringify(sessionMetadata))

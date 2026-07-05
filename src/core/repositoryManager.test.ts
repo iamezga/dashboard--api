@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import {
 	createRepositoryManager,
 	getRepositoryManager,
@@ -7,7 +8,7 @@ import {
 import { DatabaseClientsMap } from '../infrastructure/databaseManager'
 
 // --- MOCK of repositories ---
-jest.mock('@/modules/repositories', () => {
+vi.mock('@/modules/repositories', () => {
 	class FakeRepo {
 		static name = 'fake' as any
 		static provider = 'postgres'
@@ -27,10 +28,10 @@ jest.mock('@/modules/repositories', () => {
 })
 
 // --- MOCK of databaseManager ---
-jest.mock('@/infrastructure/databaseManager', () => {
+vi.mock('@/infrastructure/databaseManager', () => {
 	return {
 		databaseManager: {
-			getAll: jest.fn().mockReturnValue({
+			getAll: vi.fn().mockReturnValue({
 				postgres: { client: true }
 			})
 		}
@@ -41,7 +42,7 @@ describe('RepositoryManager', () => {
 	let mockClients: DatabaseClientsMap
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		mockClients = {
 			postgres: { mocked: true } as any,
 			mongo: {} as any,
@@ -50,7 +51,7 @@ describe('RepositoryManager', () => {
 	})
 
 	afterEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		resetRepositoryManager()
 	})
 
@@ -121,7 +122,7 @@ describe('RepositoryManager', () => {
 		)
 	})
 
-	it('should receive container in constructor and inject into repository', () => {
+	it('should receive container in constructor and inject into repository', async () => {
 		const containerMock = { injected: true } as any
 		setDependencyContainerForRepositoryManager(containerMock)
 		const manager = createRepositoryManager(mockClients, containerMock)
@@ -130,15 +131,18 @@ describe('RepositoryManager', () => {
 		expect(repo.container).toEqual(containerMock)
 	})
 
-	it('should skip repository creation if no client exists for its provider', () => {
+	it('should skip repository creation if no client exists for its provider', async () => {
 		class OrphanRepo {
 			static name = 'orphan'
 			static provider = 'nonexistent'
-			constructor(public db: any, _container: any) {}
+			constructor(
+				public db: any,
+				_container: any
+			) {}
 		}
 
-		jest.resetModules()
-		jest.doMock('@/modules/repositories', () => {
+		vi.resetModules()
+		vi.doMock('@/modules/repositories', () => {
 			return {
 				repositories: { OrphanRepo },
 				RepositoryMap: {
@@ -147,7 +151,7 @@ describe('RepositoryManager', () => {
 			}
 		})
 
-		const { createRepositoryManager } = require('../core/repositoryManager')
+		const { createRepositoryManager } = await import('@/core/repositoryManager')
 		const containerMock = { repositoryManager: {}, logger: {} } as any
 		const manager = createRepositoryManager(mockClients, containerMock)
 
@@ -155,22 +159,28 @@ describe('RepositoryManager', () => {
 		expect(all.orphan).toBeUndefined()
 	})
 
-	it('should instantiate only the audit implementation matching config.audit.provider', () => {
-		jest.resetModules()
+	it('should instantiate only the audit implementation matching config.audit.provider', async () => {
+		vi.resetModules()
 
 		class MongoAuditRepo {
 			static name = 'audit'
 			static provider = 'mongo'
-			constructor(public db: any, _container: any) {}
+			constructor(
+				public db: any,
+				_container: any
+			) {}
 		}
 
 		class PostgresAuditRepo {
 			static name = 'audit'
 			static provider = 'postgres'
-			constructor(public db: any, _container: any) {}
+			constructor(
+				public db: any,
+				_container: any
+			) {}
 		}
 
-		jest.doMock('@/modules/repositories', () => {
+		vi.doMock('@/modules/repositories', () => {
 			return {
 				repositories: { MongoAuditRepo, PostgresAuditRepo },
 				RepositoryMap: {
@@ -179,7 +189,7 @@ describe('RepositoryManager', () => {
 			}
 		})
 
-		jest.doMock('@/services/config', () => ({
+		vi.doMock('@/services/config', () => ({
 			config: {
 				get: (key: string) =>
 					key === 'audit.provider' ? 'postgres' : undefined
@@ -189,7 +199,7 @@ describe('RepositoryManager', () => {
 		const {
 			createRepositoryManager,
 			setDependencyContainerForRepositoryManager
-		} = require('../core/repositoryManager')
+		} = await import('@/core/repositoryManager')
 		const containerMock = { repositoryManager: {}, logger: {} } as any
 		setDependencyContainerForRepositoryManager(containerMock)
 		const manager = createRepositoryManager(

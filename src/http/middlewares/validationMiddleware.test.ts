@@ -1,50 +1,55 @@
+import { vi } from 'vitest'
 // Mock all dependencies before importing the middleware
-jest.mock('@/modules', () => ({ rules: {} }))
-jest.mock('@/services/validationService', () => ({
-	validator: { validate: jest.fn() }
+vi.mock('@/modules', () => ({ rules: {} }))
+vi.mock('@/services/validationService', () => ({
+	validator: { validate: vi.fn() }
 }))
-jest.mock('@/services/logger', () => ({
-	info: jest.fn(),
-	error: jest.fn(),
-	warn: jest.fn()
+vi.mock('@/services/logger', () => ({
+	info: vi.fn(),
+	error: vi.fn(),
+	warn: vi.fn()
 }))
-jest.mock('@/core/dependencyContainer', () => ({
-	getContainer: jest.fn(() => ({}))
+vi.mock('@/core/dependencyContainer', () => ({
+	getContainer: vi.fn(() => ({}))
 }))
 
-import { Request, Response } from 'express'
-import { BadRequestError, UnauthorizedError } from '../../errors'
-import { rules } from '../../modules'
-import { validator } from '../../services/validationService'
+import { BadRequestError, UnauthorizedError } from '@/errors'
+import { rules } from '@/modules'
+import { validator } from '@/services/validationService'
+import { NextFunction, Request, Response } from 'express'
 import { validationMiddleware } from './validationMiddleware'
 
 describe('validationMiddleware', () => {
 	let mockReq: Partial<Request>
 	let mockRes: Partial<Response>
-	let mockNext: jest.Mock
+	let mockNext: ReturnType<typeof vi.fn>
 	let mockJob: any
 
 	beforeEach(() => {
-		jest.clearAllMocks()
-		jest.resetModules()
+		vi.clearAllMocks()
+		vi.resetModules()
 
 		mockJob = {
-			getUser: jest.fn().mockReturnValue({ id: 'user1' }),
-			getAttempts: jest.fn().mockReturnValue(1),
-			getData: jest.fn().mockReturnValue({ foo: 'bar' }),
-			getRecaptchaResponse: jest.fn().mockReturnValue('token'),
-			getMeta: jest.fn().mockReturnValue({}),
-			setData: jest.fn()
+			getUser: vi.fn().mockReturnValue({ id: 'user1' }),
+			getAttempts: vi.fn().mockReturnValue(1),
+			getData: vi.fn().mockReturnValue({ foo: 'bar' }),
+			getRecaptchaResponse: vi.fn().mockReturnValue('token'),
+			getMeta: vi.fn().mockReturnValue({}),
+			setData: vi.fn()
 		}
 
 		mockReq = {}
 		mockRes = { locals: {} } as Partial<Response>
-		mockNext = jest.fn()
+		mockNext = vi.fn()
 	})
 
 	it('should error if job is missing', async () => {
 		const middleware = validationMiddleware('someRule' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
 			'ValidationMiddleware: `jobMiddleware` must be run before `validationMiddleware`.'
@@ -54,7 +59,11 @@ describe('validationMiddleware', () => {
 	it('should error if rules for useCaseRuleName are missing', async () => {
 		;(mockRes.locals as any).job = mockJob
 		const middleware = validationMiddleware('missingRule' as any)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 		expect(mockNext).toHaveBeenCalledWith(expect.any(Error))
 		expect(mockNext.mock.calls[0][0].message).toContain(
 			'ValidationMiddleware: Validation rules for use case "missingRule" not found.'
@@ -64,12 +73,16 @@ describe('validationMiddleware', () => {
 	it('should throw UnauthorizedError if user validation fails', async () => {
 		;(rules as any).testRule = { user: { id: 'string' } }
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{ type: 'error' }
 		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
@@ -77,12 +90,16 @@ describe('validationMiddleware', () => {
 	it('should throw BadRequestError if attempts validation fails', async () => {
 		;(rules as any).testRule = { attempts: { attempts: 'number' } }
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{ type: 'error' }
 		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError))
 		expect(mockNext.mock.calls[0][0].message).toContain(
@@ -93,12 +110,16 @@ describe('validationMiddleware', () => {
 	it('should throw BadRequestError if data validation fails', async () => {
 		;(rules as any).testRule = { data: { foo: 'string' } }
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{ type: 'error' }
 		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError))
 		expect(mockNext.mock.calls[0][0].message).toContain(
@@ -111,12 +132,16 @@ describe('validationMiddleware', () => {
 			recaptchaResponse: { recaptchaResponse: 'string' }
 		}
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{ type: 'error' }
 		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError))
 		expect(mockNext.mock.calls[0][0].message).toContain(
@@ -132,10 +157,14 @@ describe('validationMiddleware', () => {
 			recaptchaResponse: {}
 		}
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValue([])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(mockNext).toHaveBeenCalledWith()
 	})
@@ -145,10 +174,12 @@ describe('validationMiddleware', () => {
 		mockJob.getUser.mockReturnValue(undefined)
 		mockJob.getMeta.mockReturnValue({})
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([{}])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+			{}
+		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware({} as any, mockRes as any, mockNext)
+		await middleware({} as any, mockRes as any, mockNext as NextFunction)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 		expect(mockNext.mock.calls[0][0].message).toBe('User Validation failed.')
@@ -159,10 +190,12 @@ describe('validationMiddleware', () => {
 		mockJob.getRecaptchaResponse.mockReturnValue('invalid-token')
 		mockJob.getMeta.mockReturnValue({})
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([{}])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+			{}
+		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware({} as any, mockRes as any, mockNext)
+		await middleware({} as any, mockRes as any, mockNext as NextFunction)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError))
 		expect(mockNext.mock.calls[0][0].message).toBe(
@@ -175,10 +208,12 @@ describe('validationMiddleware', () => {
 		mockJob.getRecaptchaResponse.mockReturnValue(undefined)
 		mockJob.getMeta.mockReturnValue({})
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValueOnce([{}])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+			{}
+		])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware({} as any, mockRes as any, mockNext)
+		await middleware({} as any, mockRes as any, mockNext as NextFunction)
 
 		expect(mockNext).toHaveBeenCalledWith(expect.any(BadRequestError))
 		expect(mockNext.mock.calls[0][0].message).toBe(
@@ -189,10 +224,14 @@ describe('validationMiddleware', () => {
 	it('should skip recaptcha validation if rule not present', async () => {
 		;(rules as any).testRule = { user: {} } // no recaptchaResponse
 		;(mockRes.locals as any).job = mockJob
-		;(validator.validate as jest.Mock).mockResolvedValue([])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
 		const middleware = validationMiddleware('testRule' as keyof typeof rules)
-		await middleware(mockReq as Request, mockRes as Response, mockNext)
+		await middleware(
+			mockReq as Request,
+			mockRes as Response,
+			mockNext as NextFunction
+		)
 
 		expect(validator.validate).toHaveBeenCalledTimes(1)
 		expect(mockNext).toHaveBeenCalledWith()

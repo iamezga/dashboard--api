@@ -1,15 +1,21 @@
+import { Logger } from 'pino'
 import { createClient } from 'redis'
-import logger from '../../services/logger'
+import { Mock, vi } from 'vitest'
 import { Redis } from './Redis'
 
-jest.mock('redis', () => ({
-	createClient: jest.fn()
+vi.mock('redis', () => ({
+	createClient: vi.fn()
 }))
 
-jest.mock('../../services/logger', () => ({
-	info: jest.fn(),
-	warn: jest.fn(),
-	error: jest.fn()
+const mockLogger = {
+	info: vi.fn(),
+	warn: vi.fn(),
+	error: vi.fn()
+} as unknown as Logger
+
+vi.mock('@/services/logger', () => ({
+	__esModule: true,
+	default: mockLogger
 }))
 
 describe('Redis', () => {
@@ -17,15 +23,15 @@ describe('Redis', () => {
 	let mockClient: any
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 
 		mockClient = {
-			connect: jest.fn(),
-			quit: jest.fn(),
-			on: jest.fn(),
+			connect: vi.fn(),
+			quit: vi.fn(),
+			on: vi.fn(),
 			isReady: true
 		}
-		;(createClient as jest.Mock).mockReturnValue(mockClient)
+		;(createClient as Mock).mockReturnValue(mockClient)
 
 		service = new Redis(
 			{
@@ -34,7 +40,7 @@ describe('Redis', () => {
 				db: 0,
 				password: ''
 			},
-			logger
+			mockLogger
 		)
 	})
 
@@ -42,7 +48,9 @@ describe('Redis', () => {
 		const first = await service.connect()
 		const second = await service.connect()
 		expect(first).toBe(second)
-		expect(logger.info).toHaveBeenCalledWith('Redis client already connected.')
+		expect(mockLogger.info).toHaveBeenCalledWith(
+			'Redis client already connected.'
+		)
 	})
 
 	it('should connect successfully and register events', async () => {
@@ -65,7 +73,9 @@ describe('Redis', () => {
 		expect(calls.some((c: any) => c[0] === 'reconnecting')).toBe(true)
 		expect(calls.some((c: any) => c[0] === 'end')).toBe(true)
 
-		expect(logger.info).toHaveBeenCalledWith('Redis connected successfully.')
+		expect(mockLogger.info).toHaveBeenCalledWith(
+			'Redis connected successfully.'
+		)
 	})
 
 	it('should log redis events correctly', async () => {
@@ -90,16 +100,18 @@ describe('Redis', () => {
 		reconnectHandler()
 		endHandler()
 
-		expect(logger.error).toHaveBeenCalledWith('Redis Client Error', err)
-		expect(logger.info).toHaveBeenCalledWith('Redis Client Connected')
-		expect(logger.warn).toHaveBeenCalledWith('Redis Client Reconnecting...')
-		expect(logger.warn).toHaveBeenCalledWith('Redis Client Connection Ended')
+		expect(mockLogger.error).toHaveBeenCalledWith('Redis Client Error', err)
+		expect(mockLogger.info).toHaveBeenCalledWith('Redis Client Connected')
+		expect(mockLogger.warn).toHaveBeenCalledWith('Redis Client Reconnecting...')
+		expect(mockLogger.warn).toHaveBeenCalledWith(
+			'Redis Client Connection Ended'
+		)
 	})
 
 	it('should log and throw if connect fails', async () => {
 		mockClient.connect.mockRejectedValueOnce(new Error('fail'))
 		await expect(service.connect()).rejects.toThrow('fail')
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			'Failed to connect Redis:',
 			expect.any(Error)
 		)
@@ -111,11 +123,11 @@ describe('Redis', () => {
 
 		expect(mockClient.quit).toHaveBeenCalled()
 		expect((service as any).client).toBeNull()
-		expect(logger.info).toHaveBeenCalledWith('Redis disconnected.')
+		expect(mockLogger.info).toHaveBeenCalledWith('Redis disconnected.')
 
 		// Should do nothing if client is null
 		await service.disconnect()
-		expect(logger.info).toHaveBeenCalledTimes(2) // only previous call
+		expect(mockLogger.info).toHaveBeenCalledTimes(2) // only previous call
 	})
 
 	it('should reset internal state for tests', async () => {
@@ -126,7 +138,7 @@ describe('Redis', () => {
 
 	it('should apply reconnectStrategy correctly', async () => {
 		await service.connect()
-		const options = (createClient as jest.Mock).mock.calls[0][0]
+		const options = (createClient as Mock).mock.calls[0][0]
 		const strategy = options.socket.reconnectStrategy
 
 		// retries < 5

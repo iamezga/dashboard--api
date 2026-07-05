@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { Mock, Mocked, vi } from 'vitest'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { User as PrismaUserModel } from '../../../generated/prisma/client'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
@@ -9,7 +10,7 @@ import { UserRepository } from '../repository/UserRepository'
 describe('UserRepository', () => {
 	it('should find user by id for a specific organization', async () => {
 		dbMock.member = {
-			findFirst: jest.fn()
+			findFirst: vi.fn()
 		}
 		const memberUser = {
 			id: '30',
@@ -28,7 +29,7 @@ describe('UserRepository', () => {
 	})
 	it('should find all users for a specific organization', async () => {
 		dbMock.member = {
-			findMany: jest.fn()
+			findMany: vi.fn()
 		}
 		const memberUser = {
 			id: '10',
@@ -48,7 +49,7 @@ describe('UserRepository', () => {
 
 	it('should find user by email for a specific organization', async () => {
 		dbMock.member = {
-			findFirst: jest.fn()
+			findFirst: vi.fn()
 		}
 		const memberUser = {
 			id: '20',
@@ -68,30 +69,30 @@ describe('UserRepository', () => {
 	// Tests de membresía eliminados: ahora corresponden a MembershipRepository
 	let repository: UserRepository
 	let dbMock: any
-	let repositoryManagerMock: jest.Mocked<RepositoryManager>
-	let loggerMock: jest.Mocked<Logger>
+	let repositoryManagerMock: Mocked<RepositoryManager>
+	let loggerMock: Mocked<Logger>
 
 	beforeEach(() => {
 		dbMock = {
 			user: {
-				findUnique: jest.fn(),
-				findMany: jest.fn(),
-				create: jest.fn(),
-				update: jest.fn()
+				findUnique: vi.fn(),
+				findMany: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn()
 			}
 		}
 
 		repositoryManagerMock = {
-			getUserRepository: jest.fn(),
-			getSessionRepository: jest.fn(),
-			getPermissionRepository: jest.fn(),
-			getRoleRepository: jest.fn()
-		} as unknown as jest.Mocked<RepositoryManager>
+			getUserRepository: vi.fn(),
+			getSessionRepository: vi.fn(),
+			getPermissionRepository: vi.fn(),
+			getRoleRepository: vi.fn()
+		} as unknown as Mocked<RepositoryManager>
 		loggerMock = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		} as any
 		const containerMock = {
 			repositoryManager: repositoryManagerMock,
@@ -103,7 +104,7 @@ describe('UserRepository', () => {
 	})
 
 	afterEach(() => {
-		jest.restoreAllMocks()
+		vi.restoreAllMocks()
 	})
 
 	it('should return user mapped from Prisma in findById', async () => {
@@ -322,7 +323,7 @@ describe('UserRepository', () => {
 	})
 
 	it('should return null if findStatusById does not find a user', async () => {
-		;(dbMock.user!.findUnique as jest.Mock).mockResolvedValue(null)
+		;(dbMock.user!.findUnique as Mock).mockResolvedValue(null)
 
 		const result = await repository.findStatusById('unknown-id')
 

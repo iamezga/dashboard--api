@@ -93,7 +93,7 @@ describe('ValidationService', () => {
 				const newSchema = {
 					name: {
 						type: 'enum',
-						values: ['test', 'jest']
+						values: ['test', 'vi']
 					}
 				}
 
@@ -112,7 +112,7 @@ describe('ValidationService', () => {
 		expect(errors).not.toEqual([])
 		expect(errors[0]).toHaveProperty('message')
 		expect(errors[0].message).toEqual(
-			"The 'name' field value 'test, jest' does not match any of the allowed values."
+			"The 'name' field value 'test, vi' does not match any of the allowed values."
 		)
 	})
 })

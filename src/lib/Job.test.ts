@@ -1,27 +1,28 @@
 import { Logger } from 'pino'
+import { Mocked, vi } from 'vitest'
 import { Job } from './Job'
 
 describe('Job', () => {
-	let logger: jest.Mocked<Logger>
+	let logger: Mocked<Logger>
 
 	beforeEach(() => {
 		logger = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn(),
-			trace: jest.fn(),
-			fatal: jest.fn(),
-			child: jest.fn() as any
-		} as unknown as jest.Mocked<Logger>
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn(),
+			trace: vi.fn(),
+			fatal: vi.fn(),
+			child: vi.fn() as any
+		} as unknown as Mocked<Logger>
 	})
 
 	beforeAll(() => {
-		jest.spyOn(console, 'info').mockImplementation(() => {})
+		vi.spyOn(console, 'info').mockImplementation(() => {})
 	})
 
 	afterAll(() => {
-		;(console.info as jest.Mock).mockRestore()
+		;(logger.info as Mocked<Logger>['info']).mockRestore()
 	})
 
 	const baseOptions = (logger: Logger) =>
@@ -128,7 +129,7 @@ describe('Job', () => {
 
 	it('should trigger onFail callback and update meta on markFailed', () => {
 		const job = new Job(baseOptions(logger))
-		const cb = jest.fn()
+		const cb = vi.fn()
 		job.onFail(cb)
 		const err = new Error('boom')
 		job.markFailed('E123', err)
@@ -144,7 +145,7 @@ describe('Job', () => {
 
 	it('should trigger onComplete callback and update meta on markCompleted', () => {
 		const job = new Job(baseOptions(logger))
-		const cb = jest.fn()
+		const cb = vi.fn()
 		job.onComplete(cb)
 		job.markCompleted()
 		expect(job.getMeta().status).toBe('completed')
@@ -157,7 +158,7 @@ describe('Job', () => {
 
 	it('should trigger onProgress callback on markInProgress', () => {
 		const job = new Job(baseOptions(logger))
-		const cb = jest.fn()
+		const cb = vi.fn()
 		job.onProgress(cb)
 		job.markInProgress()
 		expect(job.getMeta().status).toBe('in_progress')
@@ -173,7 +174,7 @@ describe('Job', () => {
 
 	it('should trigger onUpdateProgress callback on updateProgress', () => {
 		const job = new Job(baseOptions(logger))
-		const cb = jest.fn()
+		const cb = vi.fn()
 		job.onUpdateProgress(cb)
 		job.updateProgress(77)
 		expect(job.getProgress()).toBe(77)

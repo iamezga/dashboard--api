@@ -1,24 +1,25 @@
+import { Mocked, vi } from 'vitest'
 import { QueueManager } from '../infrastructure/queueManager'
 import { JobService } from './jobService'
 
 // Mock the queue object that would be returned by the queueManager
 const mockQueue = {
-	add: jest.fn()
+	add: vi.fn()
 }
 
 // Mock the QueueManager dependency
-const mockQueueManager: jest.Mocked<QueueManager> = {
-	get: jest.fn().mockReturnValue(mockQueue),
-	initialize: jest.fn(),
-	getAll: jest.fn(),
-	shutdown: jest.fn()
+const mockQueueManager: Mocked<QueueManager> = {
+	get: vi.fn().mockReturnValue(mockQueue),
+	initialize: vi.fn(),
+	getAll: vi.fn(),
+	shutdown: vi.fn()
 }
 
 describe('JobService', () => {
 	let jobService: JobService
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		jobService = new JobService(mockQueueManager)
 	})
 
@@ -46,13 +47,11 @@ describe('JobService', () => {
 	describe('dispatchUseCase', () => {
 		it('should dispatch a use case job correctly', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('job-123'),
-				getData: jest.fn().mockReturnValue({ userId: 'user-1' }),
-				getMeta: jest.fn().mockReturnValue({ source: 'api' }),
-				getUser: jest
-					.fn()
-					.mockReturnValue({ id: 'u1', organizationId: 'org1' }),
-				getPublicUser: jest.fn().mockReturnValue(true)
+				getId: vi.fn().mockReturnValue('job-123'),
+				getData: vi.fn().mockReturnValue({ userId: 'user-1' }),
+				getMeta: vi.fn().mockReturnValue({ source: 'api' }),
+				getUser: vi.fn().mockReturnValue({ id: 'u1', organizationId: 'org1' }),
+				getPublicUser: vi.fn().mockReturnValue(true)
 			} as any
 
 			await jobService.dispatchUseCase('emails', 'UserCreateUseCase', mockJob, {
@@ -78,11 +77,11 @@ describe('JobService', () => {
 
 		it('should exclude user when getPublicUser returns false', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('job-456'),
-				getData: jest.fn().mockReturnValue({ data: 'test' }),
-				getMeta: jest.fn().mockReturnValue({}),
-				getUser: jest.fn().mockReturnValue({ id: 'u2' }),
-				getPublicUser: jest.fn().mockReturnValue(false)
+				getId: vi.fn().mockReturnValue('job-456'),
+				getData: vi.fn().mockReturnValue({ data: 'test' }),
+				getMeta: vi.fn().mockReturnValue({}),
+				getUser: vi.fn().mockReturnValue({ id: 'u2' }),
+				getPublicUser: vi.fn().mockReturnValue(false)
 			} as any
 
 			await jobService.dispatchUseCase('emails', 'SomeUseCase' as any, mockJob)
@@ -90,10 +89,10 @@ describe('JobService', () => {
 
 		it('should use default options when not provided', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('job-789'),
-				getData: jest.fn().mockReturnValue({}),
-				getMeta: jest.fn().mockReturnValue({}),
-				getPublicUser: jest.fn().mockReturnValue(false)
+				getId: vi.fn().mockReturnValue('job-789'),
+				getData: vi.fn().mockReturnValue({}),
+				getMeta: vi.fn().mockReturnValue({}),
+				getPublicUser: vi.fn().mockReturnValue(false)
 			} as any
 
 			await jobService.dispatchUseCase('emails', 'TestUseCase' as any, mockJob)
@@ -109,8 +108,8 @@ describe('JobService', () => {
 	describe('dispatchSimpleTask', () => {
 		it('should dispatch a simple task job correctly', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('task-001'),
-				getData: jest.fn().mockReturnValue({ taskData: 'value' })
+				getId: vi.fn().mockReturnValue('task-001'),
+				getData: vi.fn().mockReturnValue({ taskData: 'value' })
 			} as any
 
 			await jobService.dispatchSimpleTask('emails', 'simpleTaskName', mockJob, {
@@ -131,8 +130,8 @@ describe('JobService', () => {
 
 		it('should use default options when not provided', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('task-002'),
-				getData: jest.fn().mockReturnValue({ test: 'data' })
+				getId: vi.fn().mockReturnValue('task-002'),
+				getData: vi.fn().mockReturnValue({ test: 'data' })
 			} as any
 
 			await jobService.dispatchSimpleTask('emails', 'emailTask', mockJob)
@@ -148,8 +147,8 @@ describe('JobService', () => {
 	describe('dispatchJobScript', () => {
 		it('should dispatch a job script correctly', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('script-001'),
-				getData: jest.fn().mockReturnValue({ scriptParam: 'value' })
+				getId: vi.fn().mockReturnValue('script-001'),
+				getData: vi.fn().mockReturnValue({ scriptParam: 'value' })
 			} as any
 
 			await jobService.dispatchJobScript(
@@ -174,8 +173,8 @@ describe('JobService', () => {
 
 		it('should use default options when not provided', async () => {
 			const mockJob = {
-				getId: jest.fn().mockReturnValue('script-002'),
-				getData: jest.fn().mockReturnValue({})
+				getId: vi.fn().mockReturnValue('script-002'),
+				getData: vi.fn().mockReturnValue({})
 			} as any
 
 			await jobService.dispatchJobScript('emails', 'SomeScript' as any, mockJob)

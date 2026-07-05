@@ -1,17 +1,18 @@
-import { Request, Response } from 'express'
+import { NextFunction, Request, Response } from 'express'
 import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken'
+import { vi } from 'vitest'
 import { getContainer } from '../../core/dependencyContainer'
 import { UnauthorizedError } from '../../errors'
 import { authMiddleware } from './authMiddleware'
 
-jest.mock('@/core/dependencyContainer', () => ({
-	getContainer: jest.fn()
+vi.mock('@/core/dependencyContainer', () => ({
+	getContainer: vi.fn()
 }))
 
 describe('authMiddleware', () => {
 	let req: Partial<Request & { requestData?: any }>
 	let res: Partial<Response>
-	let next: jest.Mock
+	let next: ReturnType<typeof vi.fn>
 	let jobMock: any
 	let sessionRepo: any
 	let userRepo: any
@@ -19,39 +20,39 @@ describe('authMiddleware', () => {
 
 	beforeEach(() => {
 		req = { headers: {}, requestData: { token: 'valid.token' } }
-		jobMock = { setUser: jest.fn(), updateMeta: jest.fn() }
+		jobMock = { setUser: vi.fn(), updateMeta: vi.fn() }
 		res = { locals: { job: jobMock } }
-		next = jest.fn()
+		next = vi.fn()
 
 		sessionRepo = {
-			getSessionMetadata: jest.fn(),
-			getSessionContext: jest.fn(),
-			deleteSession: jest.fn(),
-			deleteAllUserSessions: jest.fn(),
-			updateLastActivity: jest.fn()
+			getSessionMetadata: vi.fn(),
+			getSessionContext: vi.fn(),
+			deleteSession: vi.fn(),
+			deleteAllUserSessions: vi.fn(),
+			updateLastActivity: vi.fn()
 		}
 
 		userRepo = {
-			findStatusById: jest.fn()
+			findStatusById: vi.fn()
 		}
 
 		container = {
-			config: { get: jest.fn().mockReturnValue('secret') },
+			config: { get: vi.fn().mockReturnValue('secret') },
 			libs: {
-				jwt: { verify: jest.fn(() => ({ userId: 'u1', sessionId: 's1' })) }
+				jwt: { verify: vi.fn(() => ({ userId: 'u1', sessionId: 's1' })) }
 			},
 			repositoryManager: {
 				get: (name: string) => (name === 'session' ? sessionRepo : userRepo)
 			}
 		}
-		;(getContainer as jest.Mock).mockReturnValue(container)
+		;(getContainer as ReturnType<typeof vi.fn>).mockReturnValue(container)
 	})
 
 	it('should call next with error when requestData or job is missing', async () => {
 		req.requestData = undefined
 		res.locals = {} as any
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(next).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -64,7 +65,7 @@ describe('authMiddleware', () => {
 		req.requestData = { token: undefined }
 		req.headers = {}
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
@@ -72,7 +73,7 @@ describe('authMiddleware', () => {
 	it('should call next with UnauthorizedError when sessionMetadata is missing', async () => {
 		sessionRepo.getSessionMetadata.mockResolvedValue(null)
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
@@ -111,7 +112,7 @@ describe('authMiddleware', () => {
 		})
 		sessionRepo.updateLastActivity.mockResolvedValue(true)
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(container.libs.jwt.verify).toHaveBeenCalledWith(
 			'header.token',
@@ -133,7 +134,7 @@ describe('authMiddleware', () => {
 			maxSessionTime: 1
 		})
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(sessionRepo.deleteSession).toHaveBeenCalledWith('s1')
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
@@ -150,7 +151,7 @@ describe('authMiddleware', () => {
 		})
 		sessionRepo.getSessionContext.mockResolvedValue(null)
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(sessionRepo.deleteSession).toHaveBeenCalledWith('s1')
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
@@ -179,7 +180,7 @@ describe('authMiddleware', () => {
 		})
 		userRepo.findStatusById.mockResolvedValue(null)
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(sessionRepo.deleteAllUserSessions).toHaveBeenCalledWith('u1')
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
@@ -216,7 +217,7 @@ describe('authMiddleware', () => {
 		})
 		sessionRepo.updateLastActivity.mockResolvedValue(true)
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(jobMock.setUser).toHaveBeenCalledWith(
 			expect.objectContaining({ id: 'u1', name: 'Name', status: 'active' })
@@ -230,7 +231,7 @@ describe('authMiddleware', () => {
 			throw new TokenExpiredError('expired', new Date())
 		})
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})
@@ -240,7 +241,7 @@ describe('authMiddleware', () => {
 			throw new JsonWebTokenError('invalid')
 		})
 
-		await authMiddleware(req as Request, res as Response, next)
+		await authMiddleware(req as Request, res as Response, next as NextFunction)
 
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 	})

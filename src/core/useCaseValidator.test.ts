@@ -1,7 +1,8 @@
+import { vi } from 'vitest'
 import { useCases } from '../modules'
 import { validateUseCases } from './useCaseValidator'
 
-jest.mock('@/modules', () => ({
+vi.mock('@/modules', () => ({
 	useCases: {}
 }))
 
@@ -19,11 +20,11 @@ describe('useCaseValidator', () => {
 		it('should not throw when all use cases with permissions have getPermissionValidationData', () => {
 			mockUseCases['UserCreateUseCase'] = class {
 				static permission = 'user.create'
-				static getPermissionValidationData = jest.fn()
+				static getPermissionValidationData = vi.fn()
 			}
 			mockUseCases['UserGetUseCase'] = class {
 				static permission = 'user.get'
-				static getPermissionValidationData = jest.fn()
+				static getPermissionValidationData = vi.fn()
 			}
 
 			expect(() => validateUseCases()).not.toThrow()
@@ -67,7 +68,7 @@ describe('useCaseValidator', () => {
 		it('should handle mixed scenarios correctly', () => {
 			mockUseCases['UserCreateUseCase'] = class {
 				static permission = 'user.create'
-				static getPermissionValidationData = jest.fn()
+				static getPermissionValidationData = vi.fn()
 			}
 			mockUseCases['AuthLoginUseCase'] = class {
 				// Public - no permission

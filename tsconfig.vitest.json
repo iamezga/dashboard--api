@@ -1,0 +1,19 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "types": ["node", "vitest/globals"],
+        "moduleResolution": "Node",
+        "baseUrl": "./src",
+        "paths": {
+            "@/*": ["*"]
+        }
+    },
+    "include": [
+        "src/**/*.test.ts",
+        "src/**/*.vitest.test.ts",
+        "src/setupTests.vitest.ts",
+        "src/**/*.d.ts"
+    ],
+    "exclude": ["node_modules", "dist", "coverage"]
+}

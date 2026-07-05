@@ -1,25 +1,26 @@
 import { NextFunction, Request, Response } from 'express'
 import { Logger } from 'pino'
-import { endMiddleware } from '../../http/middlewares/endMiddleware'
+import { vi } from 'vitest'
 import { Job } from '../../lib/Job'
+import { endMiddleware } from './endMiddleware'
 
 describe('endMiddleware', () => {
 	let req: Partial<Request>
 	let res: Partial<Response>
-	let next: jest.Mock
+	let next: ReturnType<typeof vi.fn>
 	let job: Partial<Job>
 	let mockLogger: Partial<Logger>
 
 	beforeEach(() => {
 		req = {}
-		next = jest.fn()
+		next = vi.fn()
 
 		mockLogger = {
-			info: jest.fn()
+			info: vi.fn()
 		}
 
 		job = {
-			getMeta: jest.fn().mockReturnValue({ timestamp: Date.now() - 50 }),
+			getMeta: vi.fn().mockReturnValue({ timestamp: Date.now() - 50 }),
 			logger: mockLogger as Logger
 		}
 
@@ -54,7 +55,7 @@ describe('endMiddleware', () => {
 	})
 
 	it('should forward errors to next()', () => {
-		;(job.getMeta as jest.Mock).mockImplementation(() => {
+		;(job.getMeta as ReturnType<typeof vi.fn>).mockImplementation(() => {
 			throw new Error('boom')
 		})
 

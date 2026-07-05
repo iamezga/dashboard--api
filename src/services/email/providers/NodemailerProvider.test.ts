@@ -1,17 +1,18 @@
 import nodemailer from 'nodemailer'
 import { Logger } from 'pino'
+import { Mock, vi } from 'vitest'
 import { EmailProviderError } from '../../../errors'
 import { EmailSendOptions } from '../../../types/services'
 import { NodemailerConfig, NodemailerProvider } from './NodemailerProvider'
 
-jest.mock('nodemailer')
+vi.mock('nodemailer')
 
 const createLogger = (): Logger => {
 	const logger: any = {
-		info: jest.fn(),
-		error: jest.fn(),
-		warn: jest.fn(),
-		child: jest.fn()
+		info: vi.fn(),
+		error: vi.fn(),
+		warn: vi.fn(),
+		child: vi.fn()
 	}
 	logger.child.mockReturnValue(logger)
 	return logger as Logger
@@ -37,16 +38,16 @@ describe('NodemailerProvider', () => {
 		}
 
 		mockTransporter = {
-			sendMail: jest.fn().mockResolvedValue({ messageId: 'test-id' }),
-			verify: jest.fn().mockResolvedValue(true)
+			sendMail: vi.fn().mockResolvedValue({ messageId: 'test-id' }),
+			verify: vi.fn().mockResolvedValue(true)
 		}
-		;(nodemailer.createTransport as jest.Mock).mockReturnValue(mockTransporter)
+		;(nodemailer.createTransport as Mock).mockReturnValue(mockTransporter)
 
 		provider = new NodemailerProvider(config, logger)
 	})
 
 	afterEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('has correct provider name', () => {
@@ -218,7 +219,7 @@ describe('NodemailerProvider', () => {
 
 			try {
 				await provider.verify()
-				fail('Should have thrown EmailProviderError')
+				throw new Error('Should have thrown EmailProviderError')
 			} catch (error) {
 				expect(error).toBeInstanceOf(EmailProviderError)
 				if (error instanceof EmailProviderError) {

@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
+import { vi } from 'vitest'
 import '../../types/express.d.ts'
 import { requestDataMiddleware } from './requestDataMiddleware'
 
@@ -12,7 +13,7 @@ const mockRequest = (
 	const req: Partial<Request> = {
 		ip: '127.0.0.1',
 		headers: {
-			'user-agent': 'Jest Test',
+			'user-agent': 'Test Test',
 			referer: 'http://test.com',
 			origin: 'http://test.com'
 		},
@@ -29,11 +30,11 @@ const mockResponse = () => {
 	return res as Response
 }
 
-const mockNext: NextFunction = jest.fn()
+const mockNext: NextFunction = vi.fn()
 
 describe('requestDataMiddleware', () => {
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should attach requestData to the request object for API calls', () => {
@@ -49,7 +50,7 @@ describe('requestDataMiddleware', () => {
 		expect(typeof req.requestData.meta.timestamp).toBe('number')
 		expect(req.requestData.meta.url).toBe('/api/v1/test')
 		expect(req.requestData.meta.ip).toBe('127.0.0.1')
-		expect(req.requestData.meta.userAgent).toBe('Jest Test')
+		expect(req.requestData.meta.userAgent).toBe('Test Test')
 		expect(req.requestData.meta.referer).toBe('http://test.com')
 		expect(req.requestData.meta.origin).toBe('http://test.com')
 

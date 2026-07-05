@@ -1,38 +1,39 @@
+import { vi } from 'vitest'
 import { NextFunction, Request, Response } from 'express'
 import { getContainer } from '../../core/dependencyContainer'
 import { useCaseFactory } from '../../core/useCaseFactory'
 import { JobInterface } from '../../types/job/JobInterface'
 import { useCaseMiddleware } from './useCaseMiddleware'
 
-jest.mock('@/core/useCaseFactory')
-jest.mock('@/core/dependencyContainer')
+vi.mock('@/core/useCaseFactory')
+vi.mock('@/core/dependencyContainer')
 
 describe('useCaseMiddleware', () => {
 	let req: Partial<Request>
 	let res: Partial<Response>
 	let next: NextFunction
 	let mockJob: JobInterface
-	let mockUseCaseRun: jest.Mock
+	let mockUseCaseRun: ReturnType<typeof vi.fn>
 	let mockUseCase: any
-	let mockAuditRecord: jest.Mock
+	let mockAuditRecord: ReturnType<typeof vi.fn>
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 
 		mockJob = {
 			id: 'job1',
 			data: {},
-			getMeta: jest.fn().mockReturnValue({ method: 'GET', url: '/v1/test' })
+			getMeta: vi.fn().mockReturnValue({ method: 'GET', url: '/v1/test' })
 		} as unknown as JobInterface
-		mockUseCaseRun = jest.fn().mockResolvedValue('result')
+		mockUseCaseRun = vi.fn().mockResolvedValue('result')
 		mockUseCase = { run: mockUseCaseRun }
-		mockAuditRecord = jest.fn().mockResolvedValue(undefined)
+		mockAuditRecord = vi.fn().mockResolvedValue(undefined)
 
 		req = {}
 		res = { locals: { job: mockJob } }
-		next = jest.fn()
-		;(useCaseFactory as jest.Mock).mockReturnValue(mockUseCase)
-		;(getContainer as jest.Mock).mockReturnValue({
+		next = vi.fn()
+		;(useCaseFactory as ReturnType<typeof vi.fn>).mockReturnValue(mockUseCase)
+		;(getContainer as ReturnType<typeof vi.fn>).mockReturnValue({
 			services: {
 				auditService: {
 					record: mockAuditRecord
@@ -75,7 +76,7 @@ describe('useCaseMiddleware', () => {
 		await middleware(req as Request, res as Response, next)
 
 		expect(next).toHaveBeenCalled()
-		const error = (next as jest.Mock).mock.calls[0][0]
+		const error = (next as ReturnType<typeof vi.fn>).mock.calls[0][0]
 		expect(error).toBeInstanceOf(Error)
 		expect(error.message).toBe(
 			'`jobMiddleware` must be run before `useCaseMiddleware`.'
@@ -89,7 +90,7 @@ describe('useCaseMiddleware', () => {
 		await middleware(req as Request, res as Response, next)
 
 		expect(next).toHaveBeenCalled()
-		const error = (next as jest.Mock).mock.calls[0][0]
+		const error = (next as ReturnType<typeof vi.fn>).mock.calls[0][0]
 		expect(error).toBeInstanceOf(Error)
 		expect(error.message).toBe('run-fail')
 	})

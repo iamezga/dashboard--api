@@ -1,14 +1,15 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { EmailProvider, EmailTemplate } from '../../types/services'
 import { EmailService } from './EmailService'
 import { InMemoryEmailTemplateRegistry } from './EmailTemplateRegistry'
 
 const createLogger = (): Logger => {
 	const logger: any = {
-		info: jest.fn(),
-		error: jest.fn(),
-		warn: jest.fn(),
-		child: jest.fn()
+		info: vi.fn(),
+		error: vi.fn(),
+		warn: vi.fn(),
+		child: vi.fn()
 	}
 	logger.child.mockReturnValue(logger)
 	return logger as Logger
@@ -38,8 +39,8 @@ describe('EmailService', () => {
 	it('creates its own registry when templates parameter not provided', () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn(),
-			verify: jest.fn()
+			send: vi.fn(),
+			verify: vi.fn()
 		}
 
 		// Create service without passing templates (uses default parameter)
@@ -53,8 +54,8 @@ describe('EmailService', () => {
 	it('renders templates and delegates to provider', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockResolvedValue(undefined),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 
 		const service = new EmailService(provider, logger, registry)
@@ -88,8 +89,8 @@ describe('EmailService', () => {
 	it('handles missing templateData by using empty object', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockResolvedValue(undefined),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 
 		// Template without required variables
@@ -127,8 +128,8 @@ describe('EmailService', () => {
 	it('logs errors when template validation fails without calling provider', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockResolvedValue(undefined),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -145,8 +146,8 @@ describe('EmailService', () => {
 	it('logs provider errors and continues for send', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockRejectedValue(new Error('provider failed')),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockRejectedValue(new Error('provider failed')),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -162,8 +163,8 @@ describe('EmailService', () => {
 	it('proxies sendHtml directly to provider', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockResolvedValue(undefined),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -185,8 +186,8 @@ describe('EmailService', () => {
 	it('logs provider errors for sendHtml', async () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn().mockRejectedValue(new Error('provider failed')),
-			verify: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockRejectedValue(new Error('provider failed')),
+			verify: vi.fn().mockResolvedValue(undefined)
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -202,8 +203,8 @@ describe('EmailService', () => {
 	it('registers new templates via registerTemplate', () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn(),
-			verify: jest.fn()
+			send: vi.fn(),
+			verify: vi.fn()
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -225,8 +226,8 @@ describe('EmailService', () => {
 	it('returns template registry via getTemplateRegistry', () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn(),
-			verify: jest.fn()
+			send: vi.fn(),
+			verify: vi.fn()
 		}
 		const service = new EmailService(provider, logger, registry)
 
@@ -239,8 +240,8 @@ describe('EmailService', () => {
 	it('returns provider via getProvider', () => {
 		const provider: EmailProvider = {
 			name: 'mock',
-			send: jest.fn(),
-			verify: jest.fn()
+			send: vi.fn(),
+			verify: vi.fn()
 		}
 		const service = new EmailService(provider, logger, registry)
 

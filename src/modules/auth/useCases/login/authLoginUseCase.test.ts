@@ -1,15 +1,16 @@
+import { vi } from 'vitest'
 import { BadRequestError } from '../../../../errors/BadRequestError'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthLoginUseCase } from './AuthLoginUseCase'
 
 describe('AuthLoginUseCase', () => {
-	const userRepo = { findUserAuthDetailsByEmail: jest.fn() }
-	const sessionRepo = { createSession: jest.fn() }
-	const argon2 = { verify: jest.fn() }
-	const jwt = { sign: jest.fn() }
-	const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
-	const auditService = { record: jest.fn() }
-	const utilsGetTimeInSeconds = jest.fn()
+	const userRepo = { findUserAuthDetailsByEmail: vi.fn() }
+	const sessionRepo = { createSession: vi.fn() }
+	const argon2 = { verify: vi.fn() }
+	const jwt = { sign: vi.fn() }
+	const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+	const auditService = { record: vi.fn() }
+	const utilsGetTimeInSeconds = vi.fn()
 
 	const makeContainer = (): DependencyContainer =>
 		({
@@ -38,14 +39,14 @@ describe('AuthLoginUseCase', () => {
 			getData: () => data,
 			getMeta: () => ({ timestamp: new Date(), userAgent: 'agent' }),
 			getUser: () => ({}),
-			setUser: jest.fn(),
-			updateMeta: jest.fn(),
+			setUser: vi.fn(),
+			updateMeta: vi.fn(),
 			getAttempts: () => 1,
 			logger
 		}) as any
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		sessionRepo.createSession.mockResolvedValueOnce('session-id-123')
 		jwt.sign.mockReturnValueOnce('token-jwt')
 		utilsGetTimeInSeconds.mockReturnValueOnce(86400)

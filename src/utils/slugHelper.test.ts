@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import {
 	ensureUniqueSlug,
 	generateSlug,
@@ -157,7 +158,7 @@ describe('slugHelper', () => {
 
 	describe('ensureUniqueSlug', () => {
 		it('should return the base slug if it does not exist', async () => {
-			const checkExists = jest.fn().mockResolvedValue(false)
+			const checkExists = vi.fn().mockResolvedValue(false)
 			const result = await ensureUniqueSlug('acme-corp', checkExists)
 
 			expect(result).toBe('acme-corp')
@@ -166,7 +167,7 @@ describe('slugHelper', () => {
 		})
 
 		it('should append -2 if base slug exists', async () => {
-			const checkExists = jest
+			const checkExists = vi
 				.fn()
 				.mockResolvedValueOnce(true) // acme-corp exists
 				.mockResolvedValueOnce(false) // acme-corp-2 does not exist
@@ -180,7 +181,7 @@ describe('slugHelper', () => {
 		})
 
 		it('should keep incrementing until a unique slug is found', async () => {
-			const checkExists = jest
+			const checkExists = vi
 				.fn()
 				.mockResolvedValueOnce(true) // acme-corp exists
 				.mockResolvedValueOnce(true) // acme-corp-2 exists
@@ -194,7 +195,7 @@ describe('slugHelper', () => {
 		})
 
 		it('should throw error if max attempts reached', async () => {
-			const checkExists = jest.fn().mockResolvedValue(true) // Always exists
+			const checkExists = vi.fn().mockResolvedValue(true) // Always exists
 
 			await expect(
 				ensureUniqueSlug('acme-corp', checkExists, 5)
@@ -204,7 +205,7 @@ describe('slugHelper', () => {
 		})
 
 		it('should use default max attempts of 100', async () => {
-			const checkExists = jest.fn().mockResolvedValue(true) // Always exists
+			const checkExists = vi.fn().mockResolvedValue(true) // Always exists
 
 			await expect(ensureUniqueSlug('acme-corp', checkExists)).rejects.toThrow(
 				'Could not generate unique slug after 100 attempts'

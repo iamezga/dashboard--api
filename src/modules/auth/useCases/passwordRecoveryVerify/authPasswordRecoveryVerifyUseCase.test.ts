@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { BadRequestError } from '../../../../errors'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthPasswordRecoveryVerifyJobInterface } from './AuthPasswordRecoveryVerifyJobInterface'
@@ -6,17 +7,17 @@ import { AuthPasswordRecoveryVerifyUseCase } from './AuthPasswordRecoveryVerifyU
 
 describe('AuthPasswordRecoveryVerifyUseCase', () => {
 	const userRepo = {
-		findById: jest.fn()
+		findById: vi.fn()
 	}
 
 	const passwordRecoveryTokenRepo = {
-		verifyAndGetUserId: jest.fn()
+		verifyAndGetUserId: vi.fn()
 	}
 
 	const logger = {
-		info: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn()
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn()
 	} as unknown as Logger
 
 	const makeContainer = (): DependencyContainer =>
@@ -40,7 +41,7 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 	const validToken = 'a'.repeat(64) // 64 char hex token
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should have undefined permission for public use case', () => {
@@ -206,7 +207,7 @@ describe('AuthPasswordRecoveryVerifyUseCase', () => {
 
 			expect(result.data.email).toBe(testCase.expected)
 
-			jest.clearAllMocks()
+			vi.clearAllMocks()
 		}
 	})
 

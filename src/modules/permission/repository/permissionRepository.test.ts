@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { Mock, Mocked, vi } from 'vitest'
 import { RepositoryManager } from '../../../core/repositoryManager'
 import { Permission as PrismaPermissionModel } from '../../../generated/prisma/client'
 import { DatabaseClientsMap } from '../../../infrastructure/databaseManager'
@@ -13,32 +14,32 @@ import { PermissionRepository } from '../repository/PermissionRepository'
 describe('PermissionRepository', () => {
 	let repository: PermissionRepository
 	let dbMock: Partial<DatabaseClientsMap['postgres']>
-	let repositoryManagerMock: jest.Mocked<RepositoryManager>
-	let loggerMock: jest.Mocked<Logger>
+	let repositoryManagerMock: Mocked<RepositoryManager>
+	let loggerMock: Mocked<Logger>
 	let containerMock: DependencyContainer
 
 	beforeEach(() => {
 		dbMock = {
 			permission: {
-				findUnique: jest.fn(),
-				findMany: jest.fn(),
-				create: jest.fn(),
-				update: jest.fn()
+				findUnique: vi.fn(),
+				findMany: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn()
 			} as any
 		}
 
 		repositoryManagerMock = {
-			getUserRepository: jest.fn(),
-			getSessionRepository: jest.fn(),
-			getPermissionRepository: jest.fn(),
-			getRoleRepository: jest.fn()
-		} as unknown as jest.Mocked<RepositoryManager>
+			getUserRepository: vi.fn(),
+			getSessionRepository: vi.fn(),
+			getPermissionRepository: vi.fn(),
+			getRoleRepository: vi.fn()
+		} as unknown as Mocked<RepositoryManager>
 
 		loggerMock = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		} as any
 
 		containerMock = {
@@ -71,9 +72,7 @@ describe('PermissionRepository', () => {
 			deletedAt: null
 		} as any
 
-		;(dbMock.permission!.findUnique as jest.Mock).mockResolvedValue(
-			prismaPermission
-		)
+		;(dbMock.permission!.findUnique as Mock).mockResolvedValue(prismaPermission)
 
 		const result: Permission | null = await repository.findById('p1')
 
@@ -84,7 +83,7 @@ describe('PermissionRepository', () => {
 	})
 
 	it('should return null if permission not found by id', async () => {
-		;(dbMock.permission!.findUnique as jest.Mock).mockResolvedValue(null)
+		;(dbMock.permission!.findUnique as Mock).mockResolvedValue(null)
 
 		const result = await repository.findById('missing')
 		expect(result).toBeNull()
@@ -105,9 +104,7 @@ describe('PermissionRepository', () => {
 			deletedAt: null
 		} as any
 
-		;(dbMock.permission!.findUnique as jest.Mock).mockResolvedValue(
-			prismaPermission
-		)
+		;(dbMock.permission!.findUnique as Mock).mockResolvedValue(prismaPermission)
 
 		const result = await repository.findByKey('CAN_EDIT')
 		expect(dbMock.permission!.findUnique).toHaveBeenCalledWith({
@@ -117,7 +114,7 @@ describe('PermissionRepository', () => {
 	})
 
 	it('should return null if permission not found by key', async () => {
-		;(dbMock.permission!.findUnique as jest.Mock).mockResolvedValue(null)
+		;(dbMock.permission!.findUnique as Mock).mockResolvedValue(null)
 
 		const result = await repository.findByKey('NON_EXISTENT_KEY')
 		expect(result).toBeNull()
@@ -153,9 +150,7 @@ describe('PermissionRepository', () => {
 			} as any
 		]
 
-		;(dbMock.permission!.findMany as jest.Mock).mockResolvedValue(
-			prismaPermissions
-		)
+		;(dbMock.permission!.findMany as Mock).mockResolvedValue(prismaPermissions)
 
 		const result = await repository.findByKeys(['CAN_VIEW', 'CAN_EDIT'])
 		expect(result).toHaveLength(2)
@@ -187,9 +182,7 @@ describe('PermissionRepository', () => {
 			deletedAt: null
 		} as any
 
-		;(dbMock.permission!.create as jest.Mock).mockResolvedValue(
-			prismaPermission
-		)
+		;(dbMock.permission!.create as Mock).mockResolvedValue(prismaPermission)
 
 		const result = await repository.create(input)
 		expect(dbMock.permission!.create).toHaveBeenCalledWith({ data: input })
@@ -212,9 +205,7 @@ describe('PermissionRepository', () => {
 			deletedAt: null
 		} as any
 
-		;(dbMock.permission!.update as jest.Mock).mockResolvedValue(
-			prismaPermission
-		)
+		;(dbMock.permission!.update as Mock).mockResolvedValue(prismaPermission)
 
 		const result = await repository.update('p3', updateData)
 		expect(dbMock.permission!.update).toHaveBeenCalledWith({
@@ -225,7 +216,7 @@ describe('PermissionRepository', () => {
 	})
 
 	it('should delete a permission (soft delete)', async () => {
-		;(dbMock.permission!.update as jest.Mock).mockResolvedValue({
+		;(dbMock.permission!.update as Mock).mockResolvedValue({
 			id: 'p4'
 		} as any)
 
@@ -255,9 +246,7 @@ describe('PermissionRepository', () => {
 			} as any
 		]
 
-		;(dbMock.permission!.findMany as jest.Mock).mockResolvedValue(
-			prismaPermissions
-		)
+		;(dbMock.permission!.findMany as Mock).mockResolvedValue(prismaPermissions)
 
 		const result = await repository.findAll()
 		expect(dbMock.permission!.findMany).toHaveBeenCalledWith({

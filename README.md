@@ -21,7 +21,6 @@ This template is built around a set of modern engineering principles to ensure t
 - **Role-Based Access Control (RBAC)**: Features a built-in RBAC system. Permissions are defined and assigned to roles. Users are then assigned a role, granting them a specific set of capabilities. The `permissionMiddleware` automatically enforces these rules for protected routes.
 
 - **True Multi-Tenancy Architecture**: The system is built from the ground up as a multi-tenant application with a strict, closed data isolation model.
-
   - **Data Scoping**: Every tenant-specific resource, such as `Users` and `Roles`, is mandatorily tied to an `organizationId`, ensuring structural data isolation at the database level.
   - **System-Level Entities**: A special `System Organization` exists to house platform-level users (like `superAdmin`) and system-wide roles. This is managed through a `scope` field (`SYSTEM` vs. `TENANT`) on `Organization` and `Role` models, allowing for clear separation between platform administration and tenant data.
   - **Secure Repositories**: The data access layer (Repositories) enforces tenancy by automatically filtering queries by `organizationId`. This prevents any possibility of data leakage between tenants.
@@ -45,12 +44,10 @@ This template is built around a set of modern engineering principles to ensure t
 This template employs a polyglot persistence strategy, using different databases for tasks they are best suited for. This avoids the "one size fits all" problem and optimizes for performance and scalability.
 
 - **PostgreSQL (via Prisma)**: The primary database for core business entities.
-
   - **Usage**: Stores relational data like `Users`, `Roles`, `Permissions`, and `Organizations`.
   - **Why?**: PostgreSQL's ACID compliance and strong consistency guarantees are ideal for critical business data. Prisma provides a powerful, type-safe ORM for interacting with it.
 
 - **Redis**: Used for session management and caching.
-
   - **Usage**: Stores active user session metadata and serves as the message broker for the **BullMQ** job queue.
   - **Why?**: As an in-memory key-value store, Redis provides the extremely low-latency access required for session validation and the high-speed message passing needed for an efficient background job system.
 
@@ -63,22 +60,18 @@ This template employs a polyglot persistence strategy, using different databases
 The project strictly follows the principles of **Clean Architecture**, separating concerns into distinct layers.
 
 1.  **Presentation Layer (`src/http`)**
-
     - **Responsibility**: Handles all things HTTP. This is the outermost layer.
     - **Components**: Express server, routes, and the middleware chain. It translates HTTP requests into calls to the application layer.
 
 2.  **Application Layer (`src/modules/*/useCases`)**
-
     - **Responsibility**: Contains the application-specific business logic. It orchestrates the flow of data between the domain and the infrastructure.
     - **Components**: Use Cases (e.g., `UserCreateUseCase`). A use case knows _how_ to achieve a business goal by coordinating repositories and domain entities.
 
 3.  **Domain Layer (`src/modules/*/entities`)**
-
     - **Responsibility**: The core of the application. Contains the enterprise-wide business rules and entities.
     - **Components**: Domain entities (e.g., `User`, `Role`), value objects, and repository interfaces. This layer has **zero dependencies** on any other layer.
 
 4.  **Core Layer (`src/core`)**
-
     - **Responsibility**: Orchestrates the application's main architectural components.
     - **Components**: `DependencyContainer`, `RepositoryManager`, and `UseCaseFactory`. This layer is responsible for wiring everything together.
 
@@ -207,7 +200,7 @@ This pattern makes your use cases incredibly easy to test, as you can simply ins
 - `npm run build`: Compiles the TypeScript code to JavaScript in the `dist/` folder.
 - `npm run worker <queue_1> [queue_2] ...`: Starts a worker process to listen for jobs on one or more specified queues (e.g., `npm run worker emails notifications`).
 - `npm start`: Starts the compiled application from the `dist/` folder.
-- `npm test`: Runs all tests with Jest.
+- `npm test`: Runs the Vitest suite.
 - `npm run test:watch`: Runs tests in watch mode.
 - `npm run test:coverage`: Runs tests and generates a coverage report.
 

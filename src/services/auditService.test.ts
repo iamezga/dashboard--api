@@ -1,17 +1,18 @@
 import * as Sentry from '@sentry/node'
+import { vi } from 'vitest'
 import { AuditService } from './auditService'
 
-jest.mock('@sentry/node', () => ({
-	captureException: jest.fn()
+vi.mock('@sentry/node', () => ({
+	captureException: vi.fn()
 }))
 
 describe('AuditService', () => {
-	const mockInsert = jest.fn()
+	const mockInsert = vi.fn()
 	const mockAuditRepository = { insert: mockInsert }
 
 	const baseJob = {
-		getMeta: jest.fn(() => ({ ip: '127.0.0.1', sessionId: 'session-1' })),
-		getUser: jest.fn(() => ({
+		getMeta: vi.fn(() => ({ ip: '127.0.0.1', sessionId: 'session-1' })),
+		getUser: vi.fn(() => ({
 			id: 'user-1',
 			email: 'test@example.com',
 			membership: {
@@ -20,16 +21,16 @@ describe('AuditService', () => {
 				role: { id: 'role-1' }
 			}
 		})),
-		getPublicUser: jest.fn(() => ({
+		getPublicUser: vi.fn(() => ({
 			id: 'user-1',
 			email: 'test@example.com'
 		})),
-		getId: jest.fn(() => 'job-123'),
-		logger: { error: jest.fn() }
+		getId: vi.fn(() => 'job-123'),
+		logger: { error: vi.fn() }
 	}
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should insert audit record when authenticated user exists', async () => {
@@ -57,10 +58,10 @@ describe('AuditService', () => {
 	it('should insert audit record when overrides are provided for a public flow', async () => {
 		const jobWithoutUser = {
 			...baseJob,
-			getUser: jest.fn(() => {
+			getUser: vi.fn(() => {
 				throw new Error('no user in context')
 			}),
-			getPublicUser: jest.fn(() => undefined)
+			getPublicUser: vi.fn(() => undefined)
 		}
 		const service = new AuditService(mockAuditRepository as any)
 
@@ -88,11 +89,11 @@ describe('AuditService', () => {
 	it('should insert anonymous audit when actor context cannot be resolved', async () => {
 		const jobNoUser = {
 			...baseJob,
-			getUser: jest.fn(() => {
+			getUser: vi.fn(() => {
 				throw new Error('no user in context')
 			}),
-			getPublicUser: jest.fn(() => null),
-			getMeta: jest.fn(() => ({ ip: '127.0.0.1' }))
+			getPublicUser: vi.fn(() => null),
+			getMeta: vi.fn(() => ({ ip: '127.0.0.1' }))
 		}
 		const service = new AuditService(mockAuditRepository as any)
 
@@ -109,11 +110,11 @@ describe('AuditService', () => {
 	it('should insert system audit when no user identity and execution source is internal', async () => {
 		const jobSystem = {
 			...baseJob,
-			getUser: jest.fn(() => {
+			getUser: vi.fn(() => {
 				throw new Error('no user in context')
 			}),
-			getPublicUser: jest.fn(() => null),
-			getMeta: jest.fn(() => ({
+			getPublicUser: vi.fn(() => null),
+			getMeta: vi.fn(() => ({
 				ip: '127.0.0.1',
 				executionSource: 'worker',
 				initiatedBy: 'system'

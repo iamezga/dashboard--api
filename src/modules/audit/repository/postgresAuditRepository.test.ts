@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { AuditInput } from '../entities/Audit'
 import { AuditFilters } from '../entities/AuditFilters'
 import { PostgresAuditRepository } from './PostgresAuditRepository'
@@ -5,15 +6,15 @@ import { PostgresAuditRepository } from './PostgresAuditRepository'
 describe('PostgresAuditRepository', () => {
 	let mockPrisma: any
 	let repo: PostgresAuditRepository
-	const mockLogger = { info: jest.fn(), error: jest.fn(), warn: jest.fn() }
+	const mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
 
 	beforeEach(() => {
 		mockPrisma = {
 			audit: {
-				create: jest.fn().mockResolvedValue({}),
-				findUnique: jest.fn(),
-				findMany: jest.fn(),
-				count: jest.fn()
+				create: vi.fn().mockResolvedValue({}),
+				findUnique: vi.fn(),
+				findMany: vi.fn(),
+				count: vi.fn()
 			}
 		}
 		// Use constructor injection instead of setContext
@@ -21,7 +22,7 @@ describe('PostgresAuditRepository', () => {
 			repositoryManager: {},
 			logger: mockLogger
 		} as any)
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('inserts audit record successfully', async () => {

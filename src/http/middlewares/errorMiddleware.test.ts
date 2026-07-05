@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
+import { vi } from 'vitest'
 import { getContainer } from '../../core/dependencyContainer'
 import {
 	BadRequestError,
@@ -15,79 +16,86 @@ import { errorMiddleware } from './errorMiddleware'
 
 // ----------------- Mocks -----------------
 const mockRequest = {} as Request
-const mockNext = jest.fn() as NextFunction
+const mockNext = vi.fn() as NextFunction
 
-const mockGetPublicUser = jest.fn().mockReturnValue({ id: 'mock-user-id' })
+const mockGetPublicUser = vi.fn().mockReturnValue({ id: 'mock-user-id' })
 const mockJobLogger = {
-	error: jest.fn(),
-	warn: jest.fn(),
-	info: jest.fn(),
-	child: jest.fn().mockReturnThis()
+	error: vi.fn(),
+	warn: vi.fn(),
+	info: vi.fn(),
+	child: vi.fn().mockReturnThis()
 }
 
 const mockJob = {
-	getId: jest.fn().mockReturnValue('mock-job-id'),
+	getId: vi.fn().mockReturnValue('mock-job-id'),
 	getPublicUser: mockGetPublicUser,
-	getMeta: jest.fn().mockReturnValue({ status: 'in_progress' }),
-	getData: jest.fn().mockReturnValue({ input: 'data' }),
-	markFailed: jest.fn(),
+	getMeta: vi.fn().mockReturnValue({ status: 'in_progress' }),
+	getData: vi.fn().mockReturnValue({ input: 'data' }),
+	markFailed: vi.fn(),
 	logger: mockJobLogger
 } as unknown as Job
 
 const createMockResponse = (jobMock?: any) => {
 	const res: Partial<Response> = {
-		status: jest.fn().mockReturnThis(),
-		json: jest.fn(),
+		status: vi.fn().mockReturnThis(),
+		json: vi.fn(),
 		locals: { job: jobMock }
 	}
 	return res as Response
 }
 
 // ----------------- Module Mocks -----------------
-jest.mock('@/lib/Job', () => ({ Job: jest.fn(() => mockJob) }))
-jest.mock('@/services/logger', () => ({
-	info: jest.fn(),
-	error: jest.fn(),
-	warn: jest.fn()
+vi.mock('@/lib/Job', () => ({ Job: vi.fn(() => mockJob) }))
+vi.mock('@/services/logger', () => ({
+	__esModule: true,
+	default: {
+		info: vi.fn(),
+		error: vi.fn(),
+		warn: vi.fn(),
+		debug: vi.fn(),
+		child: vi.fn()
+	}
 }))
-jest.mock('@/services/config', () => ({
-	config: { get: jest.fn() }
+vi.mock('@/services/config', () => ({
+	config: { get: vi.fn() }
 }))
-jest.mock('crypto', () => ({ randomUUID: jest.fn(() => 'mock-error-id') }))
-jest.mock('@sentry/node', () => ({
-	withScope: jest.fn(),
-	captureException: jest.fn()
+vi.mock('crypto', () => ({ randomUUID: vi.fn(() => 'mock-error-id') }))
+vi.mock('@sentry/node', () => ({
+	withScope: vi.fn(),
+	captureException: vi.fn()
 }))
-jest.mock('@/core/dependencyContainer', () => ({
-	getContainer: jest.fn()
+vi.mock('@/core/dependencyContainer', () => ({
+	getContainer: vi.fn()
 }))
 
 // ----------------- Tests -----------------
 describe('errorMiddleware', () => {
 	let mockRes: Response
-	let mockAuditRecord: jest.Mock
+	let mockAuditRecord: ReturnType<typeof vi.fn>
 
 	beforeEach(() => {
 		mockRes = createMockResponse(mockJob)
-		jest.clearAllMocks()
-		mockAuditRecord = jest.fn().mockResolvedValue(undefined)
-		;(getContainer as jest.Mock).mockReturnValue({
+		vi.clearAllMocks()
+		mockAuditRecord = vi.fn().mockResolvedValue(undefined)
+		;(getContainer as ReturnType<typeof vi.fn>).mockReturnValue({
 			services: {
 				auditService: {
 					record: mockAuditRecord
 				}
 			}
 		})
-		;(config.get as jest.Mock) = jest.fn().mockImplementation((key: string) => {
-			if (key === 'env') return 'development'
-			if (key === 'sentry.dsn') return 'http://mock-sentry-dsn.com'
-			return null
-		})
-		;(Sentry.withScope as jest.Mock).mockImplementation(cb => {
+		;(config.get as ReturnType<typeof vi.fn>) = vi
+			.fn()
+			.mockImplementation((key: string) => {
+				if (key === 'env') return 'development'
+				if (key === 'sentry.dsn') return 'http://mock-sentry-dsn.com'
+				return null
+			})
+		;(Sentry.withScope as ReturnType<typeof vi.fn>).mockImplementation(cb => {
 			const scope = {
-				setTag: jest.fn(),
-				setUser: jest.fn(),
-				setExtra: jest.fn()
+				setTag: vi.fn(),
+				setUser: vi.fn(),
+				setExtra: vi.fn()
 			}
 			cb(scope)
 		})
@@ -149,7 +157,7 @@ describe('errorMiddleware', () => {
 	})
 
 	it('should set user={} if job.getPublicUser returns undefined', async () => {
-		mockJob.getPublicUser = jest.fn().mockReturnValue(undefined)
+		mockJob.getPublicUser = vi.fn().mockReturnValue(undefined)
 		const error = new Error('No user')
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)
 		expect(Sentry.withScope).toHaveBeenCalled()
@@ -197,7 +205,7 @@ describe('errorMiddleware', () => {
 	})
 
 	it('should not assign stack in production environment', async () => {
-		;(config.get as jest.Mock).mockImplementation(key => {
+		;(config.get as ReturnType<typeof vi.fn>).mockImplementation(key => {
 			if (key === 'env') return 'production'
 			if (key === 'sentry.dsn') return 'dsn'
 			return null
@@ -245,11 +253,13 @@ describe('errorMiddleware', () => {
 	})
 
 	it('should not call Sentry if sentry.dsn is not configured', async () => {
-		;(config.get as jest.Mock).mockImplementation((key: string) => {
-			if (key === 'env') return 'development'
-			if (key === 'sentry.dsn') return null
-			return null
-		})
+		;(config.get as ReturnType<typeof vi.fn>).mockImplementation(
+			(key: string) => {
+				if (key === 'env') return 'development'
+				if (key === 'sentry.dsn') return null
+				return null
+			}
+		)
 
 		const error = new Error('Error without Sentry')
 		await errorMiddleware(error, mockRequest, mockRes, mockNext)

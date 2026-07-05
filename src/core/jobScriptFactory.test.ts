@@ -1,25 +1,21 @@
-import { JobScriptInterface } from '../types/jobScript/JobScriptInterface'
-
-/**
- * A fake job script class that adheres to the interface for testing purposes.
- */
-class FakeJobScript implements JobScriptInterface {
-	run(): Promise<any> {
-		return Promise.resolve({ success: true, from: 'fake' })
+import { vi } from 'vitest'
+const { FakeJobScript } = vi.hoisted(() => {
+	class FakeJobScript {
+		run(): Promise<any> {
+			return Promise.resolve({ success: true, from: 'fake' })
+		}
 	}
-}
+
+	return { FakeJobScript }
+})
 
 import { jobScriptFactory } from './jobScriptFactory'
 
-jest.mock(
-	'@/jobScripts',
-	() => ({
-		jobScripts: {
-			CleanUpOldSessionsJob: FakeJobScript
-		}
-	}),
-	{ virtual: true }
-)
+vi.mock('@/jobScripts', () => ({
+	jobScripts: {
+		CleanUpOldSessionsJob: FakeJobScript
+	}
+}))
 
 describe('jobScriptFactory', () => {
 	it('should return an instance of the correct job script for a valid key', () => {

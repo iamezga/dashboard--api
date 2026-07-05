@@ -1,4 +1,5 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { JobInterface } from '../../../../types/job/JobInterface'
 import { PaginatedResponse } from '../../../../types/pagination'
@@ -44,25 +45,25 @@ const makeJob = (
 		}),
 		getPublicUser: () => options.publicUser ?? true,
 		logger: {
-			info: jest.fn(),
-			warn: jest.fn(),
-			error: jest.fn(),
-			child: jest.fn().mockReturnThis()
+			info: vi.fn(),
+			warn: vi.fn(),
+			error: vi.fn(),
+			child: vi.fn().mockReturnThis()
 		} as unknown as Logger
 	}) as unknown as AuditFindJobInterface & JobInterface & { logger: Logger }
 
 describe('AuditFindUseCase', () => {
 	const auditRepo = {
-		findById: jest.fn(),
-		find: jest.fn(),
-		insert: jest.fn()
+		findById: vi.fn(),
+		find: vi.fn(),
+		insert: vi.fn()
 	}
 
 	const globalLogger = {
-		info: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn(),
-		child: jest.fn().mockReturnThis()
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		child: vi.fn().mockReturnThis()
 	}
 
 	const makeContainer = (): DependencyContainer =>
@@ -158,7 +159,7 @@ describe('AuditFindUseCase', () => {
 	}
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should have a static permission defined', () => {

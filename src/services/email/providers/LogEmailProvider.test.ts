@@ -1,13 +1,14 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { EmailSendOptions } from '../../../types/services'
 import { LogEmailProvider } from './LogEmailProvider'
 
 const createLogger = (): Logger => {
 	const logger: any = {
-		info: jest.fn(),
-		error: jest.fn(),
-		warn: jest.fn(),
-		child: jest.fn()
+		info: vi.fn(),
+		error: vi.fn(),
+		warn: vi.fn(),
+		child: vi.fn()
 	}
 	logger.child.mockReturnValue(logger)
 	return logger as Logger

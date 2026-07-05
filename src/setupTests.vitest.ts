@@ -1,6 +1,6 @@
 /**
- * Jest setup file
- * Runs before all test files
+ * Vitest setup file
+ * Runs before all vitest test files
  */
 
 // Load environment variables from .env file for tests

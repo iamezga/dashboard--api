@@ -1,36 +1,41 @@
+import { TooManyRequestsError } from '@/errors'
+import { databaseManager } from '@/infrastructure/databaseManager'
+import { Job } from '@/lib/Job'
+import logger from '@/services/logger'
 import { NextFunction, Request, Response } from 'express'
-import { TooManyRequestsError } from '../../errors'
-import { databaseManager } from '../../infrastructure/databaseManager'
-import { Job } from '../../lib/Job'
-import logger from '../../services/logger'
+import { vi } from 'vitest'
 import { RATE_LIMITS, rateLimiterMiddleware } from './rateLimiterMiddleware'
 
-let consumeMock: jest.Mock
+let consumeMock: ReturnType<typeof vi.fn>
 
 // Mock de RateLimiterRedis
-jest.mock('rate-limiter-flexible', () => {
+vi.mock('rate-limiter-flexible', () => {
+	class RateLimiterRedisMock {
+		consume(...args: any[]) {
+			return (consumeMock as any)(...args)
+		}
+	}
+
 	return {
-		RateLimiterRedis: jest.fn().mockImplementation(() => ({
-			consume: (...args: any[]) => consumeMock(...args)
-		}))
+		RateLimiterRedis: RateLimiterRedisMock
 	}
 })
 
 // Mock de databaseManager
-jest.mock('@/infrastructure/databaseManager', () => ({
+vi.mock('@/infrastructure/databaseManager', () => ({
 	databaseManager: {
-		get: jest.fn()
+		get: vi.fn()
 	}
 }))
 
 // Mock de logger
-jest.mock('@/services/logger', () => ({
+vi.mock('@/services/logger', () => ({
 	__esModule: true,
 	default: {
-		warn: jest.fn(),
-		info: jest.fn(),
-		error: jest.fn(),
-		debug: jest.fn()
+		warn: vi.fn(),
+		info: vi.fn(),
+		error: vi.fn(),
+		debug: vi.fn()
 	}
 }))
 
@@ -43,7 +48,7 @@ const makeReqResNext = (withJob = true, withUser = true) => {
 		job.setUser({ id: 'user-123' } as any)
 	}
 
-	job.getMeta = jest.fn(() => ({
+	job.getMeta = vi.fn(() => ({
 		ip: '127.0.0.1',
 		timestamp: Date.now(),
 		method: 'GET',
@@ -52,10 +57,10 @@ const makeReqResNext = (withJob = true, withUser = true) => {
 
 	const res = {
 		locals: withJob ? { job } : {},
-		set: jest.fn()
+		set: vi.fn()
 	} as any as Response
 
-	const next = jest.fn() as NextFunction
+	const next = vi.fn() as NextFunction
 
 	return { req, res, next, job }
 }
@@ -88,9 +93,9 @@ describe('RATE_LIMITS configuration', () => {
 
 describe('rateLimiterMiddleware', () => {
 	beforeEach(() => {
-		jest.clearAllMocks()
-		consumeMock = jest.fn()
-		;(databaseManager.get as jest.Mock).mockReturnValue({}) // fake redis client
+		vi.clearAllMocks()
+		consumeMock = vi.fn()
+		;(databaseManager.get as ReturnType<typeof vi.fn>).mockReturnValue({}) // fake redis client
 	})
 
 	it('should allow request when under rate limit (with user)', async () => {
@@ -109,7 +114,7 @@ describe('rateLimiterMiddleware', () => {
 		const middleware = rateLimiterMiddleware(5, 10)
 		const { req, res, next, job } = makeReqResNext(true, false)
 
-		job.getPublicUser = jest.fn(() => undefined)
+		job.getPublicUser = vi.fn(() => undefined)
 		consumeMock.mockResolvedValueOnce(true)
 
 		await middleware(req, res, next)
@@ -137,7 +142,7 @@ describe('rateLimiterMiddleware', () => {
 		const middleware = rateLimiterMiddleware(3, 60)
 		const { req, res, next, job } = makeReqResNext(true, false)
 
-		job.getPublicUser = jest.fn(() => undefined)
+		job.getPublicUser = vi.fn(() => undefined)
 		consumeMock.mockRejectedValueOnce({ msBeforeNext: 10000 })
 
 		await middleware(req, res, next)
@@ -153,8 +158,8 @@ describe('rateLimiterMiddleware', () => {
 		const middleware = rateLimiterMiddleware(3, 60)
 		const { req, res, next, job } = makeReqResNext(true, false)
 
-		job.getPublicUser = jest.fn(() => undefined)
-		job.getMeta = jest.fn(() => ({
+		job.getPublicUser = vi.fn(() => undefined)
+		job.getMeta = vi.fn(() => ({
 			ip: undefined,
 			timestamp: Date.now(),
 			method: 'GET',

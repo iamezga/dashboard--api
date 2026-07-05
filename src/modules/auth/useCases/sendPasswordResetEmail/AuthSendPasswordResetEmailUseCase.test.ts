@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import type { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthSendPasswordResetEmailUseCase } from './AuthSendPasswordResetEmailUseCase'
 
@@ -5,28 +6,28 @@ describe('AuthSendPasswordResetEmailUseCase', () => {
 	let useCase: AuthSendPasswordResetEmailUseCase
 	let mockContainer: DependencyContainer
 	let mockEmailService: {
-		send: jest.Mock
+		send: ReturnType<typeof vi.fn>
 	}
 	let mockConfig: {
-		get: jest.Mock
+		get: ReturnType<typeof vi.fn>
 	}
 	let mockJob: any
 	let mockLogger: any
 
 	beforeEach(() => {
 		mockLogger = {
-			info: jest.fn(),
-			error: jest.fn(),
-			warn: jest.fn(),
-			debug: jest.fn()
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			debug: vi.fn()
 		}
 
 		mockEmailService = {
-			send: jest.fn().mockResolvedValue(undefined)
+			send: vi.fn().mockResolvedValue(undefined)
 		}
 
 		mockConfig = {
-			get: jest.fn((key: string) => {
+			get: vi.fn((key: string) => {
 				const configMap: Record<string, string> = {
 					appName: 'TestApp',
 					'email.supportEmail': '[email protected]'
@@ -36,7 +37,7 @@ describe('AuthSendPasswordResetEmailUseCase', () => {
 		}
 
 		mockJob = {
-			getData: jest.fn(),
+			getData: vi.fn(),
 			logger: mockLogger
 		}
 

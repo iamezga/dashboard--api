@@ -1,35 +1,44 @@
+import { vi } from 'vitest'
+
 describe('dependencyContainer', () => {
 	afterEach(() => {
-		jest.resetModules()
-		jest.restoreAllMocks()
+		vi.resetModules()
+		vi.restoreAllMocks()
 	})
 
 	function setupBasicMocks() {
+		const createMockLogger = (): any => ({
+			info: vi.fn(),
+			error: vi.fn(),
+			warn: vi.fn(),
+			child: (..._args: any[]) => createMockLogger()
+		})
+
 		// databaseManager simple stub
-		jest.doMock('@/infrastructure/databaseManager', () => ({
+		vi.doMock('@/infrastructure/databaseManager', () => ({
 			databaseManager: { __mocked: true }
 		}))
 
 		// getRepositoryManager -> returns a small mock object with minimal API
-		jest.doMock('@/core/repositoryManager', () => ({
+		vi.doMock('@/core/repositoryManager', () => ({
 			getRepositoryManager: () => ({
-				get: jest.fn(),
-				create: jest.fn(),
-				getAll: jest.fn()
+				get: vi.fn(),
+				create: vi.fn(),
+				getAll: vi.fn()
 			}),
-			setDependencyContainerForRepositoryManager: jest.fn()
+			setDependencyContainerForRepositoryManager: vi.fn()
 		}))
 
 		// AuditService simple class shim (constructor must exist)
-		jest.doMock('@/services/auditService', () => ({
+		vi.doMock('@/services/auditService', () => ({
 			AuditService: class {
 				constructor(_arg: any) {}
 			}
 		}))
 
 		// config, logger, validator, utils, libs
-		jest.doMock('@/services/config', () => {
-			const mockGet = jest.fn((key: string) => {
+		vi.doMock('@/services/config', () => {
+			const mockGet = vi.fn((key: string) => {
 				switch (key) {
 					case 'env':
 						return 'test'
@@ -55,36 +64,36 @@ describe('dependencyContainer', () => {
 				Config: {}
 			}
 		})
-		jest.doMock('@/services/dayjs', () => ({ dayjs: {}, Dayjs: {} }))
-		jest.doMock('@/services/logger', () => {
-			const createMockLogger: any = (): any => {
-				const mockLogger: any = {
-					info: jest.fn(),
-					error: jest.fn(),
-					warn: jest.fn(),
-					child: (..._args: any[]) => createMockLogger()
-				}
-				return mockLogger
-			}
-			return createMockLogger()
-		})
-		jest.doMock('@/services/validationService', () => ({
+		vi.doMock('@/services/dayjs', () => ({ dayjs: {}, Dayjs: {} }))
+		vi.doMock('@/services/logger', () => ({
+			__esModule: true,
+			default: createMockLogger()
+		}))
+		vi.doMock('@/services/validationService', () => ({
 			validator: {},
 			ValidationService: class {}
 		}))
-		jest.doMock('@/utils', () => ({ utils: {} }))
-		jest.doMock('argon2', () => ({}))
-		jest.doMock('jsonwebtoken', () => ({}))
-		jest.doMock('ms', () => () => '1ms')
+		vi.doMock('@/utils', () => ({ utils: {} }))
+		vi.doMock('argon2', () => ({}))
+		vi.doMock('jsonwebtoken', () => ({
+			__esModule: true,
+			default: {}
+		}))
+		vi.doMock('ms', () => ({
+			__esModule: true,
+			default: () => '1ms'
+		}))
 	}
 
-	it('should build a container and return the same instance on repeated calls', () => {
-		jest.resetModules()
+	async function loadDependencyContainerModule() {
+		return import('@/core/dependencyContainer')
+	}
+
+	it('should build a container and return the same instance on repeated calls', async () => {
+		vi.resetModules()
 		setupBasicMocks()
 
-		const { getContainer } = require('@/core/dependencyContainer') as {
-			getContainer: () => any
-		}
+		const { getContainer } = await loadDependencyContainerModule()
 
 		const c1 = getContainer()
 		const c2 = getContainer()
@@ -100,35 +109,29 @@ describe('dependencyContainer', () => {
 		expect(typeof c1.config?.get).toBe('function')
 	})
 
-	it('should forward the actual container to the callback in getCustomContainer', () => {
-		jest.resetModules()
+	it('should forward the actual container to the callback in getCustomContainer', async () => {
+		vi.resetModules()
 		setupBasicMocks()
 
 		const { getContainer, getCustomContainer } =
-			require('@/core/dependencyContainer') as {
-				getContainer: () => any
-				getCustomContainer: <T>(cb: (c: any) => T) => T
-			}
+			await loadDependencyContainerModule()
 
 		const container = getContainer()
 		const picked = getCustomContainer(c => ({
-			repoManager: c.repositoryManager,
-			pm: c.databaseManager
+			repositoryManager: c.repositoryManager,
+			databaseManager: c.databaseManager
 		}))
 
 		// ensure the callback received the same container object (we compare the repoManager ref)
-		expect(picked.repoManager).toBe(container.repositoryManager)
-		expect(picked.pm).toBe(container.databaseManager)
+		expect(picked.repositoryManager).toBe(container.repositoryManager)
+		expect(picked.databaseManager).toBe(container.databaseManager)
 	})
 
-	it('should reset the singleton with resetContainer so getContainer creates a new instance', () => {
-		jest.resetModules()
+	it('should reset the singleton with resetContainer so getContainer creates a new instance', async () => {
+		vi.resetModules()
 		setupBasicMocks()
 
-		const mod = require('@/core/dependencyContainer') as {
-			getContainer: () => any
-			resetContainer: () => void
-		}
+		const mod = await loadDependencyContainerModule()
 
 		const c1 = mod.getContainer()
 		mod.resetContainer()
@@ -137,29 +140,29 @@ describe('dependencyContainer', () => {
 		expect(c1).not.toBe(c2)
 	})
 
-	it('should build email service with nodemailer provider when configured', () => {
-		jest.resetModules()
+	it('should build email service with nodemailer provider when configured', async () => {
+		vi.resetModules()
 
 		// Setup all basic mocks
-		jest.doMock('@/infrastructure/databaseManager', () => ({
+		vi.doMock('@/infrastructure/databaseManager', () => ({
 			databaseManager: { __mocked: true }
 		}))
-		jest.doMock('@/core/repositoryManager', () => ({
+		vi.doMock('@/core/repositoryManager', () => ({
 			getRepositoryManager: () => ({
-				get: jest.fn(),
-				create: jest.fn(),
-				getAll: jest.fn()
+				get: vi.fn(),
+				create: vi.fn(),
+				getAll: vi.fn()
 			}),
-			setDependencyContainerForRepositoryManager: jest.fn()
+			setDependencyContainerForRepositoryManager: vi.fn()
 		}))
-		jest.doMock('@/services/auditService', () => ({
+		vi.doMock('@/services/auditService', () => ({
 			AuditService: class {
 				constructor(_arg: any) {}
 			}
 		}))
 
 		// Config with nodemailer provider (instead of 'log')
-		jest.doMock('@/services/config', () => ({
+		vi.doMock('@/services/config', () => ({
 			config: {
 				get: (key: string) => {
 					if (key === 'email') {
@@ -179,64 +182,69 @@ describe('dependencyContainer', () => {
 			}
 		}))
 
-		jest.doMock('@/services/dayjs', () => ({ dayjs: {} }))
-		jest.doMock('@/services/logger', () => {
-			const createMockLogger: any = (): any => {
-				const mockLogger: any = {
-					info: jest.fn(),
-					error: jest.fn(),
-					warn: jest.fn(),
-					child: (..._args: any[]) => createMockLogger()
-				}
-				return mockLogger
+		vi.doMock('@/services/dayjs', () => ({ dayjs: {} }))
+		vi.doMock('@/services/logger', () => {
+			const createMockLogger = (): any => ({
+				info: vi.fn(),
+				error: vi.fn(),
+				warn: vi.fn(),
+				child: (..._args: any[]) => createMockLogger()
+			})
+
+			return {
+				__esModule: true,
+				default: createMockLogger()
 			}
-			return createMockLogger()
 		})
-		jest.doMock('@/services/validationService', () => ({
+		vi.doMock('@/services/validationService', () => ({
 			validator: {},
 			ValidationService: class {}
 		}))
-		jest.doMock('@/utils', () => ({ utils: {} }))
-		jest.doMock('argon2', () => ({}))
-		jest.doMock('jsonwebtoken', () => ({}))
-		jest.doMock('ms', () => () => '1ms')
+		vi.doMock('@/utils', () => ({ utils: {} }))
+		vi.doMock('argon2', () => ({}))
+		vi.doMock('jsonwebtoken', () => ({
+			__esModule: true,
+			default: {}
+		}))
+		vi.doMock('ms', () => ({
+			__esModule: true,
+			default: () => '1ms'
+		}))
 
 		// Mock email services
-		jest.doMock('@/services/email/EmailService', () => ({
+		vi.doMock('@/services/email/EmailService', () => ({
 			EmailService: class {
 				constructor(_provider: any, _logger: any, _registry: any) {}
 			}
 		}))
-		jest.doMock('@/services/email/providers/LogEmailProvider', () => ({
+		vi.doMock('@/services/email/providers/LogEmailProvider', () => ({
 			LogEmailProvider: class {
 				constructor(_logger: any) {}
 			}
 		}))
-		jest.doMock('@/services/email/providers/NodemailerProvider', () => ({
+		vi.doMock('@/services/email/providers/NodemailerProvider', () => ({
 			NodemailerProvider: class {
 				constructor(_config: any, _logger: any) {}
 			}
 		}))
-		jest.doMock('@/services/email/EmailTemplateRegistry', () => ({
+		vi.doMock('@/services/email/EmailTemplateRegistry', () => ({
 			InMemoryEmailTemplateRegistry: class {
 				register() {}
 			}
 		}))
-		jest.doMock('@/services/email/templates', () => ({
+		vi.doMock('@/services/email/templates', () => ({
 			defaultEmailTemplates: []
 		}))
-		jest.doMock('@/services/jobService', () => ({
+		vi.doMock('@/services/jobService', () => ({
 			JobService: class {
 				constructor(_queueManager: any) {}
 			}
 		}))
-		jest.doMock('@/infrastructure/queueManager', () => ({
-			queueManager: { getQueue: jest.fn() }
+		vi.doMock('@/infrastructure/queueManager', () => ({
+			queueManager: { getQueue: vi.fn() }
 		}))
 
-		const { getContainer } = require('@/core/dependencyContainer') as {
-			getContainer: () => any
-		}
+		const { getContainer } = await loadDependencyContainerModule()
 
 		const container = getContainer()
 

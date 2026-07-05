@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { Logger } from 'pino'
 import { BadRequestError } from '../../../../errors'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
@@ -6,30 +7,30 @@ import { AuthPasswordResetUseCase } from './AuthPasswordResetUseCase'
 
 describe('AuthPasswordResetUseCase', () => {
 	const userRepo = {
-		findById: jest.fn(),
-		update: jest.fn()
+		findById: vi.fn(),
+		update: vi.fn()
 	}
 
 	const passwordRecoveryTokenRepo = {
-		verifyAndGetUserId: jest.fn(),
-		deleteToken: jest.fn(),
-		deleteAllUserTokens: jest.fn()
+		verifyAndGetUserId: vi.fn(),
+		deleteToken: vi.fn(),
+		deleteAllUserTokens: vi.fn()
 	}
 
 	const sessionRepo = {
-		deleteAllUserSessions: jest.fn()
+		deleteAllUserSessions: vi.fn()
 	}
 
 	const argon2 = {
-		hash: jest.fn()
+		hash: vi.fn()
 	}
 
 	const jobService = {
-		dispatchUseCase: jest.fn().mockResolvedValue(undefined)
+		dispatchUseCase: vi.fn().mockResolvedValue(undefined)
 	}
 
 	const config = {
-		get: jest.fn((key: string) => {
+		get: vi.fn((key: string) => {
 			if (key === 'appName') return 'TestApp'
 			if (key === 'email.supportEmail') return 'support@example.com'
 			return ''
@@ -37,9 +38,9 @@ describe('AuthPasswordResetUseCase', () => {
 	}
 
 	const logger = {
-		info: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn()
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn()
 	} as unknown as Logger
 
 	const makeContainer = (): DependencyContainer =>
@@ -64,7 +65,7 @@ describe('AuthPasswordResetUseCase', () => {
 	const makeJob = (data: any): AuthPasswordResetJobInterface =>
 		({
 			getData: () => data,
-			setData: jest.fn((newData: any) => {
+			setData: vi.fn((newData: any) => {
 				Object.assign(data, newData)
 			}),
 			logger
@@ -74,7 +75,7 @@ describe('AuthPasswordResetUseCase', () => {
 	const newPassword = 'newSecurePassword123'
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should have undefined permission for public use case', () => {

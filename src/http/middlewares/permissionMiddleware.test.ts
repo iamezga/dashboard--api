@@ -1,33 +1,34 @@
+import { vi } from 'vitest'
 import { UnauthorizedError } from '../../errors'
 import { useCases } from '../../modules'
 import { validator } from '../../services/validationService'
 import { permissionMiddleware } from './permissionMiddleware'
 
-jest.mock('@/services/validationService', () => ({
-	validator: { validate: jest.fn() }
+vi.mock('@/services/validationService', () => ({
+	validator: { validate: vi.fn() }
 }))
 
-jest.mock('@/services/logger', () => ({
+vi.mock('@/services/logger', () => ({
 	__esModule: true,
 	default: {
-		error: jest.fn(),
-		info: jest.fn(),
-		warn: jest.fn(),
-		debug: jest.fn()
+		error: vi.fn(),
+		info: vi.fn(),
+		warn: vi.fn(),
+		debug: vi.fn()
 	}
 }))
 
-jest.mock('@/core/dependencyContainer', () => ({
-	getContainer: jest.fn(() => ({ fake: 'container' }))
+vi.mock('@/core/dependencyContainer', () => ({
+	getContainer: vi.fn(() => ({ fake: 'container' }))
 }))
 
 describe('permissionMiddleware', () => {
-	const next = jest.fn()
+	const next = vi.fn()
 	const res: any = { locals: {} }
 	const req: any = {}
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 		res.locals = {}
 	})
 
@@ -70,7 +71,7 @@ describe('permissionMiddleware', () => {
 		await middleware(req, res, next)
 
 		expect(next).toHaveBeenCalledWith(expect.any(Error))
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
+		const errorArg = (next as ReturnType<typeof vi.fn>).mock.calls[0][0]
 		expect(errorArg.message).toContain('missing getPermissionValidationData()')
 	})
 
@@ -85,11 +86,11 @@ describe('permissionMiddleware', () => {
 			}
 		}
 		res.locals.job = { id: 1 }
-		;(validator.validate as jest.Mock).mockResolvedValue([{ message: 'error' }])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValue([{ message: 'error' }])
 
 		const middleware = permissionMiddleware('SecureCase' as any)
 		await middleware(req, res, next)
-		const errorArg = (next as jest.Mock).mock.calls[0][0]
+		const errorArg = (next as ReturnType<typeof vi.fn>).mock.calls[0][0]
 
 		expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError))
 		expect(errorArg.message).toBe(
@@ -108,7 +109,7 @@ describe('permissionMiddleware', () => {
 			}
 		}
 		res.locals.job = { id: 1 }
-		;(validator.validate as jest.Mock).mockResolvedValue([])
+		;(validator.validate as ReturnType<typeof vi.fn>).mockResolvedValue([])
 
 		const middleware = permissionMiddleware('SecureCase' as any)
 		await middleware(req, res, next)

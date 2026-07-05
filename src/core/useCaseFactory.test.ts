@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { getContainer } from '../core/dependencyContainer'
 import { useCaseFactory } from '../core/useCaseFactory'
 import { DependencyContainer } from '../types/core/dependencyContainer'
@@ -5,7 +6,7 @@ import { JobInterface } from '../types/job/JobInterface'
 import { UseCaseInterface } from '../types/useCase/UseCaseInterface'
 
 // --- MOCK useCases ---
-jest.mock('@/modules', () => {
+vi.mock('@/modules', () => {
 	class FakeUseCase implements UseCaseInterface {
 		permission?: string | undefined
 		container: any
@@ -29,11 +30,11 @@ jest.mock('@/modules', () => {
 	}
 })
 
-jest.mock('../core/dependencyContainer', () => {
-	const originalModule = jest.requireActual('../core/dependencyContainer')
+vi.mock('@/core/dependencyContainer', async () => {
+	const originalModule = await import('@/core/dependencyContainer')
 	return {
 		...originalModule,
-		getContainer: jest.fn(() => ({ mocked: true } as any))
+		getContainer: vi.fn(() => ({ mocked: true }) as any)
 	}
 })
 

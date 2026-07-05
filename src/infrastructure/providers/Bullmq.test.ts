@@ -1,26 +1,36 @@
 import { Queue } from 'bullmq'
+import { Logger } from 'pino'
+import { Mock, vi } from 'vitest'
 import { Bullmq, QUEUE_NAMES } from './Bullmq'
 
-jest.mock('bullmq', () => ({
-	Queue: jest.fn()
+const mockLogger = {
+	info: vi.fn(),
+	error: vi.fn()
+} as unknown as Logger
+
+vi.mock('bullmq', () => ({
+	Queue: vi.fn()
 }))
 
-jest.mock('@/services/logger', () => ({
-	info: jest.fn(),
-	error: jest.fn()
+vi.mock('@/services/logger', () => ({
+	__esModule: true,
+	default: mockLogger
 }))
 
 describe('Bullmq', () => {
 	let service: Bullmq
-	const mockLogger = require('@/services/logger')
 	const mockQueues: Record<string, any> = {}
 
-	beforeEach(() => {
-		jest.clearAllMocks()
-		;(Queue as unknown as jest.Mock).mockImplementation(name => {
+	beforeEach(async () => {
+		vi.clearAllMocks()
+		for (const key of Object.keys(mockQueues)) {
+			delete mockQueues[key]
+		}
+
+		;(Queue as unknown as Mock).mockImplementation(function (name) {
 			mockQueues[name] = {
 				name,
-				close: jest.fn().mockResolvedValue(undefined)
+				close: vi.fn().mockResolvedValue(undefined)
 			}
 			return mockQueues[name]
 		})
@@ -96,7 +106,7 @@ describe('Bullmq', () => {
 	})
 
 	it('should log and throw if Queue constructor fails', async () => {
-		;(Queue as unknown as jest.Mock).mockImplementationOnce(() => {
+		;(Queue as unknown as Mock).mockImplementationOnce(function () {
 			throw new Error('constructor-fail')
 		})
 		const failingService = new Bullmq(

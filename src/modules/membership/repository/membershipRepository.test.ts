@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { DependencyContainer } from '../../../types/core/dependencyContainer'
 import { MembershipRepository } from './MembershipRepository'
 
@@ -9,12 +10,12 @@ describe('MembershipRepository', () => {
 	beforeEach(() => {
 		dbMock = {
 			membership: {
-				findFirst: jest.fn(),
-				findMany: jest.fn()
+				findFirst: vi.fn(),
+				findMany: vi.fn()
 			}
 		}
 		containerMock = {
-			logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
+			logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 		} as unknown as DependencyContainer
 		repository = new MembershipRepository(dbMock, containerMock)
 	})

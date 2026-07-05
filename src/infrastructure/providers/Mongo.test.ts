@@ -1,53 +1,63 @@
 import { Db, MongoClient } from 'mongodb'
-import logger from '../../services/logger'
+import { Logger } from 'pino'
+import { Mock, vi } from 'vitest'
 import { Mongo } from './Mongo'
 
-jest.mock('mongodb')
-jest.mock('../../services/logger', () => ({
-	info: jest.fn(),
-	warn: jest.fn(),
-	error: jest.fn()
+const mockLogger = {
+	info: vi.fn(),
+	warn: vi.fn(),
+	error: vi.fn()
+} as unknown as Logger
+
+vi.mock('mongodb')
+vi.mock('@/services/logger', () => ({
+	__esModule: true,
+	default: mockLogger
 }))
 
 describe('Mongo', () => {
 	let service: Mongo
-	let mockConnect: jest.Mock
+	let mockConnect: Mock
 	let mockDb: Db
-	let mockClose: jest.Mock
-	let mockOn: jest.Mock
+	let mockClose: Mock
+	let mockOn: Mock
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 
-		mockConnect = jest.fn().mockResolvedValue(undefined)
+		mockConnect = vi.fn().mockResolvedValue(undefined)
 		mockDb = {} as any
-		mockClose = jest.fn().mockResolvedValue(undefined)
-		mockOn = jest.fn()
-		;(MongoClient as unknown as jest.Mock).mockImplementation(() => ({
-			connect: mockConnect,
-			db: jest.fn().mockReturnValue(mockDb),
-			close: mockClose,
-			on: mockOn
-		}))
+		mockClose = vi.fn().mockResolvedValue(undefined)
+		mockOn = vi.fn()
+		;(MongoClient as unknown as Mock).mockImplementation(function () {
+			return {
+				connect: mockConnect,
+				db: vi.fn().mockReturnValue(mockDb),
+				close: mockClose,
+				on: mockOn
+			}
+		})
 
 		service = new Mongo(
 			{ url: 'mongodb://localhost:27017', db: 'test-db' } as any,
-			logger
+			mockLogger
 		)
 	})
 
 	it('should throw error if url or db not configured', async () => {
-		service = new Mongo({} as any, logger)
+		service = new Mongo({} as any, mockLogger)
 		await expect(service.connect()).rejects.toThrow(
 			'MongoDB URL is not configured.'
 		)
-		expect(logger.error).toHaveBeenCalledWith('MongoDB URL is not configured.')
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			'MongoDB URL is not configured.'
+		)
 
-		service = new Mongo({ url: 'url' } as any, logger)
+		service = new Mongo({ url: 'url' } as any, mockLogger)
 		await expect(service.connect()).rejects.toThrow(
 			'MongoDB database name is not configured.'
 		)
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			'MongoDB database name is not configured.'
 		)
 	})
@@ -57,13 +67,15 @@ describe('Mongo', () => {
 		expect(MongoClient).toHaveBeenCalledWith('mongodb://localhost:27017')
 		expect(mockConnect).toHaveBeenCalled()
 		expect(db).toBe(mockDb)
-		expect(logger.info).toHaveBeenCalledWith('MongoDB connected successfully.')
+		expect(mockLogger.info).toHaveBeenCalledWith(
+			'MongoDB connected successfully.'
+		)
 	})
 
 	it('should return existing client if already connected', async () => {
 		await service.connect()
 		const db2 = await service.connect()
-		expect(logger.info).toHaveBeenCalledWith(
+		expect(mockLogger.info).toHaveBeenCalledWith(
 			'MongoDB client already connected.'
 		)
 		expect(db2).toBe(mockDb)
@@ -81,15 +93,15 @@ describe('Mongo', () => {
 		reconnectHandler()
 		errorHandler(err)
 
-		expect(logger.warn).toHaveBeenCalledWith('MongoDB connection closed.')
-		expect(logger.info).toHaveBeenCalledWith('MongoDB reconnected.')
-		expect(logger.error).toHaveBeenCalledWith('MongoDB error:', err)
+		expect(mockLogger.warn).toHaveBeenCalledWith('MongoDB connection closed.')
+		expect(mockLogger.info).toHaveBeenCalledWith('MongoDB reconnected.')
+		expect(mockLogger.error).toHaveBeenCalledWith('MongoDB error:', err)
 	})
 
 	it('should log and throw if connect() fails', async () => {
 		mockConnect.mockRejectedValueOnce(new Error('fail'))
 		await expect(service.connect()).rejects.toThrow('fail')
-		expect(logger.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			'Failed to connect MongoDB:',
 			expect.any(Error)
 		)
@@ -101,7 +113,7 @@ describe('Mongo', () => {
 		expect(mockClose).toHaveBeenCalled()
 		expect(service['client']).toBeNull()
 		expect(service['instance']).toBeNull()
-		expect(logger.info).toHaveBeenCalledWith('MongoDB disconnected.')
+		expect(mockLogger.info).toHaveBeenCalledWith('MongoDB disconnected.')
 
 		// calling disconnect again does nothing
 		await service.disconnect()

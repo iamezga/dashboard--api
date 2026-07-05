@@ -1,17 +1,18 @@
 import { Logger } from 'pino'
+import { vi } from 'vitest'
 import { DependencyContainer } from '../../../../types/core/dependencyContainer'
 import { AuthLogoutJobInterface } from './AuthLogoutJobInterface'
 import { AuthLogoutUseCase } from './AuthLogoutUseCase'
 
 describe('AuthLogoutUseCase', () => {
 	const sessionRepository = {
-		deleteSession: jest.fn()
+		deleteSession: vi.fn()
 	}
 
 	const logger = {
-		info: jest.fn(),
-		warn: jest.fn(),
-		error: jest.fn()
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn()
 	} as unknown as Logger
 
 	const makeContainer = (): DependencyContainer =>
@@ -22,7 +23,7 @@ describe('AuthLogoutUseCase', () => {
 					throw new Error(`Repo ${name} not mocked`)
 				}
 			}
-		} as unknown as DependencyContainer)
+		}) as unknown as DependencyContainer
 
 	const makeJob = (userId: string, sessionId: string): AuthLogoutJobInterface =>
 		({
@@ -30,10 +31,10 @@ describe('AuthLogoutUseCase', () => {
 			getUser: () => ({ id: userId }),
 			getMeta: () => ({ sessionId }),
 			logger
-		} as unknown as AuthLogoutJobInterface)
+		}) as unknown as AuthLogoutJobInterface
 
 	beforeEach(() => {
-		jest.clearAllMocks()
+		vi.clearAllMocks()
 	})
 
 	it('should have auth.logout permission', () => {
