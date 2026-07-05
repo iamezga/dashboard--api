@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
-import { BadRequestError, HttpStatusCode } from '../../errors'
+import { AppError, BadRequestError, HttpStatusCode } from '../../errors'
 import { Job } from '../../lib/Job'
 import { config } from '../../services/config'
 import logger from '../../services/logger'
@@ -207,6 +207,33 @@ describe('errorMiddleware', () => {
 		)
 		expect(mockJob.markFailed).toHaveBeenCalledWith('mock-error-id', error)
 		expect(mockJobLogger.warn).toHaveBeenCalled()
+	})
+
+	it('should handle AppError status codes directly', async () => {
+		const error = new AppError(
+			'Service temporarily unavailable',
+			HttpStatusCode.SERVICE_UNAVAILABLE
+		)
+		error.stack = 'app-error-stack'
+
+		await errorMiddleware(error, mockRequest, mockRes, mockNext)
+
+		expect(mockRes.status).toHaveBeenCalledWith(
+			HttpStatusCode.SERVICE_UNAVAILABLE
+		)
+		expect(mockRes.json).toHaveBeenCalledWith(
+			expect.objectContaining({
+				status: 'error',
+				code: HttpStatusCode.SERVICE_UNAVAILABLE,
+				name: 'AppError',
+				message: 'Service temporarily unavailable',
+				stack: 'app-error-stack',
+				errorId: 'mock-error-id'
+			})
+		)
+		expect(Sentry.withScope).toHaveBeenCalled()
+		expect(Sentry.captureException).toHaveBeenCalledWith(error)
+		expect(mockJobLogger.error).toHaveBeenCalled()
 	})
 
 	it('should not call Sentry if sentry.dsn is not configured', async () => {

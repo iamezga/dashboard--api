@@ -1,11 +1,4 @@
-import {
-	BadRequestError,
-	ForbiddenError,
-	HttpStatusCode,
-	NotFoundError,
-	UnauthorizedError
-} from '@/errors'
-import { TooManyRequestsError } from '@/errors/TooManyRequestsError'
+import { AppError, HttpStatusCode } from '@/errors'
 import { config } from '@/services/config'
 import logger from '@/services/logger'
 import * as Sentry from '@sentry/node'
@@ -14,13 +7,7 @@ import { ValidationError } from 'fastest-validator'
 import { randomUUID } from 'node:crypto'
 import { Logger } from 'pino'
 
-type HandledError =
-	| BadRequestError
-	| ForbiddenError
-	| NotFoundError
-	| UnauthorizedError
-	| TooManyRequestsError
-	| Error
+type HandledError = AppError | Error
 
 /**
  * @function errorMiddleware
@@ -55,24 +42,19 @@ export const errorMiddleware = async (
 	let errorName = 'Internal Server Error'
 	let errors: ValidationError[] = []
 	let stack: string | undefined
-	if (
-		err instanceof BadRequestError ||
-		err instanceof ForbiddenError ||
-		err instanceof NotFoundError ||
-		err instanceof UnauthorizedError ||
-		err instanceof TooManyRequestsError
-	) {
+	if (err instanceof AppError) {
 		statusCode = err.statusCode
 		message = err.message
 		errorName = err.name
-		if (err instanceof BadRequestError && err.errors) {
-			errors = err.errors
-		}
+		errors = err.errors || []
 	} else {
 		// Error >= 500 (or not handled)
 		errorName = 'InternalServerError'
+		message = err.message || message
+	}
+
+	if (statusCode >= HttpStatusCode.INTERNAL_SERVER_ERROR) {
 		if (config.get('env') !== 'production') {
-			message = err.message || message
 			stack = err.stack
 		}
 

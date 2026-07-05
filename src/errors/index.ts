@@ -1,3 +1,4 @@
+export { AppError } from './AppError'
 export { BadRequestError } from './BadRequestError'
 export { ForbiddenError } from './ForbiddenError'
 export { HttpStatusCode } from './httpStatusCode'
