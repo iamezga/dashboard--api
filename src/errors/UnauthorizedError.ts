@@ -1,14 +1,8 @@
+import { AppError } from './AppError'
 import { HttpStatusCode } from './httpStatusCode'
 
-export class UnauthorizedError extends Error {
-	public readonly statusCode: number
-	public readonly isOperational: boolean
+export class UnauthorizedError extends AppError {
 	constructor(message: string) {
-		super(message)
-		this.name = this.constructor.name
-		this.statusCode = HttpStatusCode.UNAUTHORIZED
-		this.isOperational = true
-		Error.captureStackTrace(this, this.constructor)
-		Object.setPrototypeOf(this, UnauthorizedError.prototype)
+		super(message, HttpStatusCode.UNAUTHORIZED)
 	}
 }
